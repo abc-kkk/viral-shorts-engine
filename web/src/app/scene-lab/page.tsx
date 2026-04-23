@@ -36,6 +36,9 @@ export default function SceneLabPage() {
   const [aiGenerating, setAiGenerating] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
 
+  // Target selection
+  const [activeTarget, setActiveTarget] = useState<string>('result');
+
   // Load saved layout from localStorage
   useEffect(() => {
     const img = localStorage.getItem(STORAGE_KEY_IMG);
@@ -44,6 +47,29 @@ export default function SceneLabPage() {
     if (objStr) {
       try { setSceneObjects(JSON.parse(objStr)); } catch { /* ignore */ }
     }
+  }, []);
+
+  // Poll inbox for Chrome Extension pushes
+  useEffect(() => {
+    const poller = setInterval(async () => {
+      try {
+        const res = await fetch('/api/extension/inbox');
+        if (!res.ok) return;
+        const body = await res.json();
+        if (body.success && body.data && body.data.length > 0) {
+          for (const item of body.data) {
+            if (item.targetType === 'scenelab_scene') {
+              setSceneImageUrl(item.url);
+            } else if (item.targetType === 'scenelab_char' && item.meta?.charId) {
+              setCharImages(prev => ({ ...prev, [item.meta.charId]: item.url }));
+            } else if (item.targetType === 'scenelab_result') {
+              setGeneratedImage(item.url);
+            }
+          }
+        }
+      } catch(e) {}
+    }, 3000);
+    return () => clearInterval(poller);
   }, []);
 
   const characters = sceneObjects.filter((o: any) => o.type === 'character');
@@ -67,7 +93,19 @@ export default function SceneLabPage() {
     if (!composedPrompt || !flowUrl) { alert('请填写 Flow URL 和提示词'); return; }
     setGenerating(true);
     try {
-      // Only extract keywords that actually appear as {@xx} in the prompt
+      // 1. Set active context for the Chrome extension so it knows the anti-tamper name
+      const targetType = activeTarget === 'scene' ? 'scenelab_scene' 
+                       : activeTarget.startsWith('char_') ? 'scenelab_char' 
+                       : 'scenelab_result';
+      const meta = activeTarget.startsWith('char_') ? { charId: activeTarget.replace('char_', '') } : {};
+      
+      await fetch('/api/extension/active-context', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: 'scene-lab-standalone', targetType, meta })
+      });
+
+      // 2. Extract keywords and generate
       const keywordMatches = composedPrompt.matchAll(/\{@([^{}]+)\}/g);
       const keywords = Array.from(keywordMatches, m => m[1]);
       const res = await fetch('/api/generate-assets', {
@@ -90,7 +128,7 @@ export default function SceneLabPage() {
       }
     } catch (e: any) { alert('请求失败: ' + e.message); }
     finally { setGenerating(false); }
-  }, [composedPrompt, flowUrl]);
+  }, [composedPrompt, flowUrl, activeTarget]);
 
   const handleClearLayout = () => {
     localStorage.removeItem(STORAGE_KEY_IMG);
@@ -114,6 +152,7 @@ export default function SceneLabPage() {
           hasScene: !!sceneImageUrl,
           sceneLabel,
           styleTag,
+          activeTarget,
         }),
       });
       const data = await res.json();
@@ -307,11 +346,25 @@ export default function SceneLabPage() {
               >
                 📋 复制提示词
               </button>
+              
+              {/* Target Selector */}
+              <select 
+                value={activeTarget} 
+                onChange={e => setActiveTarget(e.target.value)}
+                style={{ ...inputStyle, flex: 1, padding: '0 10px' }}
+              >
+                <option value="result">💾 保存到：生成结果(默认)</option>
+                <option value="scene">💾 保存到：场景参考图</option>
+                {characters.map((c: any) => (
+                  <option key={c.id} value={`char_${c.id}`}>💾 保存到：角色 {c.label}</option>
+                ))}
+              </select>
+
               <button
                 onClick={handleGenerate}
                 disabled={generating}
                 style={{
-                  flex: 2, padding: '10px 20px', borderRadius: 10, fontSize: 14, fontWeight: 700,
+                  flex: 1.5, padding: '10px 14px', borderRadius: 10, fontSize: 14, fontWeight: 700,
                   cursor: generating ? 'wait' : 'pointer',
                   background: generating ? '#333' : 'linear-gradient(135deg, #6366f1, #a855f7)',
                   border: 'none', color: '#fff', opacity: generating ? 0.6 : 1,
