@@ -104,6 +104,12 @@ export default function ProjectList() {
             >
               <Layers className="w-5 h-5" /> 提示词中心
             </a>
+            <a
+              href="/scene-lab"
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-600/80 to-purple-600/80 hover:from-violet-500 hover:to-purple-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-purple-900/20 hover:scale-105"
+            >
+              📐 定制化绘图
+            </a>
             <button
               onClick={() => setShowCreate(true)}
               className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-bold rounded-xl shadow-lg shadow-orange-900/30 transition-all hover:scale-105"

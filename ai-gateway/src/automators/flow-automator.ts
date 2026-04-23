@@ -237,7 +237,7 @@ export async function generateAdvancedAsset(
                     await page.keyboard.insertText(finalSearchTerm);
                 } else {
                     // 如果没有独立搜索框，说明 @ 后面的文字自带筛选功能
-                    await page.keyboard.type(finalSearchTerm);
+                    await page.keyboard.insertText(finalSearchTerm);
                 }
                 
                 await page.waitForTimeout(300); // 用户体感优化：结果加载极快，无需苦等2秒
@@ -276,7 +276,7 @@ export async function generateAdvancedAsset(
                 await searchPop.click();
                 await page.keyboard.insertText(finalSearchTerm);
             } else {
-                await page.keyboard.type(finalSearchTerm);
+                await page.keyboard.insertText(finalSearchTerm);
             }
             
             await page.waitForTimeout(300); // 用户体感优化：缩短硬等待时间
