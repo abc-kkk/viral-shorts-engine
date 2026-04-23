@@ -28,13 +28,32 @@ export function getAllTemplates(): PromptTemplate[] {
       const store: PromptTemplateStore = JSON.parse(dataStr);
       
       // 合并逻辑：确保代码中新增的默认模板能被加入到已有存储中
+      // 同时检测内置模板是否新增了变量（如 sheetElements），如果有则自动升级存储版本
       const storedMap = new Map(store.templates.map(t => [t.id, t]));
+      let needsSave = false;
       const mergedTemplates = DEFAULT_TEMPLATES.map(defaultTpl => {
-        if (storedMap.has(defaultTpl.id)) {
-          return storedMap.get(defaultTpl.id)!;
+        const stored = storedMap.get(defaultTpl.id);
+        if (stored) {
+          // 检查默认模板是否有新增的 variables（存储版本中缺失的）
+          const storedVarKeys = new Set((stored.variables || []).map(v => v.key));
+          const defaultVarKeys = (defaultTpl.variables || []).map(v => v.key);
+          const hasNewVars = defaultVarKeys.some(k => !storedVarKeys.has(k));
+          
+          if (hasNewVars && stored.isBuiltin) {
+            // 内置模板有新变量 → 自动升级：用最新的默认模板替换，保留用户数据
+            console.log(`[PromptStore] 内置模板 "${defaultTpl.id}" 检测到新增变量，自动升级模板。`);
+            needsSave = true;
+            return defaultTpl;
+          }
+          return stored;
         }
         return defaultTpl;
       });
+      
+      // 如果有模板被升级，自动保存
+      if (needsSave) {
+        saveAllTemplates(mergedTemplates);
+      }
       
       return mergedTemplates;
     } catch (e) {

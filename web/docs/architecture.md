@@ -20,6 +20,9 @@
 |------|------|------|
 | `/` | 项目列表 | 首页，项目卡片网格 + 新建弹窗 |
 | `/studio/[projectId]` | 制片工作台 | Phase 1-4 完整流水线 |
+| `/prompt-studio` | 提示词管理中心 | 可视化编辑 11 个核心提示词模板 |
+| `/scene-lab` | 定制化绘图工作台 | 拼装参考图 + 提示词 → 发送到 Flow |
+| `/scene-lab/editor` | 3D 布局编辑器 | 拖拽桌椅摆放构图，截图保存预设 |
 
 ### 目录结构：
 
@@ -29,28 +32,41 @@ src/
 │   ├── page.tsx                  # 首页 → 项目列表
 │   ├── studio/[projectId]/
 │   │   └── page.tsx              # 制片工作台（接收 URL 中的 projectId）
+│   ├── prompt-studio/page.tsx    # 提示词管理中心入口
+│   ├── scene-lab/
+│   │   ├── page.tsx              # 定制化绘图工作台
+│   │   └── editor/page.tsx       # 3D 布局编辑器入口
 │   └── api/
 │       ├── projects/route.ts     # GET=列表 POST=立项
 │       ├── projects/[projectId]/ # DELETE=回收站 PATCH=重命名
 │       ├── serve/[...path]/      # 文件服务代理（从工作空间读取资源）
 │       ├── state/route.ts        # 项目状态 CRUD（?projectId=xxx）
-│       ├── generate-prompts/     # MiniMax-M2.7 剧本/提示词（⚠️ 禁止改模型名）
+│       ├── generate-prompts/     # 剧本/提示词生成（走模板引擎）
 │       ├── generate-assets/      # Playwright Flow 自动化生图/视频
 │       ├── generate-voice/       # Playwright AI Studio TTS 配音
+│       ├── prompt-templates/     # 提示词模板 CRUD API
+│       ├── layouts/route.ts      # 布局预设 CRUD（存储在 _layouts/ 目录）
 │       └── export/               # Remotion CLI 离线渲染导出
 ├── components/
 │   ├── ProjectList.tsx           # 项目卡片网格 + 新建弹窗
 │   ├── PhaseNav.tsx              # 顶部导航：← 返回 | 项目名 | 阶段 | ⚙️ 设置 | 清空
 │   ├── GlobalSettings.tsx        # 设置弹窗（项目重命名 + Flow URL + 画风）
 │   ├── WriterRoom.tsx            # Phase 1: 剧本室
-│   ├── CastingRoom.tsx           # Phase 2: 定妆室
+│   ├── CastingRoom.tsx           # Phase 2: 定妆室（含布局预设 + 角色设定图）
 │   ├── StoryboardPanel.tsx       # Phase 3: 画板区
-│   └── RenderRoom.tsx            # Phase 4: Remotion 渲染室
+│   ├── RenderRoom.tsx            # Phase 4: Remotion 渲染室
+│   ├── PromptEditor.tsx          # 提示词模板可视化编辑器
+│   └── scene-lab/
+│       └── SceneLabEditor.tsx    # Three.js 3D 布局编辑器（拖拽家具）
 ├── lib/
 │   ├── types.ts                  # Character / ScriptLine / ProjectState
 │   ├── constants.ts              # VOICE_OPTIONS / ART_STYLE_PRESETS
-│   ├── ProjectContext.tsx         # 🧠 全局状态管理 Context
+│   ├── ProjectContext.tsx        # 🧠 全局状态管理 Context
 │   ├── db.ts                     # 工作空间文件系统操作
+│   ├── prompts/
+│   │   ├── defaultTemplates.ts   # 11 个内置提示词模板（Source of Truth）
+│   │   ├── promptStore.ts        # 模板持久化存储 + 自动升级合并
+│   │   └── templateEngine.ts     # {{变量}} 渲染引擎
 │   └── tools/
 │       ├── flow-automator.ts     # Google Flow CDP 自动化
 │       └── aistudio-automator.ts # AI Studio TTS CDP 自动化
@@ -118,7 +134,9 @@ WORKSPACE_PATH=/Users/ios/Desktop/work-data/短剧项目
    - 角色音色（Gemini TTS）在此绑定，一次定音全片通用
 
 2. **定妆室 (Casting Room)** → `CastingRoom.tsx`
-   - 提取角色外貌英文 Prompt → `Nano Banana Pro` 生成 4 视图定妆照
+   - 提取角色外貌中文 Prompt → `Nano Banana Pro` 生成定妆照
+   - **角色设定图系统 (Character Design Sheet)**：支持从单人全身照切换到多视图模式（三视图、表情设定集、比例设定、动作设定），通过 `{{sheetElements}}` 注入 `character_prompt` 模板
+   - **布局预设库 (Layout Preset Gallery)**：集成 Scene Lab 3D 编辑器，可在 3D 场景中拖拽桌椅摆放构图，保存为预设（存储在 `_layouts/` 目录），支持在多个项目间复用。选中预设后自动将物体描述注入 `{{sceneComposition}}` 场景提示词
    - 定妆照 = 全局锚点，杜绝后续基因突变
 
 3. **画板区 (Storyboard)** → `StoryboardPanel.tsx` [最核心]
@@ -195,5 +213,97 @@ WORKSPACE_PATH=/Users/ios/Desktop/work-data/短剧项目
 
 ---
 
-## 八、 当前状态
-项目已完成模块化解耦和多项目工作空间架构。可以开始疯狂批发出片。
+## 八、 提示词模板引擎 (Prompt Template Engine) [v6.0 新增]
+
+### 核心架构
+
+提示词系统由三层组成：
+
+| 层级 | 文件 | 职责 |
+|------|------|------|
+| **默认模板** | `lib/prompts/defaultTemplates.ts` | 11 个内置模板的 **Source of Truth**，代码级定义 |
+| **持久化存储** | `lib/prompts/promptStore.ts` | 读写 `_prompt_templates/templates.json`，实现用户自定义覆盖 |
+| **渲染引擎** | `lib/prompts/templateEngine.ts` | 将 `{{变量}}` 占位符替换为运行时上下文值 |
+
+### ⚠️ 模板合并机制（开发者必读）
+
+`promptStore.ts` 中的 `getAllTemplates()` 使用 **"Merge-on-Load"** 策略：
+1. 优先返回磁盘缓存的用户版本
+2. **自动升级检测**：如果代码中的默认模板新增了 `variables`（如新增 `sheetElements`），而磁盘缓存的旧版本缺少这些变量，系统会自动用新默认模板覆盖旧缓存
+3. 控制台日志：`[PromptStore] 内置模板 "xxx" 检测到新增变量，自动升级模板。`
+
+**给开发者的忠告**：如果你在 `defaultTemplates.ts` 中修改了内置模板的 `systemPrompt` 但没有新增 `variables`，磁盘缓存**不会自动更新**。此时用户需要在 Prompt Studio 里手动「重置为默认」。如果你同时新增了 variable，则会自动升级。
+
+### 11 个内置模板 ID
+
+| ID | 功能 | 关键变量 |
+|----|------|----------|
+| `script_prompt` | 剧本生成 | `{{theme}}` |
+| `character_prompt` | 角色外貌提取 | `{{sheetElements}}` |
+| `location_prompt` | 场景空镜生成 | `{{sceneComposition}}` |
+| `cover_prompt` | 海报封面 | — |
+| `scene_image_prompt` | 分镜画面 | `{{sceneIndexPlusOne}}` |
+| `scene_start_image_prompt` | 首帧图 | — |
+| `scene_video_prompt` | 视频动态描述 | — |
+| `bgm_prompt` | 背景音乐 | — |
+| `creative_director_prompt` | 创意总监 | `{{creativeMode}}` |
+| `scene_image_refine_prompt` | 画面精修 | `{{userDirection}}` |
+| `scene_video_refine_prompt` | 视频精修 | `{{userDirection}}` |
+
+---
+
+## 九、 布局预设系统 (Layout Preset System) [v6.0 新增]
+
+### 存储
+
+布局预设保存在工作空间的 `_layouts/` 目录下（跨项目共享）：
+
+```
+/Users/ios/Desktop/work-data/短剧项目/
+├── _layouts/
+│   ├── layout_1713859200000.json   # 每个预设一个 JSON 文件
+│   ├── layout_1713859300000.json
+│   └── ...
+├── _prompt_templates/
+│   └── templates.json              # 提示词模板持久化
+├── 鸭子职场风云/
+│   └── ...
+```
+
+### 预设 JSON 结构
+
+```json
+{
+  "id": "layout_1713859200000",
+  "name": "办公室-桌椅对坐",
+  "objects": [
+    { "id": "char_1", "type": "character", "position": [-1, 0, 0], "label": "男主", ... },
+    { "id": "obj_xxx", "type": "table", "position": [0, 0, 0], "label": "桌子", ... }
+  ],
+  "image": "data:image/png;base64,...",
+  "createdAt": "...",
+  "updatedAt": "..."
+}
+```
+
+### API 端点
+
+| 方法 | 路径 | 功能 |
+|------|------|------|
+| `GET` | `/api/layouts` | 列出所有预设（按更新时间倒序） |
+| `POST` | `/api/layouts` | 创建或更新预设 |
+| `DELETE` | `/api/layouts?id=xxx` | 删除指定预设 |
+
+### 3D 编辑器参数
+
+Scene Lab 编辑器通过 URL 参数控制行为：
+
+| 参数 | 说明 |
+|------|------|
+| `returnUrl` | 保存后跳转的目标页面（从定妆室打开时传入 `/studio/xxx`） |
+| `presetId` | 加载已有预设进行编辑（从预设库点「编辑」时传入） |
+
+---
+
+## 十、 当前状态
+项目已完成模块化解耦、多项目工作空间架构、提示词可视化管理、布局预设库、角色设定图系统。可以开始疯狂批发出片。

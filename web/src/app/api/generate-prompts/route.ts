@@ -11,7 +11,7 @@ const AI_GATEWAY_URL = process.env.AI_GATEWAY_URL || 'http://localhost:4100';
 
 export async function POST(req: Request) {
   try {
-    const { aiProvider, taskType, theme, characterDetails, actionHint, dialogue, artStyle, fullScriptContext, characterName, allCharactersContext, creativeMode, userDirection, sceneIndex, totalScenes, previousImagePrompt, previousVideoPrompt } = await req.json();
+    const { aiProvider, taskType, theme, characterDetails, actionHint, dialogue, artStyle, fullScriptContext, characterName, allCharactersContext, creativeMode, userDirection, sceneIndex, totalScenes, previousImagePrompt, previousVideoPrompt, sheetElements, sceneComposition } = await req.json();
 
     const apiKey = process.env.MINIMAX_API_KEY;
     if (!apiKey) {
@@ -60,6 +60,8 @@ export async function POST(req: Request) {
         allCharactersContext: allCharactersContext || '',
         actionHint: actionHint || '',
         dialogue: dialogue || '',
+        sheetElements: sheetElements || '单人全身照（经典模式）',
+        sceneComposition: sceneComposition || '无特殊要求，AI 自由发挥',
         sceneIndexPlusOne: (sceneIndex !== undefined ? sceneIndex + 1 : 1).toString(),
         totalScenes: (totalScenes || 1).toString(),
         speakerName: (actionHint === '字卡画面描述' || dialogue === '字卡上的文字') ? '字卡' : 'Character',

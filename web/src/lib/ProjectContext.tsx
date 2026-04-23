@@ -78,14 +78,14 @@ interface ProjectContextValue {
   setLocationImage: (s: string) => void;
   isProcessingLocation: 'prompt' | 'image' | null;
   setIsProcessingLocation: React.Dispatch<React.SetStateAction<'prompt' | 'image' | null>>;
-  handleGenerateLocationPrompt: () => Promise<void>;
-  generateLocationImage: () => Promise<void>;
+  handleGenerateLocationPrompt: (sceneComposition?: string) => Promise<void>;
+  generateLocationImage: (referenceKeywords?: string[]) => Promise<void>;
   characterPrompts: Record<number, string>;
   setCharacterPrompts: React.Dispatch<React.SetStateAction<Record<number, string>>>;
   characterImages: Record<number, string>;
   setCharacterImages: React.Dispatch<React.SetStateAction<Record<number, string>>>;
   processingChars: Record<number, 'prompt' | 'image' | null>;
-  handleGenerateCharacterPrompt: (index: number) => Promise<void>;
+  handleGenerateCharacterPrompt: (index: number, sheetElements?: string) => Promise<void>;
   generateCastingImage: (index: number) => Promise<void>;
 
   // Phase 3: 画板区
@@ -582,13 +582,14 @@ export function ProjectProvider({ children, projectId }: { children: React.React
   // Phase 2 业务逻辑
   // ========================================
 
-  const handleGenerateLocationPrompt = useCallback(async () => {
+  const handleGenerateLocationPrompt = useCallback(async (sceneComposition?: string) => {
     setIsProcessingLocation('prompt');
     try {
       const data = await fetchApi('/api/generate-prompts', { aiProvider,
           taskType: 'location_prompt',
           artStyle,
-          fullScriptContext: getFullScriptContext()
+          fullScriptContext: getFullScriptContext(),
+          sceneComposition: sceneComposition || undefined,
       });
       setLocationPrompt(data.prompt);
     } catch (e: any) {
@@ -598,12 +599,19 @@ export function ProjectProvider({ children, projectId }: { children: React.React
     }
   }, [aiProvider, artStyle, getFullScriptContext]);
 
-  const generateLocationImage = useCallback(async () => {
+  const generateLocationImage = useCallback(async (referenceKeywords?: string[]) => {
     if (!locationPrompt) return alert("请先生成场景视觉提示词");
     setIsProcessingLocation('image');
     try {
       await fetch('/api/extension/active-context', { method: 'POST', body: JSON.stringify({ projectId, targetType: 'locationImage' }) });
-      const data = await fetchApi('/api/generate-assets', { prompt: locationPrompt, model: 'Nano Banana Pro', flowUrl, projectId, fireAndForget: useHitlMode });
+      const data = await fetchApi('/api/generate-assets', { 
+        prompt: locationPrompt, 
+        model: 'Nano Banana Pro', 
+        referenceKeywords: referenceKeywords || [],
+        flowUrl, 
+        projectId, 
+        fireAndForget: useHitlMode 
+      });
       if (!data.fireAndForget) {
          setLocationImage(data.url);
       }
@@ -614,7 +622,7 @@ export function ProjectProvider({ children, projectId }: { children: React.React
     }
   }, [locationPrompt, flowUrl, projectId, useHitlMode]);
 
-  const handleGenerateCharacterPrompt = useCallback(async (index: number) => {
+  const handleGenerateCharacterPrompt = useCallback(async (index: number, sheetElements?: string) => {
     setProcessingChars(p => ({ ...p, [index]: 'prompt' }));
     try {
       const char = characters[index];
@@ -623,7 +631,8 @@ export function ProjectProvider({ children, projectId }: { children: React.React
           artStyle,
           fullScriptContext: getFullScriptContext(),
           characterName: char.name,
-          characterDetails: char.persona
+          characterDetails: char.persona,
+          sheetElements: sheetElements || undefined,
       });
       setCharacterPrompts(prev => ({ ...prev, [index]: data.prompt }));
     } catch (e: any) {

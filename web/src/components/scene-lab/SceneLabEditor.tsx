@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Grid } from '@react-three/drei';
 import * as THREE from 'three';
@@ -342,8 +342,18 @@ function getDefaultObjects(): SceneObject[] {
   ];
 }
 
-export default function SceneLabEditor() {
+interface SceneLabEditorProps {
+  /** 保存后返回的 URL，默认 /scene-lab */
+  returnUrl?: string;
+  /** 初始加载的预设 ID（编辑模式） */
+  initialPresetId?: string;
+  /** 初始加载的物体列表（从预设传入） */
+  initialObjects?: SceneObject[];
+}
+
+export default function SceneLabEditor({ returnUrl, initialPresetId, initialObjects }: SceneLabEditorProps = {}) {
   const [objects, setObjects] = useState<SceneObject[]>(() => {
+    if (initialObjects && initialObjects.length > 0) return initialObjects;
     if (typeof window === 'undefined') return getDefaultObjects();
     try { const s = localStorage.getItem(STORAGE_KEY_OBJ); return s ? JSON.parse(s) : getDefaultObjects(); }
     catch { return getDefaultObjects(); }
@@ -352,6 +362,36 @@ export default function SceneLabEditor() {
   const [activeCameraPreset, setActiveCameraPreset] = useState<CameraPreset | null>(null);
   const screenshotRef = useRef<{ gl: any; scene: any; camera: any } | null>(null);
   const selectedObj = objects.find((o) => o.id === selectedId) ?? null;
+  const [presetName, setPresetName] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  // 读取 URL 参数
+  const [effectiveReturnUrl, setEffectiveReturnUrl] = useState(returnUrl || '/scene-lab');
+  const [effectivePresetId, setEffectivePresetId] = useState(initialPresetId || '');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const ru = params.get('returnUrl');
+    const pid = params.get('presetId');
+    if (ru) setEffectiveReturnUrl(ru);
+    if (pid) {
+      setEffectivePresetId(pid);
+      // 加载已有预设
+      fetch(`/api/layouts`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.success && data.presets) {
+            const preset = data.presets.find((p: any) => p.id === pid);
+            if (preset) {
+              setObjects(preset.objects);
+              setPresetName(preset.name);
+            }
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
 
   const addObject = useCallback((type: SceneObject['type']) => {
     const colorIdx = objects.filter((o) => o.type === 'character').length;
@@ -369,21 +409,56 @@ export default function SceneLabEditor() {
   const moveObject = useCallback((id: string, pos: [number, number, number]) => { setObjects((prev) => prev.map((o) => (o.id === id ? { ...o, position: pos } : o))); }, []);
   const updateSelected = useCallback((patch: Partial<SceneObject>) => { if (!selectedId) return; setObjects((prev) => prev.map((o) => (o.id === selectedId ? { ...o, ...patch } : o))); }, [selectedId]);
 
-  const handleSaveAndReturn = useCallback(() => {
+  const handleSaveAndReturn = useCallback(async () => {
     const ctx = screenshotRef.current;
     if (!ctx) { alert('截图失败，请重试'); return; }
-    ctx.gl.render(ctx.scene, ctx.camera);
-    const src = ctx.gl.domElement;
-    const maxW = 1280;
-    const s = Math.min(1, maxW / src.width);
-    const off = document.createElement('canvas');
-    off.width = Math.round(src.width * s);
-    off.height = Math.round(src.height * s);
-    off.getContext('2d')!.drawImage(src, 0, 0, off.width, off.height);
-    localStorage.setItem(STORAGE_KEY_IMG, off.toDataURL('image/png'));
-    localStorage.setItem(STORAGE_KEY_OBJ, JSON.stringify(objects));
-    window.location.href = '/scene-lab';
-  }, [objects]);
+    
+    const name = presetName.trim() || `布局_${new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`;
+    
+    setSaving(true);
+    try {
+      ctx.gl.render(ctx.scene, ctx.camera);
+      const src = ctx.gl.domElement;
+      const maxW = 1280;
+      const s = Math.min(1, maxW / src.width);
+      const off = document.createElement('canvas');
+      off.width = Math.round(src.width * s);
+      off.height = Math.round(src.height * s);
+      off.getContext('2d')!.drawImage(src, 0, 0, off.width, off.height);
+      const imageData = off.toDataURL('image/png');
+
+      // 同时保存到 localStorage（Scene Lab 页面兼容）
+      localStorage.setItem(STORAGE_KEY_IMG, imageData);
+      localStorage.setItem(STORAGE_KEY_OBJ, JSON.stringify(objects));
+
+      // 保存到 API（持久化到项目文件夹）
+      const res = await fetch('/api/layouts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: effectivePresetId || undefined,
+          name,
+          objects,
+          image: imageData,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        alert('保存失败: ' + (data.error || '未知错误'));
+        return;
+      }
+
+      // 将新保存的预设 ID 传回
+      const savedId = data.preset?.id || '';
+      const target = new URL(effectiveReturnUrl, window.location.origin);
+      if (savedId) target.searchParams.set('layoutPresetId', savedId);
+      window.location.href = target.toString();
+    } catch (e: any) {
+      alert('保存失败: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
+  }, [objects, presetName, effectivePresetId, effectiveReturnUrl]);
 
   return (
     <div style={{ width: '100vw', height: '100vh', display: 'flex', background: '#0a0a14', color: '#e0e0e0', fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
@@ -417,8 +492,9 @@ export default function SceneLabEditor() {
           ))}
         </div>
         <div style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 10 }}>
-          <button onClick={() => { window.location.href = '/scene-lab'; }} style={{ padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#1e1e3a', border: '1px solid #2a2a4a', color: '#999' }}>取消返回</button>
-          <button onClick={handleSaveAndReturn} style={{ padding: '10px 28px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'linear-gradient(135deg, #6366f1, #a855f7)', border: 'none', color: '#fff', boxShadow: '0 4px 20px rgba(99,102,241,0.4)' }}>💾 保存布局并返回</button>
+          <button onClick={() => { window.location.href = effectiveReturnUrl; }} style={{ padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#1e1e3a', border: '1px solid #2a2a4a', color: '#999' }}>取消返回</button>
+          <input value={presetName} onChange={e => setPresetName(e.target.value)} placeholder="输入布局名称…" style={{ padding: '10px 14px', borderRadius: 10, fontSize: 13, background: '#12121f', border: '1px solid #2a2a4a', color: '#e0e0e0', outline: 'none', width: 180 }} />
+          <button onClick={handleSaveAndReturn} disabled={saving} style={{ padding: '10px 28px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: saving ? 'wait' : 'pointer', background: saving ? '#333' : 'linear-gradient(135deg, #6366f1, #a855f7)', border: 'none', color: '#fff', boxShadow: saving ? 'none' : '0 4px 20px rgba(99,102,241,0.4)', opacity: saving ? 0.6 : 1 }}>{saving ? '⏳ 保存中...' : '💾 保存布局并返回'}</button>
         </div>
       </div>
 
