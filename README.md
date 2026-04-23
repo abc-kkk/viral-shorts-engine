@@ -13,6 +13,12 @@
 > 2. `api-gateway-integration.md`：AI Gateway 集成规范（禁止直连 API、生图 Fire&Forget 机制、Playwright 中文输入避坑）。
 > **绝对不要靠猜测去破坏已经跑通的核心寻图、存储机制和自动化流程！**
 
+<div align="center">
+  <img src="./docs/assets/scene-lab-1.png" width="32%" style="border-radius: 8px; margin: 0 4px;" />
+  <img src="./docs/assets/scene-lab-2.png" width="32%" style="border-radius: 8px; margin: 0 4px;" />
+  <img src="./docs/assets/scene-lab-3.png" width="32%" style="border-radius: 8px; margin: 0 4px;" />
+</div>
+
 ## 🌟 项目简介
 
 受够了市面上难用的 AI 视频生成工具？人工写提示词太累、生成的角色疯狂“变脸”、视频背景到处乱飘、稍有不慎接口就被封……
