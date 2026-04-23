@@ -17,13 +17,15 @@ const STYLE_TAGS = ['写实', '3D', '国漫', '广角', '中焦', '特写', '低
 
 export default function SceneLabPage() {
   const [layoutImage, setLayoutImage] = useState<string | null>(null);
-  const [layoutLabel, setLayoutLabel] = useState('布局图');
+  const [layoutLabel, setLayoutLabel] = useState('REF_LAYOUT');
   const [sceneObjects, setSceneObjects] = useState<any[]>([]);
 
   // Character reference images (keyed by object id)
   const [charImages, setCharImages] = useState<Record<string, string>>({});
+  const [charLabels, setCharLabels] = useState<Record<string, string>>({}); // Custom Flow asset names
+  
   const [sceneImageUrl, setSceneImageUrl] = useState('');
-  const [sceneLabel, setSceneLabel] = useState('场景');
+  const [sceneLabel, setSceneLabel] = useState('REF_SCENE');
 
   // Prompt composer
   const [styleTag, setStyleTag] = useState('写实');
@@ -38,6 +40,13 @@ export default function SceneLabPage() {
 
   // Target selection
   const [activeTarget, setActiveTarget] = useState<string>('result');
+
+  // Toast
+  const [toastMsg, setToastMsg] = useState('');
+  const showToast = useCallback((msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(''), 3000);
+  }, []);
 
   // Load saved layout from localStorage
   useEffect(() => {
@@ -74,23 +83,25 @@ export default function SceneLabPage() {
 
   const characters = sceneObjects.filter((o: any) => o.type === 'character');
 
+  const getCharLabel = (c: any) => charLabels[c.id] || `REF_CHAR_${c.id.substring(0, 4).toUpperCase()}`;
+
   const composePrompt = useCallback(() => {
     const parts: string[] = [];
-    const charRefs = characters.map((c: any) => `{@${c.label}}`).join(' 和 ');
+    const charRefs = characters.map((c: any) => `{@${getCharLabel(c)}}`).join(' 和 ');
     if (charRefs) parts.push(charRefs);
     if (sceneImageUrl && sceneLabel) parts.push(`在 {@${sceneLabel}} 中`);
     if (layoutImage && layoutLabel) {
-      const colorMap = characters.map((c: any) => `${c.color}色块位置是${c.label}`).join('，');
+      const colorMap = characters.map((c: any) => `${c.color}色块位置是${getCharLabel(c)}`).join('，');
       parts.push(`站位以 {@${layoutLabel}} 为参照，${colorMap}`);
     }
     parts.push(`${styleTag}风格`);
     if (customText.trim()) parts.push(customText.trim());
     const result = parts.join('。\n') + '。';
     setComposedPrompt(result);
-  }, [characters, sceneLabel, sceneImageUrl, layoutLabel, layoutImage, styleTag, customText]);
+  }, [characters, sceneLabel, sceneImageUrl, layoutLabel, layoutImage, styleTag, customText, charLabels]);
 
   const handleGenerate = useCallback(async () => {
-    if (!composedPrompt || !flowUrl) { alert('请填写 Flow URL 和提示词'); return; }
+    if (!composedPrompt || !flowUrl) { showToast('请填写 Flow URL 和提示词'); return; }
     setGenerating(true);
     try {
       // 1. Set active context for the Chrome extension so it knows the anti-tamper name
@@ -122,13 +133,13 @@ export default function SceneLabPage() {
       });
       const data = await res.json();
       if (data.success || data.fireAndForget) {
-        alert('✅ 已发送到 Flow！请在 Flow 页面等待生成完成，用 Chrome 扩展选图落盘。');
+        showToast('✅ 已发送到 Flow！请在 Flow 页面等待生成完成，用 Chrome 扩展选图落盘。');
       } else {
-        alert('发送失败: ' + (data.error || '未知错误'));
+        showToast('发送失败: ' + (data.error || '未知错误'));
       }
-    } catch (e: any) { alert('请求失败: ' + e.message); }
+    } catch (e: any) { showToast('请求失败: ' + e.message); }
     finally { setGenerating(false); }
-  }, [composedPrompt, flowUrl, activeTarget]);
+  }, [composedPrompt, flowUrl, activeTarget, showToast]);
 
   const handleClearLayout = () => {
     localStorage.removeItem(STORAGE_KEY_IMG);
@@ -145,8 +156,8 @@ export default function SceneLabPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           description: customText,
-          characters: characters.map((c: any) => ({ label: c.label, color: c.color })),
-          allObjects: sceneObjects.map((o: any) => ({ type: o.type, label: o.label, color: o.color })),
+          characters: characters.map((c: any) => ({ id: c.id, label: getCharLabel(c), color: c.color })),
+          allObjects: sceneObjects.map((o: any) => ({ type: o.type, label: o.type === 'character' ? getCharLabel(o) : o.label, color: o.color })),
           hasLayout: !!layoutImage,
           layoutLabel,
           hasScene: !!sceneImageUrl,
@@ -159,11 +170,11 @@ export default function SceneLabPage() {
       if (data.success && data.prompt) {
         setComposedPrompt(data.prompt);
       } else {
-        alert('AI 生成失败: ' + (data.error || '未知错误'));
+        showToast('AI 生成失败: ' + (data.error || '未知错误'));
       }
-    } catch (e: any) { alert('请求失败: ' + e.message); }
+    } catch (e: any) { showToast('请求失败: ' + e.message); }
     finally { setAiGenerating(false); }
-  }, [customText, characters, layoutImage, layoutLabel, sceneLabel, styleTag]);
+  }, [customText, characters, layoutImage, layoutLabel, sceneLabel, styleTag, activeTarget, charLabels, sceneObjects, showToast]);
 
   /* ---- Styles ---- */
   const cardStyle: React.CSSProperties = {
@@ -185,6 +196,14 @@ export default function SceneLabPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a14', color: '#e0e0e0', fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
+      <style>{`
+        @keyframes fadeInOut {
+          0% { opacity: 0; transform: translate(-50%, -20px); }
+          10% { opacity: 1; transform: translate(-50%, 0); }
+          90% { opacity: 1; transform: translate(-50%, 0); }
+          100% { opacity: 0; transform: translate(-50%, -20px); }
+        }
+      `}</style>
 
       {/* Header */}
       <div style={{ borderBottom: '1px solid #1e1e3a', padding: '16px 28px', display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -216,7 +235,10 @@ export default function SceneLabPage() {
                 </a>
               )}
               <label style={labelStyle}>Flow 资产名
-                <input value={layoutLabel} onChange={e => setLayoutLabel(e.target.value)} style={inputStyle} />
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <input value={layoutLabel} onChange={e => setLayoutLabel(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+                  <button onClick={() => { navigator.clipboard.writeText(layoutLabel); showToast('已复制：' + layoutLabel); }} style={{ ...btnStyle('#3b82f6'), padding: '0 8px' }}>📋</button>
+                </div>
               </label>
               <div style={{ fontSize: 10, color: '#4a4a6a' }}>引用: <span style={{ color: '#a78bfa' }}>{`{@${layoutLabel}}`}</span></div>
             </div>
@@ -241,7 +263,17 @@ export default function SceneLabPage() {
                   onChange={e => setCharImages(prev => ({ ...prev, [char.id]: e.target.value }))}
                   style={inputStyle}
                 />
-                <div style={{ fontSize: 10, color: '#4a4a6a' }}>引用: <span style={{ color: '#a78bfa' }}>{`{@${char.label}}`}</span></div>
+                <label style={{ ...labelStyle, marginTop: 4 }}>Flow 资产名
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <input
+                      value={getCharLabel(char)}
+                      onChange={e => setCharLabels(prev => ({ ...prev, [char.id]: e.target.value }))}
+                      style={{ ...inputStyle, flex: 1 }}
+                    />
+                    <button onClick={() => { navigator.clipboard.writeText(getCharLabel(char)); showToast('已复制：' + getCharLabel(char)); }} style={{ ...btnStyle('#3b82f6'), padding: '0 8px' }}>📋</button>
+                  </div>
+                </label>
+                <div style={{ fontSize: 10, color: '#4a4a6a' }}>引用: <span style={{ color: '#a78bfa' }}>{`{@${getCharLabel(char)}}`}</span></div>
               </div>
             ))}
 
@@ -263,7 +295,10 @@ export default function SceneLabPage() {
               )}
               <input placeholder="场景参考图 URL" value={sceneImageUrl} onChange={e => setSceneImageUrl(e.target.value)} style={inputStyle} />
               <label style={labelStyle}>Flow 资产名
-                <input value={sceneLabel} onChange={e => setSceneLabel(e.target.value)} style={inputStyle} />
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <input value={sceneLabel} onChange={e => setSceneLabel(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+                  <button onClick={() => { navigator.clipboard.writeText(sceneLabel); showToast('已复制：' + sceneLabel); }} style={{ ...btnStyle('#3b82f6'), padding: '0 8px' }}>📋</button>
+                </div>
               </label>
               <div style={{ fontSize: 10, color: '#4a4a6a' }}>引用: <span style={{ color: '#a78bfa' }}>{`{@${sceneLabel}}`}</span></div>
             </div>
@@ -341,8 +376,8 @@ export default function SceneLabPage() {
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button
-                onClick={() => { if (composedPrompt) { navigator.clipboard.writeText(composedPrompt); alert('已复制到剪贴板！'); } }}
-                style={{ ...btnStyle('#3b82f6'), flex: 1 }}
+                onClick={() => { if (composedPrompt) { navigator.clipboard.writeText(composedPrompt); showToast('已复制到剪贴板！'); } }}
+                style={{ ...btnStyle('#10b981'), background: '#10b981', color: '#000', padding: '10px 18px' }}
               >
                 📋 复制提示词
               </button>
@@ -401,6 +436,12 @@ export default function SceneLabPage() {
           </div>
         </div>
       </div>
+
+      {toastMsg && (
+        <div style={{ position: 'fixed', top: 40, left: '50%', transform: 'translateX(-50%)', background: '#3b82f6', color: '#fff', padding: '10px 24px', borderRadius: 20, fontSize: 14, fontWeight: 600, boxShadow: '0 4px 12px rgba(0,0,0,0.5)', zIndex: 9999, animation: 'fadeInOut 3s forwards' }}>
+          {toastMsg}
+        </div>
+      )}
     </div>
   );
 }
