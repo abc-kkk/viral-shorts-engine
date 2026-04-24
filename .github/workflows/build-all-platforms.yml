@@ -33,6 +33,9 @@ jobs:
         run: |
           cd web
           npm run build
+        env:
+          OPENAI_API_KEY: "dummy-key-for-build"
+          DATABASE_URL: "file:./dev.db"
 
       - name: Install Gateway Dependencies
         run: |
