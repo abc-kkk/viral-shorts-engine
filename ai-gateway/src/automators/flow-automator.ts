@@ -422,3 +422,83 @@ export async function generateAdvancedAsset(
     return { success: false, url: '', error: error.message, passthroughMeta };
   }
 }
+
+/**
+ * 上传资产到 Flow 对话框
+ */
+export async function uploadAssetToFlow(
+  imageBase64: string,
+  name: string,
+  flowUrl?: string
+): Promise<{ success: boolean; error?: string }> {
+  const CDP_URL = process.env.CHROME_CDP_URL;
+  if (!CDP_URL) return { success: false, error: "Missing CHROME_CDP_URL in ai-gateway env." };
+  if (!flowUrl) return { success: false, error: "Missing flowUrl parameter." };
+
+  console.log(`[Flow Automator] Uploading asset ${name} to Flow...`);
+  try {
+    const browser = await chromium.connectOverCDP(CDP_URL);
+    const defaultContext = browser.contexts()[0];
+    
+    let page = defaultContext.pages().find(p => p.url().includes('labs.google/fx') && p.url().includes('tools/flow'));
+    
+    if (!page) {
+      page = await defaultContext.newPage();
+      await page.goto(flowUrl, { waitUntil: 'domcontentloaded' });
+    } else {
+      const currentProjectId = page.url().split('/project/')[1]?.split('?')[0];
+      const targetProjectId = flowUrl.split('/project/')[1]?.split('?')[0];
+      if (currentProjectId && targetProjectId && currentProjectId !== targetProjectId) {
+         await page.goto(flowUrl, { waitUntil: 'domcontentloaded' });
+      }
+    }
+    
+    // Focus Editor
+    const editor = page.locator('div[contenteditable="true"], textarea[placeholder*="Type a prompt"], textarea[aria-label*="prompt"]').first();
+    await editor.waitFor({ state: 'visible', timeout: 30000 });
+    
+    // Press Escape to close dropdowns
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
+
+    await editor.click({ force: true });
+    
+    // Clear existing text
+    await page.keyboard.press('Meta+A');
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(100);
+
+    console.log(`[Flow Automator] Pasting image to editor...`);
+    // Dispatch paste event with the image
+    await editor.evaluate(async (el, base64) => {
+        const res = await fetch(base64);
+        const blob = await res.blob();
+        const file = new File([blob], "asset.png", { type: blob.type });
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        const event = new ClipboardEvent("paste", {
+            clipboardData: dataTransfer,
+            bubbles: true,
+            cancelable: true,
+        });
+        el.dispatchEvent(event);
+    }, imageBase64);
+
+    await page.waitForTimeout(1500); // 等待图片粘贴和附件UI出现
+
+    console.log(`[Flow Automator] Naming asset: ${name}`);
+    await page.keyboard.insertText(name);
+    await page.waitForTimeout(500);
+
+    // Send it
+    console.log(`[Flow Automator] Sending asset...`);
+    await page.keyboard.press('Enter');
+    
+    // 不等待生成结果，直接返回成功，实现 fire and forget
+    return { success: true };
+  } catch (err: any) {
+    console.error('[Flow Automator] Upload Error:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronDown, ChevronRight, RotateCcw } from 'lucide-react';
+import { useProject } from '@/lib/ProjectContext';
 
 interface LayoutPreset {
   id: string;
@@ -43,6 +44,8 @@ export default function LocationPanel({
   const [layoutExpanded, setLayoutExpanded] = useState(false);
   const [loadingPresets, setLoadingPresets] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(isCollapsible);
+
+  const { flowUrl } = useProject();
 
   const getFlowTag = (preset: LayoutPreset) => {
     const numPart = preset.id.replace('layout_', '');
@@ -116,6 +119,34 @@ export default function LocationPanel({
     const tag = getFlowTag(preset);
     navigator.clipboard.writeText(tag);
     showToast(`✅ 已复制 Flow 资产名：${tag}`);
+  };
+
+  const handleUploadToFlow = async (preset: LayoutPreset) => {
+    copyFlowTag(preset);
+    if (!flowUrl) {
+      showToast('⚠️ 未设置 Flow URL，无法自动上传');
+      return;
+    }
+    showToast('🚀 正在自动上传至 Flow，请勿操作鼠标...');
+    try {
+      const res = await fetch('/api/extension/upload-layout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            image: preset.image, 
+            name: getFlowTag(preset), 
+            flowUrl 
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('✅ 自动化上传成功！');
+      } else {
+        showToast(`❌ 上传失败: ${data.error}`);
+      }
+    } catch (e: any) {
+      showToast(`❌ 上传报错: ${e.message}`);
+    }
   };
 
   const handleGeneratePromptLocal = () => {
@@ -196,7 +227,10 @@ export default function LocationPanel({
                                     <div className="flex items-center gap-2 bg-black/40 rounded-md px-2.5 py-1.5 border border-neutral-800">
                                         <span className="text-[10px] text-neutral-500">Flow 资产名：</span>
                                         <code className="text-[11px] text-amber-400 font-mono font-bold">{getFlowTag(selectedPreset)}</code>
-                                        <button onClick={() => copyFlowTag(selectedPreset)} className="ml-auto text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20 transition-colors font-bold">📋 复制</button>
+                                        <div className="ml-auto flex items-center gap-1">
+                                            <button onClick={() => copyFlowTag(selectedPreset)} className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20 transition-colors font-bold">📋 复制</button>
+                                            <button onClick={() => handleUploadToFlow(selectedPreset)} className="text-[10px] px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/20 transition-colors font-bold">🚀 全自动上传</button>
+                                        </div>
                                     </div>
                                     <div className="text-[9px] text-neutral-600 leading-tight">💡 请在 Flow 资产库中上传布局截图时，用上面的英文名命名。生图时系统会自动通过 {'{@}'} 引用该参考图。</div>
                                     <div className="flex gap-2">

@@ -98,8 +98,10 @@ interface ProjectContextValue {
   setSceneLocationImages: React.Dispatch<React.SetStateAction<Record<number, string>>>;
   handleGenerateSceneLocationPrompt: (sceneIndex: number, sceneComposition?: string) => Promise<void>;
   generateSceneLocationImage: (sceneIndex: number, referenceKeywords?: string[]) => Promise<void>;
-  actionLayoutPrompts: Record<number, string>;
-  setActionLayoutPrompts: React.Dispatch<React.SetStateAction<Record<number, string>>>;
+  startLayoutPrompts: Record<number, string>;
+  setStartLayoutPrompts: React.Dispatch<React.SetStateAction<Record<number, string>>>;
+  endLayoutPrompts: Record<number, string>;
+  setEndLayoutPrompts: React.Dispatch<React.SetStateAction<Record<number, string>>>;
   sceneImagePrompts: Record<number, string>;
   setSceneImagePrompts: React.Dispatch<React.SetStateAction<Record<number, string>>>;
   sceneVideoPrompts: Record<number, string>;

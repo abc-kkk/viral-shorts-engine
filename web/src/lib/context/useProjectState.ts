@@ -46,7 +46,8 @@ export function useProjectState(projectId: string) {
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
   const [sceneLocationPrompts, setSceneLocationPrompts] = useState<Record<number, string>>({});
   const [sceneLocationImages, setSceneLocationImages] = useState<Record<number, string>>({});
-  const [actionLayoutPrompts, setActionLayoutPrompts] = useState<Record<number, string>>({});
+  const [startLayoutPrompts, setStartLayoutPrompts] = useState<Record<number, string>>({});
+  const [endLayoutPrompts, setEndLayoutPrompts] = useState<Record<number, string>>({});
   const [sceneImagePrompts, setSceneImagePrompts] = useState<Record<number, string>>({});
   const [sceneVideoPrompts, setSceneVideoPrompts] = useState<Record<number, string>>({});
   const [sceneStartImagePrompts, setSceneStartImagePrompts] = useState<Record<number, string>>({});
@@ -186,7 +187,7 @@ export function useProjectState(projectId: string) {
     locationPrompt, setLocationPrompt, locationImage, setLocationImage, isProcessingLocation, setIsProcessingLocation, characterPrompts, setCharacterPrompts,
     characterImages, setCharacterImages, processingChars, setProcessingChars,
     activeSceneIndex, setActiveSceneIndex, sceneLocationPrompts, setSceneLocationPrompts, sceneLocationImages, setSceneLocationImages,
-    actionLayoutPrompts, setActionLayoutPrompts, sceneImagePrompts, setSceneImagePrompts, sceneVideoPrompts, setSceneVideoPrompts, sceneStartImagePrompts, setSceneStartImagePrompts,
+    startLayoutPrompts, setStartLayoutPrompts, endLayoutPrompts, setEndLayoutPrompts, sceneImagePrompts, setSceneImagePrompts, sceneVideoPrompts, setSceneVideoPrompts, sceneStartImagePrompts, setSceneStartImagePrompts,
     sceneDurations, setSceneDurations, sceneVideoTrimStart, setSceneVideoTrimStart, sceneVideoTrimEnd, setSceneVideoTrimEnd, sceneImages, setSceneImages,
     sceneStartImages, setSceneStartImages, sceneImageRefs, setSceneImageRefs, sceneVideos, setSceneVideos, sceneAudio, setSceneAudio, sceneAudioDelays, setSceneAudioDelays,
     currentVideoTimes, setCurrentVideoTimes, sceneCharacters, setSceneCharacters, processingScene, setProcessingScene,

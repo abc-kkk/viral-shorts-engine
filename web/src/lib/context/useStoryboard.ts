@@ -13,7 +13,8 @@ export function useStoryboard(state: any, getFullScriptContext: () => string) {
     scriptLines,
     locationPrompt,
     sceneLocationPrompts,
-    actionLayoutPrompts,
+    startLayoutPrompts,
+    endLayoutPrompts,
     sceneImagePrompts, setSceneImagePrompts,
     sceneVideoPrompts, setSceneVideoPrompts,
     sceneStartImagePrompts, setSceneStartImagePrompts,
@@ -39,15 +40,7 @@ export function useStoryboard(state: any, getFullScriptContext: () => string) {
       const activeLocationPrompt = sceneLocationPrompts[i] || locationPrompt || '';
       
       const cleanLocationContext = activeLocationPrompt.replace(/\{@Layout_[^{}]+\}/g, '').trim();
-      const extractLayoutKeyword = (p: string) => {
-        const matches = p.matchAll(/\{@(Layout_[^{}]+)\}/g);
-        const keywords = Array.from(matches, m => m[1]);
-        return keywords.length > 0 ? keywords[0] : null;
-      };
-      const activeActionLayoutPrompt = actionLayoutPrompts[i] || '';
-      const layoutTag = extractLayoutKeyword(activeActionLayoutPrompt);
-      const baseSceneToken = sceneLocationPrompts[i] ? `场景_S${i}` : '场景';
-      const sceneLocationToken = layoutTag ? `${layoutTag}} 布局和 {@${baseSceneToken}` : baseSceneToken;
+      const sceneLocationToken = sceneLocationPrompts[i] ? `场景_S${i}` : '场景';
 
       const data = await fetchApi('/api/generate-prompts', {
           aiProvider,
@@ -78,7 +71,7 @@ export function useStoryboard(state: any, getFullScriptContext: () => string) {
     } finally {
       setProcessingScene((p: any) => ({ ...p, [i]: null }));
     }
-  }, [aiProvider, scriptLines, characters, artStyle, getFullScriptContext, sceneImagePrompts, sceneVideoPrompts, actionLayoutPrompts, sceneLocationPrompts, locationPrompt, setProcessingScene, setSceneImagePrompts, setSceneVideoPrompts, setSceneStartImagePrompts, setSceneCharacters]);
+  }, [aiProvider, scriptLines, characters, artStyle, getFullScriptContext, sceneImagePrompts, sceneVideoPrompts, sceneLocationPrompts, locationPrompt, setProcessingScene, setSceneImagePrompts, setSceneVideoPrompts, setSceneStartImagePrompts, setSceneCharacters]);
 
   const getRefKeywords = useCallback((i: number, prompt: string) => {
     const charsInScene = sceneCharacters[i] || [];
@@ -109,8 +102,10 @@ export function useStoryboard(state: any, getFullScriptContext: () => string) {
   const handleGenerateEndFrame = useCallback(async (i: number) => {
     setProcessingScene((p: any) => ({ ...p, [i]: 'image' }));
     try {
-      const prompt = sceneImagePrompts[i];
-      if (!prompt) throw new Error("请先生成视觉提示词");
+      const basePrompt = sceneImagePrompts[i];
+      if (!basePrompt) throw new Error("请先生成视觉提示词");
+      const layoutTag = endLayoutPrompts[i] ? ` ${endLayoutPrompts[i]}` : '';
+      const prompt = basePrompt + layoutTag;
       const refKeywords = getRefKeywords(i, prompt);
 
       await fetch('/api/extension/active-context', { method: 'POST', body: JSON.stringify({ projectId, targetType: 'sceneImage', index: i }) });
@@ -129,8 +124,10 @@ export function useStoryboard(state: any, getFullScriptContext: () => string) {
   const handleGenerateStartFrame = useCallback(async (i: number) => {
     setProcessingScene((p: any) => ({ ...p, [i]: 'image' }));
     try {
-      const prompt = sceneStartImagePrompts[i];
-      if (!prompt) throw new Error("该镜头没有首帧提示词（仅第1镜需要生成首帧）");
+      const basePrompt = sceneStartImagePrompts[i];
+      if (!basePrompt) throw new Error("该镜头没有首帧提示词（仅第1镜需要生成首帧）");
+      const layoutTag = startLayoutPrompts[i] ? ` ${startLayoutPrompts[i]}` : '';
+      const prompt = basePrompt + layoutTag;
       const refKeywords = getRefKeywords(i, prompt);
 
       await fetch('/api/extension/active-context', { method: 'POST', body: JSON.stringify({ projectId, targetType: 'sceneStartImage', index: i }) });

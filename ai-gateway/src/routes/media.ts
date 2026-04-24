@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { generateAdvancedAsset } from '../automators/flow-automator.js';
+import { generateAdvancedAsset, uploadAssetToFlow } from '../automators/flow-automator.js';
 import { enqueue } from '../middleware/serialQueue.js';
 
 export const mediaRouter = Router();
@@ -44,5 +44,30 @@ mediaRouter.post('/generate', async (req, res) => {
   } catch (err: any) {
     console.error('[Media Route] Error:', err.message);
     res.status(500).json({ success: false, url: '', error: err.message });
+  }
+});
+
+/**
+ * POST /api/media/upload-layout
+ * 
+ * 自动向 Google Flow 上传 3D 布局图片并命名。
+ */
+mediaRouter.post('/upload-layout', async (req, res) => {
+  try {
+    const { image, name, flowUrl } = req.body;
+
+    if (!image || !name || !flowUrl) {
+      res.status(400).json({ error: 'Missing parameters: image, name, or flowUrl' });
+      return;
+    }
+
+    console.log(`\n[Media Route] Received upload layout request for: ${name}`);
+
+    const result = await enqueue(() => uploadAssetToFlow(image, name, flowUrl));
+
+    res.json(result);
+  } catch (err: any) {
+    console.error('[Media Route] Upload Layout Error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
