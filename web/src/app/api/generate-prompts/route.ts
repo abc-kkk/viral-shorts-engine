@@ -13,10 +13,8 @@ export async function POST(req: Request) {
   try {
     const { aiProvider, taskType, theme, characterDetails, actionHint, dialogue, artStyle, fullScriptContext, characterName, allCharactersContext, creativeMode, userDirection, sceneIndex, totalScenes, previousImagePrompt, previousVideoPrompt, sheetElements, sceneComposition, sceneLocationContext, sceneLocationToken } = await req.json();
 
-    const apiKey = process.env.MINIMAX_API_KEY;
-    if (!apiKey) {
-      throw new Error("Missing MINIMAX_API_KEY environment variable. Cannot generate prompts.");
-    }
+    // MiniMax 客户端仅在手动关闭 AI Gateway 模式时需要（目前永远走 Gateway）
+    const apiKey = process.env.MINIMAX_API_KEY || 'not-needed-when-using-gateway';
 
     const openai = new OpenAI({
       apiKey: apiKey,
@@ -37,7 +35,9 @@ export async function POST(req: Request) {
       'character_prompt': 'character_prompt',
       'location_prompt': 'location_prompt',
       'cover_prompt': 'cover_prompt',
-      'action': 'action_prompt'
+      'action': 'action_prompt',
+      'scene_image_refine': 'scene_image_refine_prompt',
+      'scene_video_refine': 'scene_video_refine_prompt'
     };
 
     const templateId = templateIdMap[taskType];
@@ -70,6 +70,7 @@ export async function POST(req: Request) {
         rawScript: theme || '', // in iterate/review, theme is used as rawScript. Let's provide rawScript properly.
         userDirection: userDirection || '',
         creativeModeText: creativeMode === 'direct' ? '直接生成' : (creativeMode === 'adapt' ? '二创重构' : '仅限参考'),
+        promptVersion: 'v2.0-三段式',
     };
 
     // Special handling for some variables
