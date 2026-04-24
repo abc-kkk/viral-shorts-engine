@@ -16,7 +16,7 @@
     {
       "matches": ["*://labs.google/*"],
       "css": ["style.css"],
-      "js": ["content.js"]
+      "js": ["dist/content.js"]
     }
   ],
   "action": {

@@ -307,3 +307,38 @@ Scene Lab 编辑器通过 URL 参数控制行为：
 
 ## 十、 当前状态
 项目已完成模块化解耦、多项目工作空间架构、提示词可视化管理、布局预设库、角色设定图系统。可以开始疯狂批发出片。
+
+---
+
+## 十一、 架构演进与重构 (Architecture Evolution) [v6.1]
+
+随着项目规模增长（8000+ 行代码），我们进行了系统性的架构治理，以解决"改这边坏那边"的脆弱性问题：
+
+### 1. 资源管理标准化 (TargetType & assetUrl)
+所有与生图/生视频相关的文件名、缓存破坏和 URL 构建，已被**彻底收拢**：
+- **`lib/types.ts`**：`TargetType` 联合类型是资源目标的**唯一真相源**。新增目标类型必须在这里和 `TARGET_TYPE_CONFIG` 中注册。
+- **`lib/assetUrl.ts`**：所有确定性文件名的生成 (`generateAssetFilename`) 和防缓存 (`getAssetUrlWithCacheBust`) 逻辑全部在此模块。**绝对禁止**在 API 路由中硬编码 `Math.random()` 或拼接文件名。
+
+### 2. 全局状态解耦 (ProjectContext 拆分)
+曾经高达 1000+ 行的 `ProjectContext.tsx`（上帝对象）已被拆分为多个按 Phase 分层的职责单一的 Hooks：
+- `ProjectProvider.tsx`: 顶层容器
+- `useProjectState.ts`: 基础状态和设置
+- `useWriterRoom.ts` / `useCastingRoom.ts` / `useStoryboard.ts` / `useRenderRoom.ts`: 各阶段业务逻辑
+- `useInboxPoller.ts`: 独立的 Chrome 扩展数据轮询器
+**开发规范**：新增业务逻辑时，必须放入对应的专属 Hook 中，严禁再次将 `ProjectProvider` 搞成巨无霸。
+
+### 十二、 Chrome Extension 的 TypeScript 与安全规约 (Extension Architecture) [v6.2]
+
+为了解决浏览器端扩展代码中 `targetType` 与 Web 后端 API 类型定义（Single Source of Truth）不同步的问题，我们已将 `viral-shorts-extension` 彻底迁移至 TypeScript 编译架构。
+
+#### 1. Type-only Import 魔法与零打包器
+我们没有使用沉重的 Webpack/Vite 来构建单文件的 Content Script。
+- 扩展源码位于 `web/viral-shorts-extension/src/content.ts`。
+- 代码中通过 `import type { TargetType } from '../../src/lib/types';` 进行纯类型引用。
+- 这样，TS 编译器会在编码阶段强制校验扩展中的 `targetType` 分支是否涵盖了后端的枚举字典，一旦后端新增资源类型而扩展没改，编译就会立刻报错。而在编译生成 `dist/content.js` 时，这个 `import` 语句会被自动擦除，保证了浏览器端原生的兼容性。
+
+#### 2. ESBuild 构建与产物隔离
+由于跨目录引用的行为会导致 `tsc` 生成深层嵌套文件夹，我们引入了 `esbuild` 作为高速构建管线：
+`tsc -p tsconfig.json && esbuild src/content.ts --bundle --outfile=dist/content.js`
+这保证了 `manifest.json` 能够简单干净地指向 `dist/content.js`。
+**开发者注意**：任何对扩展的修改都必须在 `src/content.ts` 中进行，修改后运行全项目的 `npm run build` 或专门的 `npm run build:ext` 即可自动编译生效。必须在 Chrome 中重新加载该扩展文件夹。

@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build:ext": "tsc -p viral-shorts-extension/tsconfig.json && esbuild viral-shorts-extension/src/content.ts --bundle --outfile=viral-shorts-extension/dist/content.js",
+    "build": "npm run build:ext && next build",
     "start": "next start",
     "lint": "eslint"
   },
@@ -26,9 +27,11 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/chrome": "^0.1.40",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "esbuild": "^0.28.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",

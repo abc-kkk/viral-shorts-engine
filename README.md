@@ -12,6 +12,7 @@
 > 1. `prompt-conventions.md`：极其严苛的 {@关键词} 系统规范与防伪命名铁律。
 > 2. `api-gateway-integration.md`：AI Gateway 集成规范（禁止直连 API、生图 Fire&Forget 机制、Playwright 中文输入避坑）。
 > 3. `architecture.md` 第八/九节：**提示词模板引擎**的三层架构与自动升级合并机制、**布局预设系统**的存储与 API 规范。
+> 4. `architecture.md` 第十一/十二节：**全局状态解耦规范**（拆分的业务 Hooks）与 **Chrome 扩展的 TypeScript 编译与类型共享约束**。
 > **绝对不要靠猜测去破坏已经跑通的核心寻图、存储机制和自动化流程！**
 
 <div align="center">
