@@ -1,9 +1,13 @@
 import fs from 'fs';
 import path from 'path';
-import { exec } from 'child_process';
+import { exec, execSync } from 'child_process';
+import { PrismaClient } from '@prisma/client';
+import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
+import Database from 'better-sqlite3';
+import { merge } from 'lodash';
 
 // ========================================
-// 工作空间路径
+// 工作空间路径 & Prisma 初始化
 // ========================================
 
 export function getWorkspacePath(): string {
@@ -12,150 +16,154 @@ export function getWorkspacePath(): string {
   return ws;
 }
 
-/**
- * 确保工作空间根目录存在
- */
 function ensureWorkspace(): void {
   const ws = getWorkspacePath();
-  if (!fs.existsSync(ws)) {
-    fs.mkdirSync(ws, { recursive: true });
-  }
+  if (!fs.existsSync(ws)) fs.mkdirSync(ws, { recursive: true });
 }
 
-/**
- * 获取项目根目录
- */
 export function getProjectDir(projectId: string): string {
   return path.join(getWorkspacePath(), projectId);
 }
 
-/**
- * 获取项目状态文件路径
- */
-function getProjectJsonPath(projectId: string): string {
-  return path.join(getProjectDir(projectId), 'project.json');
+let prisma: PrismaClient;
+
+export function getPrisma() {
+  if (!prisma) {
+    ensureWorkspace();
+    const dbPath = path.join(getWorkspacePath(), 'viral-shorts.db');
+    
+    // Ensure DB file exists and has tables
+    if (!fs.existsSync(dbPath) || fs.statSync(dbPath).size === 0) {
+      console.log('[DB] Initializing new SQLite database with schema...');
+      fs.writeFileSync(dbPath, ''); // Ensure the file is at least created before pushing
+      // Push schema to the newly created dynamic database
+      execSync(`npx prisma db push --accept-data-loss`, { 
+        env: { ...process.env, DATABASE_URL: `file:${dbPath}` },
+        stdio: 'inherit'
+      });
+    }
+
+    const adapter = new PrismaBetterSqlite3({ url: `file:${dbPath}` });
+    prisma = new PrismaClient({ adapter });
+  }
+  return prisma;
+}
+
+// ========================================
+// 自动热迁移 (project.json -> SQLite)
+// ========================================
+
+export async function migrateIfNeeded(projectId: string) {
+  const jsonPath = path.join(getProjectDir(projectId), 'project.json');
+  if (!fs.existsSync(jsonPath)) return; // No legacy JSON to migrate
+  
+  const p = getPrisma();
+  const existing = await p.project.findUnique({ where: { id: projectId } });
+  if (existing) return; // Already in SQLite
+  
+  console.log(`[DB Migration] Migrating legacy project.json to SQLite for project: ${projectId}`);
+  try {
+    const rawData = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+    // Do a full save to populate the relational tables
+    await saveState(rawData, projectId);
+    
+    // Rename old file as backup
+    fs.renameSync(jsonPath, path.join(getProjectDir(projectId), 'project.legacy.json.bak'));
+    console.log(`[DB Migration] Migration successful for ${projectId}`);
+  } catch (e) {
+    console.error(`[DB Migration] Failed to migrate ${projectId}:`, e);
+  }
 }
 
 // ========================================
 // 项目 CRUD
 // ========================================
 
-/**
- * 列出工作空间内所有项目（按更新时间倒序）
- */
-export function listProjects(): Array<{
-  projectId: string;
-  projectName: string;
-  createdAt: string;
-  updatedAt: string;
-  currentPhase: number;
-  coverUrl: string;
-}> {
+export async function listProjects() {
   ensureWorkspace();
   const ws = getWorkspacePath();
-
   const entries = fs.readdirSync(ws, { withFileTypes: true });
+  
+  const p = getPrisma();
   const projects = [];
 
   for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const jsonPath = path.join(ws, entry.name, 'project.json');
-    if (!fs.existsSync(jsonPath)) continue;
-
-    try {
-      const data = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-      
-      // 自动检测封面（取第一张定妆照）
+    if (!entry.isDirectory() || entry.name.startsWith('_')) continue;
+    
+    // Auto trigger migration if legacy json exists
+    await migrateIfNeeded(entry.name);
+    
+    const proj = await p.project.findUnique({ 
+      where: { id: entry.name },
+      include: { characters: true }
+    });
+    
+    if (proj) {
       let coverUrl = '';
-      if (data.characterImages) {
-        const firstKey = Object.keys(data.characterImages)[0];
-        if (firstKey !== undefined && data.characterImages[firstKey]) {
-          coverUrl = data.characterImages[firstKey];
-        }
+      if (proj.characters.length > 0 && proj.characters[0].imageUrl) {
+        coverUrl = proj.characters[0].imageUrl;
       }
-
+      
       projects.push({
-        projectId: entry.name,
-        projectName: data.projectName || entry.name,
-        createdAt: data.createdAt || '',
-        updatedAt: data.updatedAt || data.createdAt || '',
-        currentPhase: data.currentPhase || 1,
+        projectId: proj.id,
+        projectName: proj.projectName,
+        createdAt: proj.createdAt.toISOString(),
+        updatedAt: proj.updatedAt.toISOString(),
+        currentPhase: proj.currentPhase,
         coverUrl,
       });
-    } catch {
-      // 损坏的 project.json，跳过
     }
   }
 
-  // 按更新时间倒序
   projects.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
   return projects;
 }
 
-/**
- * 创建新项目（立项）
- */
-export function createProject(projectName: string): { projectId: string; projectDir: string } {
+export async function createProject(projectName: string) {
   ensureWorkspace();
-  const projectId = projectName; // 直接用中文名作文件夹名
+  const projectId = projectName; 
   const projectDir = getProjectDir(projectId);
 
   if (fs.existsSync(projectDir)) {
     throw new Error(`项目「${projectName}」已存在！`);
   }
 
-  // 创建项目目录结构
   const subDirs = ['scripts', 'images', 'videos', 'audio', 'exports'];
   for (const dir of subDirs) {
     fs.mkdirSync(path.join(projectDir, dir), { recursive: true });
   }
 
-  // 写入初始 project.json
-  const initialState = {
-    projectId,
-    projectName,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    currentPhase: 1,
-    artStyle: 'Pixar 3D animated movie, highly detailed, vibrant colors',
-    flowUrl: '',
-    theme: '',
-    characters: [],
-    scriptLines: [],
-    characterPrompts: {},
-    characterImages: {},
-    activeSceneIndex: 0,
-    sceneImagePrompts: {},
-    sceneVideoPrompts: {},
-    sceneStartImagePrompts: {},
-    sceneCharacters: {},
-    sceneDurations: {},
-    sceneImages: {},
-    sceneStartImages: {},
-    sceneVideos: {},
-    sceneAudio: {},
-    sceneAudioDelays: {},
-  };
+  const p = getPrisma();
+  await p.project.create({
+    data: {
+      id: projectId,
+      projectName,
+      currentPhase: 1,
+      artStyle: 'Pixar 3D animated movie, highly detailed, vibrant colors',
+    }
+  });
 
-  fs.writeFileSync(getProjectJsonPath(projectId), JSON.stringify(initialState, null, 2), 'utf-8');
-  console.log(`[DB] Created project: ${projectDir}`);
-
+  console.log(`[DB] Created project in SQLite: ${projectId}`);
   return { projectId, projectDir };
 }
 
-/**
- * 删除项目（移到 macOS 回收站）
- */
-export function deleteProject(projectId: string): Promise<boolean> {
+export async function deleteProject(projectId: string): Promise<boolean> {
   const projectDir = getProjectDir(projectId);
-  if (!fs.existsSync(projectDir)) return Promise.resolve(false);
+  const p = getPrisma();
+  
+  try {
+    await p.project.delete({ where: { id: projectId } });
+  } catch (e) {
+    // Ignore if not in DB
+  }
+
+  if (!fs.existsSync(projectDir)) return true;
 
   return new Promise((resolve) => {
-    // macOS: 使用 osascript 将文件夹移到废纸篓
     const script = `osascript -e 'tell application "Finder" to delete POSIX file "${projectDir}"'`;
     exec(script, (err) => {
       if (err) {
-        console.error(`[DB] Failed to trash project: ${err.message}`);
+        console.error(`[DB] Failed to trash project folder: ${err.message}`);
         resolve(false);
       } else {
         console.log(`[DB] Project moved to Trash: ${projectDir}`);
@@ -165,64 +173,231 @@ export function deleteProject(projectId: string): Promise<boolean> {
   });
 }
 
-/**
- * 重命名项目（重命名文件夹 + 更新 project.json）
- */
-export function renameProject(oldId: string, newName: string): string {
+export async function renameProject(oldId: string, newName: string): Promise<string> {
   const oldDir = getProjectDir(oldId);
   if (!fs.existsSync(oldDir)) throw new Error(`项目「${oldId}」不存在`);
 
   const newId = newName;
   const newDir = getProjectDir(newId);
-  if (oldId === newId) return newId; // 没变
+  if (oldId === newId) return newId; 
   if (fs.existsSync(newDir)) throw new Error(`项目「${newName}」已存在`);
 
-  // 重命名文件夹
   fs.renameSync(oldDir, newDir);
 
-  // 更新 project.json
-  const jsonPath = path.join(newDir, 'project.json');
-  if (fs.existsSync(jsonPath)) {
-    const data = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-    data.projectId = newId;
-    data.projectName = newName;
-    data.updatedAt = new Date().toISOString();
-    fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2), 'utf-8');
-  }
+  const p = getPrisma();
+  await p.project.update({
+    where: { id: oldId },
+    data: { id: newId, projectName: newName }
+  });
 
-  console.log(`[DB] Renamed project: ${oldId} → ${newId}`);
   return newId;
 }
 
 // ========================================
-// 项目状态读写
+// 项目状态读写 (Relational Mapping)
 // ========================================
 
-export function loadState(projectId: string) {
-  try {
-    const jsonPath = getProjectJsonPath(projectId);
-    if (!fs.existsSync(jsonPath)) return null;
-    return JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-  } catch (err: any) {
-    console.error(`[DB] Failed to load state for '${projectId}':`, err);
-    return null;
-  }
+export async function loadState(projectId: string) {
+  const p = getPrisma();
+  const proj = await p.project.findUnique({
+    where: { id: projectId },
+    include: { characters: { orderBy: { name: 'asc' } }, scenes: { orderBy: { sceneIndex: 'asc' } }, covers: true }
+  });
+
+  if (!proj) return null;
+
+  // Reconstruct giant JSON for frontend compatibility
+  const state: any = {
+    projectId: proj.id,
+    projectName: proj.projectName,
+    currentPhase: proj.currentPhase,
+    artStyle: proj.artStyle,
+    flowUrl: proj.flowUrl,
+    theme: proj.theme,
+    aiProvider: proj.aiProvider,
+    useHitlMode: proj.useHitlMode,
+    writerStep: proj.writerStep,
+    creativeMode: proj.creativeMode,
+    rawScript: proj.rawScript,
+    scriptIteration: proj.scriptIteration,
+    userDirection: proj.userDirection,
+    publishInfo: proj.publishInfo ? JSON.parse(proj.publishInfo) : undefined,
+    inspirations: proj.inspirations ? JSON.parse(proj.inspirations) : [],
+    scriptReview: proj.scriptReview ? JSON.parse(proj.scriptReview) : undefined,
+    locationPrompt: proj.locationPrompt,
+    locationImage: proj.locationImage,
+    activeSceneIndex: proj.activeSceneIndex,
+    characters: [],
+    characterPrompts: {},
+    characterImages: {},
+    scriptLines: [],
+    sceneLocationPrompts: {}, sceneLocationImages: {},
+    sceneImagePrompts: {}, sceneVideoPrompts: {}, sceneStartImagePrompts: {}, sceneCharacters: {},
+    sceneDurations: {}, sceneVideoTrimStart: {}, sceneVideoTrimEnd: {}, sceneImages: {}, sceneStartImages: {}, sceneImageRefs: {}, sceneVideos: {}, sceneAudio: {}, sceneAudioDelays: {},
+    coverPrompts: {}, coverImages: {}
+  };
+
+  proj.characters.forEach((c, i) => {
+    state.characters.push({ name: c.name, persona: c.persona, voiceName: c.voiceName });
+    if (c.prompt) state.characterPrompts[i] = c.prompt;
+    if (c.imageUrl) state.characterImages[i] = c.imageUrl;
+  });
+
+  proj.scenes.forEach(s => {
+    const idx = s.sceneIndex;
+    state.scriptLines[idx] = { speaker: s.speaker, dialogue: s.dialogue, actionHint: s.actionHint };
+    if (s.locationPrompt) state.sceneLocationPrompts[idx] = s.locationPrompt;
+    if (s.locationImage) state.sceneLocationImages[idx] = s.locationImage;
+    if (s.imagePrompt) state.sceneImagePrompts[idx] = s.imagePrompt;
+    if (s.videoPrompt) state.sceneVideoPrompts[idx] = s.videoPrompt;
+    if (s.startImagePrompt) state.sceneStartImagePrompts[idx] = s.startImagePrompt;
+    if (s.charactersInScene) state.sceneCharacters[idx] = JSON.parse(s.charactersInScene);
+    if (s.duration !== null) state.sceneDurations[idx] = s.duration;
+    if (s.videoTrimStart !== null) state.sceneVideoTrimStart[idx] = s.videoTrimStart;
+    if (s.videoTrimEnd !== null) state.sceneVideoTrimEnd[idx] = s.videoTrimEnd;
+    if (s.imageAsset) state.sceneImages[idx] = s.imageAsset;
+    if (s.startImageAsset) state.sceneStartImages[idx] = s.startImageAsset;
+    if (s.videoAsset) state.sceneVideos[idx] = s.videoAsset;
+    if (s.audioAsset) state.sceneAudio[idx] = s.audioAsset;
+    if (s.audioDelay !== null) state.sceneAudioDelays[idx] = s.audioDelay;
+  });
+
+  proj.covers.forEach(c => {
+    if (c.prompt) state.coverPrompts[c.ratio] = c.prompt;
+    if (c.imageUrl) state.coverImages[c.ratio] = c.imageUrl;
+  });
+
+  return state;
 }
 
-export function saveState(state: any, projectId: string) {
-  try {
-    const projectDir = getProjectDir(projectId);
-    if (!fs.existsSync(projectDir)) {
-      throw new Error(`项目目录不存在: ${projectDir}`);
-    }
-    state.projectId = projectId;
-    state.updatedAt = new Date().toISOString();
-    fs.writeFileSync(getProjectJsonPath(projectId), JSON.stringify(state, null, 2), 'utf-8');
-    return true;
-  } catch (err: any) {
-    console.error(`[DB] Failed to save state for '${projectId}':`, err);
-    return false;
+export async function saveState(patch: any, projectId: string) {
+  const p = getPrisma();
+  
+  // Create if not exists (for initial migration)
+  const existing = await p.project.findUnique({ where: { id: projectId } });
+  if (!existing) {
+    await p.project.create({ data: { id: projectId, projectName: patch.projectName || projectId } });
   }
+
+  // To properly handle partial PATCH updates that come as nested objects (e.g. { sceneImages: { "0": "url" } }),
+  // we first load the existing full state, deep merge the patch, and then map back to relational models.
+  // This is the easiest and safest way to handle arbitrary partial updates without a complex schema translator.
+  
+  const currentFullState = (await loadState(projectId)) || { characters: [], scriptLines: [] };
+  const mergedState = merge({}, currentFullState, patch);
+
+  // Update Project table
+  const projectData: any = {};
+  for (const field of ['theme', 'flowUrl', 'artStyle', 'aiProvider', 'currentPhase', 'writerStep', 'creativeMode', 'rawScript', 'scriptIteration', 'userDirection', 'locationPrompt', 'locationImage', 'activeSceneIndex']) {
+    if (mergedState[field] !== undefined) projectData[field] = mergedState[field];
+  }
+  if (mergedState.publishInfo !== undefined) projectData.publishInfo = JSON.stringify(mergedState.publishInfo);
+  if (mergedState.inspirations !== undefined) projectData.inspirations = JSON.stringify(mergedState.inspirations);
+  if (mergedState.scriptReview !== undefined) projectData.scriptReview = JSON.stringify(mergedState.scriptReview);
+
+  // Use a transaction for atomic relational updates
+  await p.$transaction(async (tx) => {
+    if (Object.keys(projectData).length > 0) {
+      await tx.project.update({ where: { id: projectId }, data: projectData });
+    }
+
+    // Characters
+    if (mergedState.characters && Array.isArray(mergedState.characters)) {
+      for (let i = 0; i < mergedState.characters.length; i++) {
+        const char = mergedState.characters[i];
+        if (!char || !char.name) continue;
+        await tx.character.upsert({
+          where: { projectId_name: { projectId, name: char.name } },
+          create: {
+            projectId,
+            name: char.name,
+            persona: char.persona,
+            voiceName: char.voiceName,
+            prompt: mergedState.characterPrompts?.[i],
+            imageUrl: mergedState.characterImages?.[i],
+          },
+          update: {
+            persona: char.persona,
+            voiceName: char.voiceName,
+            prompt: mergedState.characterPrompts?.[i],
+            imageUrl: mergedState.characterImages?.[i],
+          }
+        });
+      }
+    }
+
+    // Scenes
+    if (mergedState.scriptLines && Array.isArray(mergedState.scriptLines)) {
+      for (let idx = 0; idx < mergedState.scriptLines.length; idx++) {
+        const line = mergedState.scriptLines[idx];
+        if (!line) continue;
+        
+        await tx.scene.upsert({
+          where: { projectId_sceneIndex: { projectId, sceneIndex: idx } },
+          create: {
+            projectId,
+            sceneIndex: idx,
+            speaker: line.speaker,
+            dialogue: line.dialogue,
+            actionHint: line.actionHint,
+            locationPrompt: mergedState.sceneLocationPrompts?.[idx],
+            locationImage: mergedState.sceneLocationImages?.[idx],
+            imagePrompt: mergedState.sceneImagePrompts?.[idx],
+            videoPrompt: mergedState.sceneVideoPrompts?.[idx],
+            startImagePrompt: mergedState.sceneStartImagePrompts?.[idx],
+            charactersInScene: mergedState.sceneCharacters?.[idx] ? JSON.stringify(mergedState.sceneCharacters[idx]) : null,
+            duration: mergedState.sceneDurations?.[idx],
+            videoTrimStart: mergedState.sceneVideoTrimStart?.[idx],
+            videoTrimEnd: mergedState.sceneVideoTrimEnd?.[idx],
+            imageAsset: mergedState.sceneImages?.[idx],
+            startImageAsset: mergedState.sceneStartImages?.[idx],
+            videoAsset: mergedState.sceneVideos?.[idx],
+            audioAsset: mergedState.sceneAudio?.[idx],
+            audioDelay: mergedState.sceneAudioDelays?.[idx],
+          },
+          update: {
+            speaker: line.speaker,
+            dialogue: line.dialogue,
+            actionHint: line.actionHint,
+            locationPrompt: mergedState.sceneLocationPrompts?.[idx],
+            locationImage: mergedState.sceneLocationImages?.[idx],
+            imagePrompt: mergedState.sceneImagePrompts?.[idx],
+            videoPrompt: mergedState.sceneVideoPrompts?.[idx],
+            startImagePrompt: mergedState.sceneStartImagePrompts?.[idx],
+            charactersInScene: mergedState.sceneCharacters?.[idx] ? JSON.stringify(mergedState.sceneCharacters[idx]) : null,
+            duration: mergedState.sceneDurations?.[idx],
+            videoTrimStart: mergedState.sceneVideoTrimStart?.[idx],
+            videoTrimEnd: mergedState.sceneVideoTrimEnd?.[idx],
+            imageAsset: mergedState.sceneImages?.[idx],
+            startImageAsset: mergedState.sceneStartImages?.[idx],
+            videoAsset: mergedState.sceneVideos?.[idx],
+            audioAsset: mergedState.sceneAudio?.[idx],
+            audioDelay: mergedState.sceneAudioDelays?.[idx],
+          }
+        });
+      }
+    }
+
+    // Covers
+    if (mergedState.coverPrompts) {
+      for (const ratio of Object.keys(mergedState.coverPrompts)) {
+        await tx.cover.upsert({
+          where: { projectId_ratio: { projectId, ratio } },
+          create: {
+            projectId, ratio,
+            prompt: mergedState.coverPrompts[ratio],
+            imageUrl: mergedState.coverImages?.[ratio]
+          },
+          update: {
+            prompt: mergedState.coverPrompts[ratio],
+            imageUrl: mergedState.coverImages?.[ratio]
+          }
+        });
+      }
+    }
+  });
+
+  return true;
 }
 
 // ========================================
@@ -231,20 +406,12 @@ export function saveState(state: any, projectId: string) {
 
 export type AssetType = 'images' | 'videos' | 'audio' | 'exports' | 'scripts' | 'covers';
 
-/**
- * 获取项目某类资源的磁盘绝对路径
- */
 export function getAssetDir(projectId: string, type: AssetType): string {
   const dir = path.join(getProjectDir(projectId), type);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
 
-/**
- * 获取资源的 HTTP URL（通过 /api/serve/ 代理）
- */
 export function getAssetUrl(projectId: string, type: AssetType, filename: string): string {
   return `/api/serve/${encodeURIComponent(projectId)}/${type}/${encodeURIComponent(filename)}`;
 }

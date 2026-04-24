@@ -12,7 +12,7 @@ const AI_GATEWAY_URL = process.env.AI_GATEWAY_URL || 'http://localhost:4100';
 
 export async function POST(req: Request) {
   try {
-    const { prompt, model, referenceKeyword, referenceKeywords, startImageUrl, flowUrl, projectId, fireAndForget, veoMode } = await req.json();
+    const { prompt, model, referenceKeyword, referenceKeywords, startImageUrl, flowUrl, projectId, fireAndForget, veoMode, targetType: reqTargetType, index: reqIndex, meta: reqMeta } = await req.json();
 
     if (!prompt) return NextResponse.json({ error: 'Missing prompt' }, { status: 400 });
     if (!projectId) return NextResponse.json({ error: 'Missing projectId' }, { status: 400 });
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     const gatewayRes = await fetch(`${AI_GATEWAY_URL}/api/media/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, model: targetModel, referenceKeywords: keywords, flowUrl, fireAndForget, veoMode }),
+      body: JSON.stringify({ prompt, model: targetModel, referenceKeywords: keywords, flowUrl, fireAndForget, veoMode, passthroughMeta: { targetType: reqTargetType, index: reqIndex, meta: reqMeta } }),
     });
     
     if (!gatewayRes.ok) {
@@ -64,23 +64,15 @@ export async function POST(req: Request) {
     try {
         const mediaType = targetModel === 'Veo 3.1' ? 'video' : 'image';
         
-        // 从 active-context 读取 targetType，使用统一函数确定存储目录和文件名
-        let targetType: TargetType = mediaType === 'video' ? 'sceneVideo' : 'sceneImage';
-        let ctxIndex: number | undefined;
-        let ctxMeta: Record<string, any> | undefined;
+        let targetType: TargetType = reqTargetType || (mediaType === 'video' ? 'sceneVideo' : 'sceneImage');
+        let ctxIndex: number | undefined = reqIndex;
+        let ctxMeta: Record<string, any> | undefined = reqMeta;
         
-        try {
-            const cp = path.join(process.cwd(), 'tmp', 'active-context.json');
-            if (fs.existsSync(cp)) {
-                const context = JSON.parse(fs.readFileSync(cp, 'utf-8'));
-                if (context.projectId === projectId) {
-                    targetType = context.targetType as TargetType;
-                    ctxIndex = context.index;
-                    ctxMeta = context.meta;
-                }
-            }
-        } catch (e) {
-            console.warn("[Asset Gen] Could not parse active-context for filename. Using fallback.");
+        // Use passthroughMeta if returned by gateway (extra safety)
+        if (result.passthroughMeta) {
+            if (result.passthroughMeta.targetType) targetType = result.passthroughMeta.targetType;
+            if (result.passthroughMeta.index !== undefined) ctxIndex = result.passthroughMeta.index;
+            if (result.passthroughMeta.meta !== undefined) ctxMeta = result.passthroughMeta.meta;
         }
         
         const assetType = getAssetTypeForTarget(targetType, mediaType);

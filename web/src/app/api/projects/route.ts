@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET() {
   try {
-    const projects = listProjects();
+    const projects = await listProjects();
     return NextResponse.json({ success: true, projects });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: '项目名称不能为空' }, { status: 400 });
     }
 
-    const result = createProject(projectName.trim());
+    const result = await createProject(projectName.trim());
     return NextResponse.json({ success: true, ...result });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

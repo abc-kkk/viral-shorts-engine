@@ -122,7 +122,9 @@ export function useProjectState(projectId: string) {
     });
   }, [projectId]);
 
-  // 自动保存 (debounce 1s)
+  // 自动保存 (debounce 1s) - 发送 diff
+  const prevStateRef = useRef<any>(null);
+
   useEffect(() => {
     if (!stateLoaded.current) return;
     const data = {
@@ -136,12 +138,28 @@ export function useProjectState(projectId: string) {
       coverPrompts, coverImages
     };
 
-    const timeout = setTimeout(() => {
-      fetch(`/api/state?projectId=${encodeURIComponent(projectId)}`, { method: 'POST', body: JSON.stringify(data) })
-        .catch(e => console.error("Save state error:", e));
-    }, 1000);
+    if (!prevStateRef.current) {
+      prevStateRef.current = data;
+      return;
+    }
 
-    return () => clearTimeout(timeout);
+    const diff: any = {};
+    let hasChanges = false;
+    for (const key of Object.keys(data)) {
+      if (JSON.stringify((data as any)[key]) !== JSON.stringify((prevStateRef.current as any)[key])) {
+        diff[key] = (data as any)[key];
+        hasChanges = true;
+      }
+    }
+
+    if (hasChanges) {
+      const timeout = setTimeout(() => {
+        fetch(`/api/state?projectId=${encodeURIComponent(projectId)}`, { method: 'PATCH', body: JSON.stringify(diff) })
+          .catch(e => console.error("Save state error:", e));
+        prevStateRef.current = data;
+      }, 1000);
+      return () => clearTimeout(timeout);
+    }
   }, [projectId, theme, flowUrl, artStyle, aiProvider, characters, scriptLines, currentPhase,
     publishInfo, coverPrompts, coverImages,
     writerStep, inspirations, creativeMode, rawScript, scriptReview, scriptIteration, userDirection,

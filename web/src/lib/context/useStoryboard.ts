@@ -114,7 +114,7 @@ export function useStoryboard(state: any, getFullScriptContext: () => string) {
       const refKeywords = getRefKeywords(i, prompt);
 
       await fetch('/api/extension/active-context', { method: 'POST', body: JSON.stringify({ projectId, targetType: 'sceneImage', index: i }) });
-      const data = await fetchApi('/api/generate-assets', { prompt, model: 'Nano Banana Pro', referenceKeywords: refKeywords, flowUrl, projectId, fireAndForget: useHitlMode });
+      const data = await fetchApi('/api/generate-assets', { prompt, model: 'Nano Banana Pro', referenceKeywords: refKeywords, flowUrl, projectId, fireAndForget: useHitlMode, targetType: 'sceneImage', index: i });
       
       if (!data.fireAndForget) {
          setSceneImages((p: any) => ({ ...p, [i]: data.url }));
@@ -134,7 +134,7 @@ export function useStoryboard(state: any, getFullScriptContext: () => string) {
       const refKeywords = getRefKeywords(i, prompt);
 
       await fetch('/api/extension/active-context', { method: 'POST', body: JSON.stringify({ projectId, targetType: 'sceneStartImage', index: i }) });
-      const data = await fetchApi('/api/generate-assets', { prompt, model: 'Nano Banana Pro', referenceKeywords: refKeywords, flowUrl, projectId, fireAndForget: useHitlMode });
+      const data = await fetchApi('/api/generate-assets', { prompt, model: 'Nano Banana Pro', referenceKeywords: refKeywords, flowUrl, projectId, fireAndForget: useHitlMode, targetType: 'sceneStartImage', index: i });
       
       if (!data.fireAndForget) {
          setSceneStartImages((p: any) => ({ ...p, [i]: data.url }));
@@ -170,7 +170,7 @@ export function useStoryboard(state: any, getFullScriptContext: () => string) {
       const endRef = sceneImageRefs[i] || getRefKeywords(i, sceneImagePrompts[i] || '')[0] || '场景';
 
       await fetch('/api/extension/active-context', { method: 'POST', body: JSON.stringify({ projectId, targetType: 'sceneVideo', index: i }) });
-      const data = await fetchApi('/api/generate-assets', { prompt, model: 'Veo 3.1', referenceKeywords: [startRef, endRef], flowUrl, projectId, fireAndForget: useHitlMode, veoMode: 'frame' });
+      const data = await fetchApi('/api/generate-assets', { prompt, model: 'Veo 3.1', referenceKeywords: [startRef, endRef], flowUrl, projectId, fireAndForget: useHitlMode, veoMode: 'frame', targetType: 'sceneVideo', index: i });
       
       if (!data.fireAndForget) {
           setSceneVideos((p: any) => ({ ...p, [i]: data.url }));
@@ -235,7 +235,7 @@ export function useStoryboard(state: any, getFullScriptContext: () => string) {
           .map((c: Character) => c.name);
 
       await fetch('/api/extension/active-context', { method: 'POST', body: JSON.stringify({ projectId, targetType: 'coverImage', meta: { ratio } }) });
-      const data = await fetchApi('/api/generate-assets', { prompt, model: 'Nano Banana Pro', referenceKeywords: refKeywords, flowUrl, projectId, fireAndForget: useHitlMode });
+      const data = await fetchApi('/api/generate-assets', { prompt, model: 'Nano Banana Pro', referenceKeywords: refKeywords, flowUrl, projectId, fireAndForget: useHitlMode, targetType: 'coverImage', meta: { ratio } });
       
       if (data.url && !useHitlMode) {
          setCoverImages((p: any) => ({ ...p, [ratio]: data.url }));

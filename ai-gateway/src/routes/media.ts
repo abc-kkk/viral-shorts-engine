@@ -22,7 +22,7 @@ export const mediaRouter = Router();
  */
 mediaRouter.post('/generate', async (req, res) => {
   try {
-    const { prompt, model, referenceKeywords, flowUrl, fireAndForget, veoMode } = req.body;
+    const { prompt, model, referenceKeywords, flowUrl, fireAndForget, veoMode, passthroughMeta } = req.body;
 
     if (!prompt) {
       res.status(400).json({ error: 'Missing prompt' });
@@ -37,7 +37,7 @@ mediaRouter.post('/generate', async (req, res) => {
     console.log(`\n[Media Route] Received request. Model: ${targetModel}, Prompt: "${prompt.substring(0, 60)}..."`);
 
     const result = await enqueue(() =>
-      generateAdvancedAsset(prompt, targetModel, referenceKeywords, flowUrl, fireAndForget, veoMode)
+      generateAdvancedAsset(prompt, targetModel, referenceKeywords, flowUrl, fireAndForget, veoMode, passthroughMeta)
     );
 
     res.json(result);

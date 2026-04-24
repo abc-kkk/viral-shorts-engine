@@ -49,7 +49,8 @@ export function useCastingRoom(state: any, getFullScriptContext: () => string) {
         referenceKeywords: referenceKeywords || [],
         flowUrl, 
         projectId, 
-        fireAndForget: useHitlMode 
+        fireAndForget: useHitlMode,
+        targetType: 'locationImage'
       });
       if (!data.fireAndForget) {
          setLocationImage(data.url);
@@ -91,7 +92,9 @@ export function useCastingRoom(state: any, getFullScriptContext: () => string) {
         referenceKeywords: referenceKeywords || [],
         flowUrl, 
         projectId, 
-        fireAndForget: useHitlMode 
+        fireAndForget: useHitlMode,
+        targetType: 'sceneLocationImage',
+        index: sceneIndex
       });
       if (!data.fireAndForget) {
          setSceneLocationImages((p: any) => ({ ...p, [sceneIndex]: data.url }));
@@ -129,7 +132,7 @@ export function useCastingRoom(state: any, getFullScriptContext: () => string) {
     setProcessingChars((p: any) => ({ ...p, [index]: 'image' }));
     try {
       await fetch('/api/extension/active-context', { method: 'POST', body: JSON.stringify({ projectId, targetType: 'characterImage', index, meta: { charName: characters[index].name } }) });
-      const data = await fetchApi('/api/generate-assets', { prompt: characterPrompts[index], model: 'Nano Banana Pro', flowUrl, projectId, fireAndForget: useHitlMode });
+      const data = await fetchApi('/api/generate-assets', { prompt: characterPrompts[index], model: 'Nano Banana Pro', flowUrl, projectId, fireAndForget: useHitlMode, targetType: 'characterImage', index, meta: { charName: characters[index].name } });
       if (!data.fireAndForget) {
          setCharacterImages((prev: any) => ({ ...prev, [index]: data.url }));
       }

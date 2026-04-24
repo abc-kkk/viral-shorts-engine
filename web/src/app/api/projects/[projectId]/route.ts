@@ -41,7 +41,7 @@ export async function PATCH(
       return NextResponse.json({ error: '新名称不能为空' }, { status: 400 });
     }
 
-    const newProjectId = renameProject(decoded, newName.trim());
+    const newProjectId = await renameProject(decoded, newName.trim());
     return NextResponse.json({ success: true, newProjectId });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

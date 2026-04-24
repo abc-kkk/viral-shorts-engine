@@ -323,8 +323,16 @@ export default function StoryboardPanel() {
                        </div>
                    </div>
 
-                   {/* LOCK SCENE */}
-                   <div className="pt-4 mt-2">
+                   {/* NAVIGATION */}
+                   <div className="pt-4 mt-2 flex gap-4">
+                       {activeSceneIndex > 0 && (
+                           <button 
+                                onClick={() => setActiveSceneIndex(i => i - 1)}
+                                className="w-1/3 py-4 text-white font-bold rounded-xl shadow-lg flex justify-center items-center gap-2 transition-all bg-neutral-800 hover:bg-neutral-700 border border-neutral-600"
+                           >
+                                ⬅️ 返回上一幕
+                           </button>
+                       )}
                        <button 
                             onClick={() => {
                                 if(activeSceneIndex === scriptLines.length - 1) {
@@ -334,10 +342,10 @@ export default function StoryboardPanel() {
                                 }
                             }}
                             disabled={!sceneVideos[activeSceneIndex] && scriptLines[activeSceneIndex]?.speaker !== '字卡'}
-                            className="w-full py-4 text-white font-bold rounded-xl shadow-lg flex justify-center items-center gap-2 transition-all disabled:bg-neutral-800 disabled:text-neutral-500 bg-emerald-600 hover:bg-emerald-500 border border-emerald-400"
+                            className="flex-1 py-4 text-white font-bold rounded-xl shadow-lg flex justify-center items-center gap-2 transition-all disabled:bg-neutral-800 disabled:text-neutral-500 bg-emerald-600 hover:bg-emerald-500 border border-emerald-400"
                        >
                             <CheckCircle2 className="w-5 h-5"/> 
-                            {activeSceneIndex === scriptLines.length - 1 ? "所有分镜通过，进入组装室" : "本幕锁定，前往下一幕"}
+                            {activeSceneIndex === scriptLines.length - 1 ? "所有分镜通过，进入组装室" : "本幕完成，前往下一幕"}
                        </button>
                    </div>
                </div>

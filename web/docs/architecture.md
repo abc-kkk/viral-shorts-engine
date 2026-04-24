@@ -342,3 +342,23 @@ Scene Lab 编辑器通过 URL 参数控制行为：
 `tsc -p tsconfig.json && esbuild src/content.ts --bundle --outfile=dist/content.js`
 这保证了 `manifest.json` 能够简单干净地指向 `dist/content.js`。
 **开发者注意**：任何对扩展的修改都必须在 `src/content.ts` 中进行，修改后运行全项目的 `npm run build` 或专门的 `npm run build:ext` 即可自动编译生效。必须在 Chrome 中重新加载该扩展文件夹。
+
+### 十三、 API 网关的透传机制 (Pass-through Meta Architecture) [v6.3]
+
+为了解决高并发下读取 `tmp/active-context.json` 临时文件导致的严重竞争态 Bug，我们重构了 Next.js API 与 `ai-gateway` 之间的通讯链路：
+- **废除临时文件猜取**：`generate-assets/route.ts` 不再从本地文件系统猜测当前的任务，而是直接由前端 Hooks 明确传入 `targetType`, `index`, `meta` 等完整上下文。
+- **透明网关传递 (passthroughMeta)**：在调用 `ai-gateway` 生图接口时，这些上下文被打包为 `passthroughMeta` 交给网关。网关内部不关心这些业务逻辑，但在完成 Playwright 流程（成功、失败、或后台 FireAndForget 挂起）返回响应时，会将 `passthroughMeta` 原样弹回。
+- 这项重构让后端生图彻底无状态化，极大提升了多任务并发生图时的落盘稳定性。*(注：Chrome 扩展依然会读取 `active-context` 以实现人工抽卡时的快速防伪名填充，但这已与后端核心落盘逻辑完全解耦。)*
+
+### 十四、 Prisma + SQLite 动态本地数据库与增量同步机制 [v6.4]
+
+为了彻底解决长久以来基于 `project.json` 全量写入引发的数据损坏（文件系统读写竞争）问题，我们在架构中全面引入了 Prisma 7 与 SQLite，并将存储策略改为了“本地零负担关系型模型”。
+
+#### 1. 动态绑定的外部 SQLite 存储
+- 数据库文件并没有随代码提交在仓库中。我们使用了 Prisma 7 的 `@prisma/adapter-better-sqlite3` 动态适配器，在运行时将 SQLite 数据库文件 (`viral-shorts.db`) 生成在 `WORKSPACE_PATH` （即用户的“短剧项目”外部文件夹）中。
+- 这样实现了**代码与资产的绝对隔离**。用户只要备份工作空间文件夹，就能同时备份图片、视频、和**涵盖所有项目剧本的整库数据**。
+- `package.json` 中的 `postinstall` 钩子会在其他用户拉取项目执行 `npm install` 时，自动运行 `npx prisma db push --accept-data-loss`，为新用户自动完成初始化建库，无需配置外部云数据库。
+
+#### 2. “补丁 (PATCH) 式”并发写策略与热迁移
+- **精准差异更新 (Deep Diff)**：前端 `useProjectState.ts` 不再粗暴地每秒向服务器发送包含几十个变量的完整庞大状态。现在它通过对比 `useRef` 缓存，计算出真正改变了的字段 (Diff)。API 端改为 `PATCH /api/state` 接收增量对象，并在 Node.js 内存中利用 `lodash/merge` 与旧状态深度合并，最后通过 Prisma 的单一事务写入多张关系表 (`Project`, `Character`, `Scene`) 中。这就实现了并发修改互相不干扰（例如同时修改第一幕台词与推送第二幕的配图）。
+- **无感热迁移 (Hot Migration)**：为了兼容旧项目，当后端 `db.ts` 扫描工作空间发现旧版 `project.json` 但在数据库中无此记录时，它会**全自动解析并倒库入表**，将老 JSON 改名为 `.bak` 备份，实现历史数据的透明升级。

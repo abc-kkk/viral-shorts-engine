@@ -13,7 +13,7 @@ export async function POST(req: Request) {
         const projectId = searchParams.get('projectId');
         if (!projectId) return NextResponse.json({ error: '缺少 projectId' }, { status: 400 });
         
-        const state = loadState(projectId);
+        const state = await loadState(projectId);
         if (!state || !state.scriptLines) throw new Error("No script lines found in state.");
 
         const projectDir = getProjectDir(projectId);

@@ -55,17 +55,18 @@ export async function generateAdvancedAsset(
   referenceKeywords?: string[],
   flowUrl?: string,
   fireAndForget?: boolean,
-  veoMode?: 'frame' | 'broll'
-): Promise<{ success: boolean; url: string; error?: string; fireAndForget?: boolean }> {
+  veoMode?: 'frame' | 'broll',
+  passthroughMeta?: any
+): Promise<{ success: boolean; url: string; error?: string; fireAndForget?: boolean; passthroughMeta?: any }> {
   // Use the port you exposed via chrome://inspect/#remote-debugging
   const CDP_URL = process.env.CHROME_CDP_URL;
   const FLOW_URL = flowUrl; // 必须由调用方传入，因为每个项目的 Flow 地址不同
 
   if (!CDP_URL) {
-     return { success: false, url: '', error: "Missing CHROME_CDP_URL in ai-gateway env." };
+     return { success: false, url: '', error: "Missing CHROME_CDP_URL in ai-gateway env.", passthroughMeta };
   }
   if (!FLOW_URL) {
-     return { success: false, url: '', error: "Missing flowUrl parameter. Each project must provide its own Flow project URL." };
+     return { success: false, url: '', error: "Missing flowUrl parameter. Each project must provide its own Flow project URL.", passthroughMeta };
   }
 
   console.log(`[Flow Automator] Connecting to Chrome CDP at ${CDP_URL}...`);
@@ -319,7 +320,7 @@ export async function generateAdvancedAsset(
         if (fireAndForget) {
             console.log(`[Flow Automator] Fire and forget mode enabled. Asset generation triggered successfully. Returning control to human.`);
             await browser.close();
-            return { success: true, url: '', fireAndForget: true };
+            return { success: true, url: '', fireAndForget: true, passthroughMeta };
         }
 
         let resultUrl = '';
@@ -404,10 +405,10 @@ export async function generateAdvancedAsset(
 
     await browser.close(); 
     
-    return { success: true, url: finalResultUrl };
+    return { success: true, url: finalResultUrl, passthroughMeta };
     
   } catch (error: any) {
     console.error(`[Flow Automator] Error: ${error.message}`);
-    return { success: false, url: '', error: error.message };
+    return { success: false, url: '', error: error.message, passthroughMeta };
   }
 }
