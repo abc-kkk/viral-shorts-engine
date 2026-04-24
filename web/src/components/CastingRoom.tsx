@@ -71,23 +71,18 @@ export default function CastingRoom() {
   };
 
   return (
-    <div className="col-span-3 flex flex-col gap-4">
-        <div className="flex justify-between items-center mb-2">
-            <h3 className="text-xl font-bold text-neutral-300 flex items-center gap-2">
-                <Users className="text-blue-400 w-5 h-5" /> 角色精修定妆室
-            </h3>
-            {currentPhase === 3 && (
-                <button 
-                    onClick={() => setCurrentPhase(2)}
-                    className="text-xs bg-blue-900/40 hover:bg-blue-600/60 text-blue-300 px-3 py-1.5 rounded-md border border-blue-800/50 transition-colors flex items-center gap-1"
-                >
-                    <RotateCcw className="w-3 h-3"/> 解锁重新定妆
-                </button>
-            )}
+    <div className="flex flex-col gap-8 w-full max-w-[1800px] mx-auto animate-in slide-in-from-right-8 duration-500 pb-20">
+        <div className="flex justify-between items-end">
+            <div>
+                <h2 className="text-3xl font-extrabold text-white mb-2 flex items-center gap-3">
+                    <Users className="text-blue-400 w-8 h-8" /> 角色精修定妆室
+                </h2>
+                <p className="text-neutral-400">完善全局场景参考图，并为每一个出场角色设定统一的形象与声线。</p>
+            </div>
         </div>
 
         {/* ======== 场景定妆区 ======== */}
-        <div className={`transition-all ${currentPhase === 2 ? '' : 'opacity-60 pointer-events-none'}`}>
+        <div className="w-full xl:w-2/3">
             <LocationPanel
                 title="全局场景 (Location)"
                 description="所有分镜的固定背景参考"
@@ -104,8 +99,9 @@ export default function CastingRoom() {
         </div>
 
         {/* ======== 角色定妆区 ======== */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 w-full">
         {characters.map((char, i) => (
-            <div key={i} className={`p-4 rounded-xl border transition-all flex flex-col gap-3 ${currentPhase === 2 ? 'bg-neutral-900 border-blue-900/40 shadow-lg shadow-blue-900/10' : 'bg-neutral-950 border-neutral-800 opacity-60 pointer-events-none'}`}>
+            <div key={i} className="p-6 rounded-2xl border transition-all flex flex-col gap-4 bg-neutral-900 border-blue-900/40 shadow-xl shadow-blue-900/10">
                 <div className="flex justify-between items-center">
                     <div className="font-bold text-lg text-white">{char.name}</div>
                     <select 
@@ -225,44 +221,39 @@ export default function CastingRoom() {
 
                             {characterImages[i] ? (
                                 <div className="relative group">
-                                    <img src={characterImages[i]} className="w-full h-32 object-contain bg-white/5 rounded-lg border border-neutral-700" alt="Casting" />
-                                    {currentPhase === 2 && (
-                                        <button 
-                                            onClick={() => generateCastingImage(i)}
-                                            className="absolute top-2 right-2 bg-black/80 p-2 rounded text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            title="重新生成图片"
-                                        ><RotateCcw className="w-4 h-4"/></button>
-                                    )}
+                                    <img src={characterImages[i]} className="w-full h-48 object-contain bg-black/50 rounded-lg border border-neutral-700" alt="Casting" />
+                                    <button 
+                                        onClick={() => generateCastingImage(i)}
+                                        className="absolute top-2 right-2 bg-black/80 p-2 rounded text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        title="重新生成图片"
+                                    ><RotateCcw className="w-4 h-4"/></button>
                                 </div>
                             ) : (
-                                <div className="w-full h-32 bg-black/50 rounded-lg flex items-center justify-center border border-neutral-800 border-dashed">
-                                    <span className="text-neutral-600 text-xs">暂无定妆照</span>
+                                <div className="w-full h-48 bg-black/50 rounded-lg flex items-center justify-center border border-neutral-800 border-dashed">
+                                    <span className="text-neutral-600 text-sm">暂无定妆照</span>
                                 </div>
                             )}
 
-                            {currentPhase === 2 && (
-                                <button 
+                            <button 
                                     onClick={() => generateCastingImage(i)}
                                     disabled={processingChars[i] === 'image'}
                                     className="w-full py-2 bg-blue-600 text-white font-bold text-xs rounded shadow-lg shadow-blue-900/50 hover:bg-blue-500 transition-colors disabled:opacity-50 mt-2"
                                 >
                                     {processingChars[i] === 'image' ? "Nano Pro 绘制中..." : "根据 Prompt 渲染定妆照"}
                                 </button>
-                            )}
                         </>
                     );
                 })()}
             </div>
         ))}
+        </div>
         
-        {currentPhase === 2 && (
-            <button 
+        <button 
                 onClick={() => setCurrentPhase(3)}
                 className="w-full mt-4 py-4 bg-gradient-to-r from-blue-700 to-purple-700 hover:from-blue-600 hover:to-purple-600 text-white font-bold rounded-xl shadow-lg flex justify-center items-center gap-2"
             >
                 完成全部角色定妆，开始分镜制作 <ArrowRight className="w-4 h-4"/>
             </button>
-        )}
 
         {/* Global Toast */}
     </div>

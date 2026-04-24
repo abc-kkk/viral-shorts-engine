@@ -2,36 +2,54 @@
 
 import React, { useState, useEffect, use } from 'react';
 import { ProjectProvider, useProject } from '@/lib/ProjectContext';
-import PhaseNav from '@/components/PhaseNav';
+import SidebarNav from '@/components/SidebarNav';
 import WriterRoom from '@/components/WriterRoom';
 import CastingRoom from '@/components/CastingRoom';
 import StoryboardPanel from '@/components/StoryboardPanel';
 import RenderRoom from '@/components/RenderRoom';
+import PublishRoom from '@/components/PublishRoom';
+import { LayoutPanelLeft } from 'lucide-react';
 
 function StudioContent() {
   const { currentPhase } = useProject();
+  const [isCastingDrawerOpen, setIsCastingDrawerOpen] = useState(false);
+
+  // Automatically open casting drawer in phase 2, close in phase 3
+  useEffect(() => {
+      if (currentPhase === 2) setIsCastingDrawerOpen(true);
+      if (currentPhase === 3) setIsCastingDrawerOpen(false);
+  }, [currentPhase]);
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 font-sans flex flex-col pb-20">
-      <PhaseNav />
+    <div className="h-screen bg-neutral-950 text-neutral-100 font-sans flex overflow-hidden">
+      <SidebarNav />
 
-      <div className="flex-1 max-w-[1800px] w-full mx-auto p-4 md:p-8 flex flex-col gap-8">
-        {/* PHASE 1: WRITER'S ROOM */}
-        {currentPhase === 1 && <WriterRoom />}
+      <main className="flex-1 h-full overflow-y-auto p-4 md:p-8 relative">
+        <div className="max-w-[1800px] mx-auto flex flex-col gap-8 pb-20">
+            {/* PHASE 1: WRITER'S ROOM */}
+            {currentPhase === 1 && <WriterRoom />}
 
-        {/* PHASE 2 & 3: CASTING AND STORYBOARD */}
-        {currentPhase >= 2 && currentPhase <= 3 && (
-          <div className="grid grid-cols-12 gap-8 animate-in fade-in">
-            <CastingRoom />
-            <div className="col-span-9">
-              <StoryboardPanel />
-            </div>
-          </div>
-        )}
+            {/* PHASE 2: CASTING ROOM */}
+            {currentPhase === 2 && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 h-full">
+                    <CastingRoom />
+                </div>
+            )}
 
-        {/* PHASE 4: REMOTION RENDER */}
-        {currentPhase === 4 && <RenderRoom />}
-      </div>
+            {/* PHASE 3: STORYBOARD PANEL */}
+            {currentPhase === 3 && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 h-full">
+                    <StoryboardPanel />
+                </div>
+            )}
+
+            {/* PHASE 4: REMOTION RENDER */}
+            {currentPhase === 4 && <RenderRoom />}
+
+            {/* PHASE 5: PUBLISH ROOM */}
+            {currentPhase === 5 && <PublishRoom />}
+        </div>
+      </main>
     </div>
   );
 }

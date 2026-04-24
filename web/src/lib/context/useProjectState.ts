@@ -155,8 +155,11 @@ export function useProjectState(projectId: string) {
 
     if (hasChanges) {
       const timeout = setTimeout(() => {
-        fetch(`/api/state?projectId=${encodeURIComponent(projectId)}`, { method: 'PATCH', body: JSON.stringify(diff) })
-          .catch(e => console.error("Save state error:", e));
+        fetch(`/api/state?projectId=${encodeURIComponent(projectId)}`, { 
+            method: 'PATCH', 
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(diff) 
+        }).catch(e => console.error("Save state error:", e));
         prevStateRef.current = data;
       }, 1000);
       return () => clearTimeout(timeout);
