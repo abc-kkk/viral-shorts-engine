@@ -102,19 +102,19 @@ export default function PromptStudioPage() {
   return (
     <div className="h-screen w-full bg-black text-white flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="h-16 border-b border-neutral-800 flex items-center px-6 justify-between shrink-0 bg-neutral-950">
+      <header className="h-16 border-b border-neutral-800 flex items-center px-6 gap-4 shrink-0 bg-neutral-950">
+        <a href="/" className="flex items-center justify-center w-8 h-8 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white transition-colors shrink-0" title="返回首页">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+        </a>
         <div className="flex items-center gap-3">
           <div className="text-2xl">🎛️</div>
           <div>
             <h1 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-cyan-400">
-              Prompt Studio
+              提示词中心
             </h1>
             <p className="text-xs text-neutral-500">AI 提示词可视化管理中心</p>
           </div>
         </div>
-        <a href="/" className="text-sm text-neutral-400 hover:text-white transition-colors">
-          返回工作台 ↗
-        </a>
       </header>
 
       {/* Main Layout */}

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Film, Clock, Layers, Trash2, FolderOpen, Settings } from 'lucide-react';
+import { Plus, Film, Clock, Layers, Trash2, FolderOpen, Settings, BookOpen } from 'lucide-react';
 
 interface ProjectInfo {
   projectId: string;
@@ -86,51 +86,69 @@ export default function ProjectList() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100">
-      {/* Header */}
-      <div className="border-b border-neutral-800 bg-neutral-900/50 backdrop-blur-md sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-6 py-5 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-extrabold tracking-tight flex items-center gap-3">
-              <Film className="text-orange-500 w-8 h-8" />
-              短剧引擎 <span className="bg-gradient-to-r from-orange-400 to-amber-500 text-transparent bg-clip-text">Comedy Skit Studio</span>
-            </h1>
-            <p className="text-neutral-500 text-sm mt-1">导演级 AI 短剧制片工作台</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <a
-              href="/prompt-studio"
-              className="flex items-center gap-2 px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold rounded-xl transition-all"
-            >
-              <Layers className="w-5 h-5" /> 提示词中心
-            </a>
-            {typeof window !== 'undefined' && (window as any).electronAPI && (
-              <button
-                onClick={() => (window as any).electronAPI.changeWorkspacePath()}
-                className="flex items-center gap-2 px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold rounded-xl transition-all"
-                title="更改工作空间目录"
-              >
-                <Settings className="w-5 h-5" /> 更改目录
-              </button>
-            )}
-            <a
-              href="/scene-lab"
-              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-600/80 to-purple-600/80 hover:from-violet-500 hover:to-purple-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-purple-900/20 hover:scale-105"
-            >
-              📐 定制化绘图
-            </a>
+    <div className="fixed inset-0 flex bg-neutral-950 text-neutral-100 overflow-hidden">
+      {/* Left Sidebar */}
+      <div className="w-64 bg-neutral-900 border-r border-neutral-800 flex flex-col shrink-0 relative z-20 shadow-xl">
+        {/* Logo Area */}
+        <div className="p-6 border-b border-neutral-800">
+          <h1 className="text-xl font-extrabold tracking-tight flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center shadow-lg shadow-orange-900/50">
+              <Film className="text-white w-4 h-4" />
+            </div>
+            <span className="truncate">短剧引擎</span>
+          </h1>
+          <p className="text-neutral-500 text-xs mt-2 font-medium tracking-wide">Comedy Skit Studio</p>
+        </div>
+        
+        {/* Navigation */}
+        <div className="p-4 flex-1 flex flex-col gap-1.5 overflow-y-auto">
+          <div className="text-[10px] font-bold text-neutral-500 mb-1 px-2 uppercase tracking-wider">我的工作台</div>
+          <a href="/" className="flex items-center gap-3 px-3 py-2.5 bg-orange-600/10 text-orange-400 rounded-xl font-bold border border-orange-500/20">
+             <FolderOpen className="w-4 h-4" /> 项目列表
+          </a>
+          <a href="/scene-lab" className="flex items-center gap-3 px-3 py-2.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 rounded-xl font-medium transition-colors">
+             <Layers className="w-4 h-4 text-purple-400" /> 定制化画板
+          </a>
+          <a href="/prompt-studio" className="flex items-center gap-3 px-3 py-2.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 rounded-xl font-medium transition-colors">
+             <Film className="w-4 h-4 text-emerald-400" /> 提示词中心
+          </a>
+          
+          <div className="text-[10px] font-bold text-neutral-500 mb-1 px-2 mt-4 uppercase tracking-wider">帮助与设置</div>
+          <a href="/guide" className="flex items-center gap-3 px-3 py-2.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 rounded-xl font-medium transition-colors">
+             <BookOpen className="w-4 h-4 text-blue-400" /> 新手指南
+          </a>
+        </div>
+        
+        {/* Settings Area at Bottom */}
+        <div className="p-4 border-t border-neutral-800 bg-neutral-900/50">
+          {typeof window !== 'undefined' && (window as any).electronAPI && (
             <button
-              onClick={() => setShowCreate(true)}
-              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-bold rounded-xl shadow-lg shadow-orange-900/30 transition-all hover:scale-105"
+              onClick={() => (window as any).electronAPI.changeWorkspacePath()}
+              className="flex items-center gap-3 px-3 py-2.5 w-full text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 rounded-xl font-medium transition-colors"
             >
-              <Plus className="w-5 h-5" /> 新建项目
+              <Settings className="w-4 h-4" /> 更改工作空间
             </button>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Content */}
-      <div className="max-w-6xl mx-auto px-6 py-10">
+      {/* Content Area */}
+      <div className="flex-1 flex flex-col relative bg-[#0a0a0a]">
+        {/* Top Fixed Bar */}
+        <div className="shrink-0 bg-[#0a0a0a] px-8 py-4 flex justify-between items-center border-b border-neutral-800/50">
+          <h2 className="text-xl font-bold text-white">
+            近期项目
+          </h2>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 px-5 py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-xl shadow-lg shadow-orange-900/30 transition-all hover:-translate-y-0.5 text-sm"
+          >
+            <Plus className="w-4 h-4" /> 新建项目
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+        <div className="max-w-6xl mx-auto px-8 pt-3 pb-12">
         {loading ? (
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full" />
@@ -206,6 +224,8 @@ export default function ProjectList() {
         )}
       </div>
 
+      </div>
+      </div>
       {/* Create Modal */}
       {showCreate && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowCreate(false)}>

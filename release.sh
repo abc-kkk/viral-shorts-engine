@@ -23,8 +23,8 @@ cd ..
 # 提取更新后的准确版本号 (处理传入 patch/minor 的情况)
 NEW_VERSION=$(node -p "require('./desktop/package.json').version")
 
-echo "📝 提交代码并打标签 (v$NEW_VERSION)..."
-git add desktop/package.json
+echo "📝 提交所有代码改动并打标签 (v$NEW_VERSION)..."
+git add -A
 git commit -m "chore: release v$NEW_VERSION"
 git tag "v$NEW_VERSION"
 
