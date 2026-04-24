@@ -241,10 +241,15 @@ export async function generateAdvancedAsset(
                     await page.keyboard.insertText(finalSearchTerm);
                 }
                 
-                await page.waitForTimeout(300); // 用户体感优化：结果加载极快，无需苦等2秒
+                await page.waitForTimeout(800); // 等待搜索结果列表更新完毕
 
-                // 直接按下回车选中默认高亮的第一项，不再画蛇添足按向下箭头！
-                await page.keyboard.press('Enter');
+                // 优先尝试精确点击匹配名称的那一项，解决模糊匹配乱序导致点错资产的问题
+                try {
+                    await page.getByText(finalSearchTerm, { exact: true }).last().click({ timeout: 1000 });
+                } catch(e) {
+                    // Fallback: 如果由于 DOM 结构奇特找不到精确文本，则回落到默认回车
+                    await page.keyboard.press('Enter');
+                }
                 await page.waitForTimeout(800);
             }
         }
@@ -280,10 +285,15 @@ export async function generateAdvancedAsset(
                 await page.keyboard.insertText(finalSearchTerm);
             }
             
-            await page.waitForTimeout(300); // 用户体感优化：缩短硬等待时间
+            await page.waitForTimeout(800); // 等待搜索结果列表更新完毕
 
-            // 直接回车选中高亮的第一项
-            await page.keyboard.press('Enter');
+            // 优先尝试精确点击匹配名称的那一项，解决模糊匹配乱序导致点错资产的问题
+            try {
+                await page.getByText(finalSearchTerm, { exact: true }).last().click({ timeout: 1000 });
+            } catch(e) {
+                // Fallback: 如果由于 DOM 结构奇特找不到精确文本，则回落到默认回车
+                await page.keyboard.press('Enter');
+            }
             await page.waitForTimeout(300);
             
             lastIndex = inlineTokenRegex.lastIndex;
