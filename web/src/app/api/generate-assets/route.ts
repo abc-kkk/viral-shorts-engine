@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getAssetDir, getAssetUrl } from '@/lib/db';
+import { getAssetDir } from '@/lib/db';
+import { generateAssetFilename, getAssetTypeForTarget, getAssetUrlWithCacheBust } from '@/lib/assetUrl';
+import type { TargetType } from '@/lib/types';
 import fs from 'fs';
 import path from 'path';
 
@@ -57,46 +59,43 @@ export async function POST(req: Request) {
       throw new Error('AI Gateway Flow Automator Failed: No media url returned.');
     }
 
-    // DOWNLOAD TO LOCAL — 按资源类型分目录
+    // DOWNLOAD TO LOCAL — 使用统一的资源工具函数
     let finalUrl = result.url;
     try {
-        const isVideo = targetModel === 'Veo 3.1';
-        const assetType = isVideo ? 'videos' : 'images';
-        const ext = isVideo ? '.mp4' : '.png';
+        const mediaType = targetModel === 'Veo 3.1' ? 'video' : 'image';
+        
+        // 从 active-context 读取 targetType，使用统一函数确定存储目录和文件名
+        let targetType: TargetType = mediaType === 'video' ? 'sceneVideo' : 'sceneImage';
+        let ctxIndex: number | undefined;
+        let ctxMeta: Record<string, any> | undefined;
+        
+        try {
+            const cp = path.join(process.cwd(), 'tmp', 'active-context.json');
+            if (fs.existsSync(cp)) {
+                const context = JSON.parse(fs.readFileSync(cp, 'utf-8'));
+                if (context.projectId === projectId) {
+                    targetType = context.targetType as TargetType;
+                    ctxIndex = context.index;
+                    ctxMeta = context.meta;
+                }
+            }
+        } catch (e) {
+            console.warn("[Asset Gen] Could not parse active-context for filename. Using fallback.");
+        }
+        
+        const assetType = getAssetTypeForTarget(targetType, mediaType);
         const assetsDir = getAssetDir(projectId, assetType);
+        const filename = generateAssetFilename(targetType, projectId, ctxIndex, ctxMeta, mediaType);
         
         console.log(`[Asset Gen] Downloading to ${assetType}/ for 0-buffer playback...`);
         const assetRes = await fetch(result.url);
         if (assetRes.ok) {
             const arrayBuffer = await assetRes.arrayBuffer();
             const buffer = Buffer.from(arrayBuffer);
-            let filename = `asset_${Date.now()}_${Math.random().toString(36).substring(7)}${ext}`;
-            try {
-                const cp = path.join(process.cwd(), 'tmp', 'active-context.json');
-                if (fs.existsSync(cp)) {
-                    const context = JSON.parse(fs.readFileSync(cp, 'utf-8'));
-                    if (context.projectId === projectId) {
-                        const { targetType, index, meta } = context;
-                        if (targetType === 'locationImage') {
-                            filename = `场景${ext}`;
-                        } else if (targetType === 'sceneLocationImage' && index !== undefined) {
-                            filename = `场景_S${index}${ext}`;
-                        } else if (targetType === 'coverImage' && meta && meta.ratio) {
-                            filename = `cover_${meta.ratio.replace(':', 'x')}${ext}`;
-                        } else if (targetType === 'sceneStartImage' && index !== undefined) {
-                            filename = `${projectId}_S${index}_StartImg${ext}`;
-                        } else if (targetType === 'sceneImage' && index !== undefined) {
-                            filename = `${projectId}_S${index}_Img${ext}`;
-                        }
-                    }
-                }
-            } catch (e) {
-                console.warn("[Asset Gen] Could not parse active-context for filename. Using fallback.");
-            }
             
             const filepath = path.join(assetsDir, filename);
             fs.writeFileSync(filepath, buffer);
-            finalUrl = getAssetUrl(projectId, assetType, filename);
+            finalUrl = getAssetUrlWithCacheBust(projectId, assetType, filename);
             console.log(`[Asset Gen] Saved: ${filepath}`);
         } else {
             console.log(`[Asset Gen] DL failed (${assetRes.status}), falling back to cloud URL.`);

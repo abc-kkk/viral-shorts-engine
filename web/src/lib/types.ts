@@ -2,6 +2,65 @@
 // 全局类型定义 (Viral Shorts Engine)
 // ========================================
 
+// ========================================
+// 资源目标类型 (TargetType) — 单一真相源
+// ========================================
+// ⚠️ 新增 targetType 时，必须同步修改以下文件（参见踩坑记录 #2）：
+//   1. 本文件 — TARGET_TYPES + TARGET_TYPE_CONFIG
+//   2. api/extension/push-asset/route.ts — 文件命名分支
+//   3. api/generate-assets/route.ts — 文件命名分支
+//   4. lib/ProjectContext.tsx — active-context POST + inbox poller 消费
+//   5. viral-shorts-extension/content.js — fetchTargetId() 显示名映射
+
+/** 所有合法的资源目标类型 */
+export const TARGET_TYPES = [
+  'locationImage',       // 全局场景概念图
+  'sceneLocationImage',  // 分镜独立场景概念图
+  'characterImage',      // 角色定妆照
+  'sceneImage',          // 分镜尾帧图
+  'sceneStartImage',     // 分镜首帧图
+  'sceneVideo',          // 分镜视频
+  'coverImage',          // 海报封面
+  // Scene Lab 专用（独立消费端，不走 ProjectContext poller）
+  'scenelab_scene',      // Scene Lab 场景参考图
+  'scenelab_char',       // Scene Lab 角色参考图
+  'scenelab_result',     // Scene Lab 生成结果
+] as const;
+
+export type TargetType = typeof TARGET_TYPES[number];
+
+/** 每种资源类型的配置元信息 */
+export const TARGET_TYPE_CONFIG: Record<TargetType, {
+  /** 存储目录类型 */
+  assetDir: 'images' | 'videos' | 'covers';
+  /** 文件扩展名（默认，可被 mediaType 覆盖） */
+  defaultExt: '.png' | '.mp4';
+  /** Chrome 扩展是否需要确认弹窗 */
+  requiresConfirm: boolean;
+}> = {
+  locationImage:      { assetDir: 'images', defaultExt: '.png', requiresConfirm: false },
+  sceneLocationImage: { assetDir: 'images', defaultExt: '.png', requiresConfirm: false },
+  characterImage:     { assetDir: 'images', defaultExt: '.png', requiresConfirm: false },
+  sceneImage:         { assetDir: 'images', defaultExt: '.png', requiresConfirm: true },
+  sceneStartImage:    { assetDir: 'images', defaultExt: '.png', requiresConfirm: true },
+  sceneVideo:         { assetDir: 'videos', defaultExt: '.mp4', requiresConfirm: true },
+  coverImage:         { assetDir: 'covers', defaultExt: '.png', requiresConfirm: false },
+  scenelab_scene:     { assetDir: 'images', defaultExt: '.png', requiresConfirm: false },
+  scenelab_char:      { assetDir: 'images', defaultExt: '.png', requiresConfirm: false },
+  scenelab_result:    { assetDir: 'images', defaultExt: '.png', requiresConfirm: false },
+};
+
+/** Inbox 消息条目（Chrome 扩展 → 前端轮询） */
+export interface InboxItem {
+  url: string;
+  mediaType: 'image' | 'video';
+  targetType: TargetType;
+  index?: number;
+  referenceKeyword?: string;
+  meta?: Record<string, any>;
+  timestamp: number;
+}
+
 export interface Character {
   name: string;
   persona: string;

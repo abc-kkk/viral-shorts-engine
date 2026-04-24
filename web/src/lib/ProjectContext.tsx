@@ -1,7 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
-import type { Character, ScriptLine, InspirationItem, ScriptReview, CreativeMode, PublishInfo } from './types';
+import type { Character, ScriptLine, InspirationItem, ScriptReview, CreativeMode, PublishInfo, TargetType, InboxItem } from './types';
+import { bustUrlCache, bustUrlCacheMap } from './assetUrl';
 import { DEFAULT_ART_STYLE } from './constants';
 
 // ========================================
@@ -243,21 +244,7 @@ export function ProjectProvider({ children, projectId }: { children: React.React
   // 自动加载 (从 API)
   // ========================================
 
-  // [BUGFIX] 给本地资源 URL 追加缓存破坏参数，防止浏览器使用之前 immutable 缓存的旧文件
-  const bustCache = useCallback((url: string) => {
-    if (!url || !url.startsWith('/api/serve/')) return url;
-    // 去掉旧的 ?v= 参数，加上新的
-    const base = url.split('?')[0];
-    return `${base}?v=${Date.now()}`;
-  }, []);
-
-  const bustCacheMap = useCallback((map: Record<string | number, string>) => {
-    const result: Record<string | number, string> = {};
-    for (const [k, v] of Object.entries(map)) {
-      result[k] = bustCache(v);
-    }
-    return result;
-  }, [bustCache]);
+  // 缓存破坏：使用统一的 assetUrl 工具模块（见 lib/assetUrl.ts）
 
   useEffect(() => {
     fetch(`/api/state?projectId=${encodeURIComponent(projectId)}`).then(r => r.json()).then(res => {
@@ -280,12 +267,12 @@ export function ProjectProvider({ children, projectId }: { children: React.React
         if (data.scriptIteration) setScriptIteration(data.scriptIteration);
         if (data.userDirection) setUserDirection(data.userDirection);
         if (data.locationPrompt) setLocationPrompt(data.locationPrompt);
-        if (data.locationImage) bustCache(data.locationImage) && setLocationImage(bustCache(data.locationImage));
+        if (data.locationImage) setLocationImage(bustUrlCache(data.locationImage));
         if (data.characterPrompts) setCharacterPrompts(data.characterPrompts);
-        if (data.characterImages) setCharacterImages(bustCacheMap(data.characterImages));
+        if (data.characterImages) setCharacterImages(bustUrlCacheMap(data.characterImages));
         if (data.activeSceneIndex !== undefined) setActiveSceneIndex(data.activeSceneIndex);
         if (data.sceneLocationPrompts) setSceneLocationPrompts(data.sceneLocationPrompts);
-        if (data.sceneLocationImages) setSceneLocationImages(bustCacheMap(data.sceneLocationImages));
+        if (data.sceneLocationImages) setSceneLocationImages(bustUrlCacheMap(data.sceneLocationImages));
         if (data.sceneImagePrompts) setSceneImagePrompts(data.sceneImagePrompts);
         if (data.sceneVideoPrompts) setSceneVideoPrompts(data.sceneVideoPrompts);
         if (data.sceneStartImagePrompts) setSceneStartImagePrompts(data.sceneStartImagePrompts);
@@ -296,15 +283,15 @@ export function ProjectProvider({ children, projectId }: { children: React.React
         if (data.sceneDurations) setSceneDurations(data.sceneDurations);
         if (data.sceneVideoTrimStart) setSceneVideoTrimStart(data.sceneVideoTrimStart);
         if (data.sceneVideoTrimEnd) setSceneVideoTrimEnd(data.sceneVideoTrimEnd);
-        if (data.sceneImages) setSceneImages(bustCacheMap(data.sceneImages));
-        if (data.sceneStartImages) setSceneStartImages(bustCacheMap(data.sceneStartImages));
+        if (data.sceneImages) setSceneImages(bustUrlCacheMap(data.sceneImages));
+        if (data.sceneStartImages) setSceneStartImages(bustUrlCacheMap(data.sceneStartImages));
         if (data.sceneImageRefs) setSceneImageRefs(data.sceneImageRefs);
-        if (data.sceneVideos) setSceneVideos(bustCacheMap(data.sceneVideos));
-        if (data.sceneAudio) setSceneAudio(bustCacheMap(data.sceneAudio));
+        if (data.sceneVideos) setSceneVideos(bustUrlCacheMap(data.sceneVideos));
+        if (data.sceneAudio) setSceneAudio(bustUrlCacheMap(data.sceneAudio));
         if (data.sceneAudioDelays) setSceneAudioDelays(data.sceneAudioDelays);
         // 封面数据
         if (data.coverPrompts) setCoverPrompts(data.coverPrompts);
-        if (data.coverImages) setCoverImages(bustCacheMap(data.coverImages));
+        if (data.coverImages) setCoverImages(bustUrlCacheMap(data.coverImages));
       }
       stateLoaded.current = true;
     }).catch(e => {
@@ -354,27 +341,28 @@ export function ProjectProvider({ children, projectId }: { children: React.React
               if (!res.ok) return;
               const body = await res.json();
               if (body.success && body.data && body.data.length > 0) {
-                  for (const item of body.data) {
+                  for (const item of body.data as InboxItem[]) {
+                      const idx = item.index; // 提取到局部变量，确保 TypeScript narrowing 在闭包中生效
                       if (item.targetType === 'locationImage') {
                           setLocationImage(item.url);
-                      } else if (item.targetType === 'sceneLocationImage' && item.index !== undefined) {
-                          setSceneLocationImages(prev => ({ ...prev, [item.index]: item.url }));
-                      } else if (item.targetType === 'characterImage' && item.index !== undefined) {
-                          setCharacterImages(prev => ({ ...prev, [item.index]: item.url }));
-                      } else if (item.targetType === 'sceneImage' && item.index !== undefined) {
-                          setSceneImages(prev => ({ ...prev, [item.index]: item.url }));
+                      } else if (item.targetType === 'sceneLocationImage' && idx !== undefined) {
+                          setSceneLocationImages(prev => ({ ...prev, [idx]: item.url }));
+                      } else if (item.targetType === 'characterImage' && idx !== undefined) {
+                          setCharacterImages(prev => ({ ...prev, [idx]: item.url }));
+                      } else if (item.targetType === 'sceneImage' && idx !== undefined) {
+                          setSceneImages(prev => ({ ...prev, [idx]: item.url }));
                           if (item.referenceKeyword) {
-                              setSceneImageRefs(prev => ({ ...prev, [item.index]: item.referenceKeyword }));
+                              setSceneImageRefs(prev => ({ ...prev, [idx]: item.referenceKeyword! }));
                           }
-                      } else if (item.targetType === 'sceneStartImage' && item.index !== undefined) {
-                          setSceneStartImages(prev => ({ ...prev, [item.index]: item.url }));
+                      } else if (item.targetType === 'sceneStartImage' && idx !== undefined) {
+                          setSceneStartImages(prev => ({ ...prev, [idx]: item.url }));
                           if (item.referenceKeyword) {
-                              setSceneImageRefs(prev => ({ ...prev, [`start_${item.index}`]: item.referenceKeyword }));
+                              setSceneImageRefs(prev => ({ ...prev, [`start_${idx}`]: item.referenceKeyword! }));
                           }
-                      } else if (item.targetType === 'sceneVideo' && item.index !== undefined) {
-                          setSceneVideos(prev => ({ ...prev, [item.index]: item.url }));
+                      } else if (item.targetType === 'sceneVideo' && idx !== undefined) {
+                          setSceneVideos(prev => ({ ...prev, [idx]: item.url }));
                       } else if (item.targetType === 'coverImage' && item.meta?.ratio) {
-                          setCoverImages(prev => ({ ...prev, [item.meta.ratio]: item.url }));
+                          setCoverImages(prev => ({ ...prev, [item.meta!.ratio]: item.url }));
                       }
                   }
               }

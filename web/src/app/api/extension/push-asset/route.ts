@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getAssetDir, getAssetUrl } from '@/lib/db';
+import { getAssetDir } from '@/lib/db';
+import { generateAssetFilename, getAssetTypeForTarget, getAssetUrlWithCacheBust } from '@/lib/assetUrl';
+import type { TargetType, InboxItem } from '@/lib/types';
 import fs from 'fs';
 import path from 'path';
 
@@ -32,14 +34,19 @@ export async function POST(req: Request) {
         throw new Error('No active project context found. Please click something in Studio first.');
     }
     const context = JSON.parse(fs.readFileSync(cp, 'utf-8'));
-    let { projectId, targetType, index, meta } = context;
+    let { projectId, targetType, index, meta } = context as {
+        projectId: string;
+        targetType: TargetType;
+        index?: number;
+        meta?: Record<string, any>;
+    };
 
     if (!projectId) {
          throw new Error('Active project context is missing projectId.');
     }
 
     // [HOTFIX]: 解决并发提取首尾帧时上下文被覆盖的 Bug
-    // 由于用户可能连续点击“生成首帧”和“生成尾帧”，active-context.json 只有最后一次的状态。
+    // 由于用户可能连续点击"生成首帧"和"生成尾帧"，active-context.json 只有最后一次的状态。
     // 但是，由于用户在 Chrome 扩展的弹窗里确认了 ID（如 测试2_S4_StartImg），我们可以从 referenceKeyword 中提取真正的意图。
     if (referenceKeyword && typeof referenceKeyword === 'string') {
         if (referenceKeyword.includes('_StartImg')) {
@@ -53,13 +60,10 @@ export async function POST(req: Request) {
         }
     }
 
-    let assetType = mediaType === 'video' ? 'videos' : 'images';
-    if (targetType === 'coverImage') {
-        assetType = 'covers';
-    }
-    
-    const ext = mediaType === 'video' ? '.mp4' : '.png';
-    const assetsDir = getAssetDir(projectId, assetType as any);
+    // 使用统一工具函数确定存储目录和文件名
+    const assetType = getAssetTypeForTarget(targetType, mediaType);
+    const assetsDir = getAssetDir(projectId, assetType);
+    const filename = generateAssetFilename(targetType, projectId, index, meta, mediaType);
     
     let buffer;
     if (base64Data) {
@@ -76,23 +80,9 @@ export async function POST(req: Request) {
         buffer = Buffer.from(arrayBuffer);
     }
     
-    let filename = `hitl_${Date.now()}_${Math.random().toString(36).substring(7)}${ext}`;
-    if (targetType === 'locationImage') {
-        filename = `场景${ext}`;
-    } else if (targetType === 'sceneLocationImage' && index !== undefined) {
-        filename = `场景_S${index}${ext}`;
-    } else if (targetType === 'coverImage' && meta && meta.ratio) {
-        filename = `cover_${meta.ratio.replace(':', 'x')}${ext}`;
-    } else if (targetType === 'sceneStartImage' && index !== undefined) {
-        filename = `${projectId}_S${index}_StartImg${ext}`;
-    } else if (targetType === 'sceneImage' && index !== undefined) {
-        filename = `${projectId}_S${index}_Img${ext}`;
-    }
-    
     const filepath = path.join(assetsDir, filename);
     fs.writeFileSync(filepath, buffer);
-    // [BUGFIX] 加上时间戳缓存破坏参数，防止浏览器用 immutable 缓存返回旧版同名文件
-    const localUrl = getAssetUrl(projectId, assetType as any, filename) + `?v=${Date.now()}`;
+    const localUrl = getAssetUrlWithCacheBust(projectId, assetType, filename);
     console.log(`[Extension] Saved: ${filepath}`);
 
     // Push to inbox array
@@ -100,7 +90,7 @@ export async function POST(req: Request) {
     const inboxDir = path.dirname(inboxPath);
     if (!fs.existsSync(inboxDir)) fs.mkdirSync(inboxDir, { recursive: true });
     
-    let inbox = [];
+    let inbox: InboxItem[] = [];
     if (fs.existsSync(inboxPath)) {
         inbox = JSON.parse(fs.readFileSync(inboxPath, 'utf-8'));
     }

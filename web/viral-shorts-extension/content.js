@@ -48,6 +48,9 @@ function customConfirm(message, defaultValue = null) {
     });
 }
 
+// ⚠️ 以下 targetType 字符串必须与 web/src/lib/types.ts 中的 TARGET_TYPES 枚举完全一致！
+// 新增 targetType 时必须同步修改此处的映射（参见踩坑记录 #2）。
+// 合法值: locationImage | sceneLocationImage | characterImage | sceneImage | sceneStartImage | sceneVideo | coverImage
 async function fetchTargetId() {
     let targetId = 'VS_Generic_Asset_' + Math.floor(Math.random()*1000);
     try {
