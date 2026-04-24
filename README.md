@@ -37,6 +37,21 @@
 
 ---
 
+## 📥 下载与安装 (Download)
+
+本项目的全平台桌面客户端 (Windows, Mac Intel, Mac M1/M2) 均由 GitHub 云端全自动打包生成。
+
+👉 **[点击前往下载最新版本 (GitHub Actions)](https://github.com/abc-kkk/viral-shorts-engine/actions/workflows/build-all-platforms.yml)**
+
+**下载说明**：
+1. 点击上方链接进入 GitHub Actions 页面。
+2. 点击列表中最上面（最新）的一条带有绿色对号 `✅` 的运行记录。
+3. 滑动到页面最底部，在 **Artifacts** 区域即可下载对应的压缩包：
+   - Windows 用户下载：`viral-shorts-engine-windows`
+   - Mac 用户下载：`viral-shorts-engine-mac`
+
+---
+
 ## 🚀 快速开始 (小白必看)
 
 如果你是第一次接触本系统，或者不知道如何配置环境，请**务必**阅读这篇保姆级新手教程：
