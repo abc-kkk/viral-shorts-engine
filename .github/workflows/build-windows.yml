@@ -2,6 +2,8 @@ name: Build Windows Application
 
 on:
   push:
+    branches:
+      - master
     tags:
       - 'v*'
   workflow_dispatch:
