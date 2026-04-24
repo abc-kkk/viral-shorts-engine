@@ -27,6 +27,13 @@
   "build": {
     "appId": "com.viralshorts.engine",
     "productName": "Viral Shorts Engine",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "abc-kkk",
+        "repo": "viral-shorts-engine"
+      }
+    ],
     "afterPack": "./afterPack.js",
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "directories": {

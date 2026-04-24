@@ -44,3 +44,6 @@ local-project-state.json
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# release artifacts
+release_artifacts/

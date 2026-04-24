@@ -60,6 +60,8 @@ jobs:
         run: |
           cd desktop
           npm run dist:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Desktop Executable (Mac)
         if: matrix.os == 'macos-latest'
@@ -68,13 +70,16 @@ jobs:
           npm run dist:mac
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Windows Artifact
         if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
           name: viral-shorts-engine-windows
-          path: desktop/release/*.exe
+          path: |
+            desktop/release/*.exe
+            desktop/release/*.yml
           retention-days: 1
 
       - name: Upload Mac Artifacts
@@ -82,7 +87,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: viral-shorts-engine-mac
-          path: desktop/release/*.dmg
+          path: |
+            desktop/release/*.dmg
+            desktop/release/*.yml
           retention-days: 1
 
   release:
