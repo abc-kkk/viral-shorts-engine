@@ -128,7 +128,7 @@ PORT=4100
 ### 绝招 1：WARP 隧道防封禁
 由于单纯的机房 IP 很容易被 Google 拦截（提示 UNUSUAL_ACTIVITY），如果你在大陆或使用普通代理，**强烈建议使用 Cloudflare WARP 或具备干净 IP 的全局代理**。在每次开工前，确保你的电脑处于健康的全局网络环境中。
 
-👉 **[点击查看：极客级 WARP 隧道原理解析与使用指南](./warp-proxy.md)**
+👉 **[点击查看：零成本防封黑科技：Codespace + WARP 纯净美国 IP 部署全流程指南](./codespace-warp-proxy-guide.md)**
 
 ### 绝招 2：生图/视频失败的终极解法
 如果在后续使用中，发现 Flow 频繁生成失败或卡死，这是因为浏览器的缓存和状态乱了。
