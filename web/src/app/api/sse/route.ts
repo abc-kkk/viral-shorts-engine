@@ -13,7 +13,7 @@ export async function GET(req: Request) {
         if (isFetching) return;
         isFetching = true;
         try {
-          const data = await p.$transaction(async (tx) => {
+          const data = await p.$transaction(async (tx: any) => {
               const messages = await tx.inboxMessage.findMany({
                   orderBy: { timestamp: 'asc' }
               });
@@ -21,7 +21,7 @@ export async function GET(req: Request) {
               if (messages.length > 0) {
                   await tx.inboxMessage.deleteMany({
                       where: {
-                          id: { in: messages.map(m => m.id) }
+                          id: { in: messages.map((m: any) => m.id) }
                       }
                   });
               }
@@ -29,7 +29,7 @@ export async function GET(req: Request) {
           });
 
           if (data && data.length > 0) {
-            data.forEach((msg) => {
+            data.forEach((msg: any) => {
               const item = {
                   ...msg,
                   meta: msg.meta ? JSON.parse(msg.meta) : undefined

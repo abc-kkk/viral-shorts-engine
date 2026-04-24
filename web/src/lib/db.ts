@@ -296,7 +296,7 @@ export async function saveState(patch: any, projectId: string) {
   if (mergedState.scriptReview !== undefined) projectData.scriptReview = JSON.stringify(mergedState.scriptReview);
 
   // Use a transaction for atomic relational updates
-  await p.$transaction(async (tx) => {
+  await p.$transaction(async (tx: any) => {
     if (Object.keys(projectData).length > 0) {
       await tx.project.update({ where: { id: projectId }, data: projectData });
     }
