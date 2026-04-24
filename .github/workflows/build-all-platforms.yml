@@ -1,4 +1,4 @@
-name: Build Windows Application
+name: Build Multi-Platform Application
 
 on:
   push:
@@ -10,7 +10,10 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     
     steps:
       - name: Checkout Repository
@@ -46,15 +49,33 @@ jobs:
           cd desktop
           npm install
 
-      - name: Build Windows Executable
+      - name: Build Desktop Executable (Windows)
+        if: matrix.os == 'windows-latest'
         run: |
           cd desktop
           npm run dist:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Build Desktop Executable (Mac)
+        if: matrix.os == 'macos-latest'
+        run: |
+          cd desktop
+          npm run dist:mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
       - name: Upload Windows Artifact
+        if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
           name: viral-shorts-engine-windows
           path: desktop/release/*.exe
+
+      - name: Upload Mac Artifacts
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: viral-shorts-engine-mac
+          path: desktop/release/*.dmg
