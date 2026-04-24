@@ -86,18 +86,11 @@ export async function generatePromptWithGeminiWeb(systemPrompt: string, userProm
         await targetPage.keyboard.insertText(fullPrompt);
         await targetPage.waitForTimeout(500);
 
-        const sendBtn = targetPage.locator('button[aria-label="Send message"]').first();
-        const isDisabled = await sendBtn.isDisabled();
-        if (isDisabled) {
-             await targetPage.keyboard.press('Space');
-             await targetPage.keyboard.press('Backspace');
-             await targetPage.waitForTimeout(200);
-        }
-
+        // 用 Enter 键发送，不依赖任何按钮选择器，彻底免疫 UI 语言/改版变化
         const prevMessageCount = await targetPage.locator('message-content').count();
 
-        console.log(`[Gemini Automator] Clicking Send button...`);
-        await sendBtn.click({ force: true });
+        console.log(`[Gemini Automator] Pressing Enter to send message...`);
+        await targetPage.keyboard.press('Enter');
         
         console.log(`[Gemini Automator] Waiting for new message to appear...`);
         let newCount = prevMessageCount;
@@ -134,15 +127,6 @@ export async function generatePromptWithGeminiWeb(systemPrompt: string, userProm
             } else {
                 unchangedCount = 0;
                 previousLength = text.length;
-            }
-            
-            // Also check if Send button reappears and enables (sometimes Gemini UI resets the send button when done)
-            if (i > 5 && await sendBtn.isVisible() && !(await sendBtn.isDisabled()) && text.length > 10) {
-                 unchangedCount++;
-                 if (unchangedCount >= 3) {
-                     console.log(`[Gemini Automator] Send button is re-enabled. Generation complete!`);
-                     break;
-                 }
             }
         }
 
