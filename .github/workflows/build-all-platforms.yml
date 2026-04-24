@@ -79,6 +79,7 @@ jobs:
           name: viral-shorts-engine-windows
           path: |
             desktop/release/*.exe
+            desktop/release/*.exe.blockmap
             desktop/release/*.yml
           retention-days: 1
 
@@ -89,6 +90,8 @@ jobs:
           name: viral-shorts-engine-mac
           path: |
             desktop/release/*.dmg
+            desktop/release/*.zip
+            desktop/release/*.zip.blockmap
             desktop/release/*.yml
           retention-days: 1
 

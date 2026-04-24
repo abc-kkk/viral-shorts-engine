@@ -49,6 +49,9 @@ export function getPrisma() {
         console.log(`[DB] Copying template database from ${templatePath}`);
         fs.copyFileSync(templatePath, dbPath);
       } else {
+        if (isProd) {
+          throw new Error(`[DB] FATAL ERROR: Template database not found at ${templatePath}. Cannot initialize database in production!`);
+        }
         console.log(`[DB] Template not found. Executing prisma db push (dev mode only)...`);
         fs.writeFileSync(dbPath, ''); // Ensure the file is at least created before pushing
         execSync(`npx prisma db push --accept-data-loss`, { 

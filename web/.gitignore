@@ -3,5 +3,7 @@ node_modules
 .env
 
 /src/generated/prisma
-*.db
-*.db-journal
+dev.db
+dev.db-journal
+viral-shorts.db
+viral-shorts.db-journal
