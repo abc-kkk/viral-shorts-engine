@@ -110,10 +110,10 @@ export async function generateAdvancedAsset(
         // 1. Selector logic for the Model
         console.log(`[Flow Automator] Selecting model: ${model}`);
         
-        // Flow uses a Slate.js React rich-text editor (not a standard textarea)
-        // We target the overarching contenteditable="true" container
-        await page.waitForSelector('[contenteditable="true"]:visible', { timeout: 30000 });
-        const editor = page.locator('[contenteditable="true"]:visible').last();
+        // Flow uses a Slate.js React rich-text editor (not a standard textarea), but A/B tests sometimes use textarea.
+        const editorSelector = '[contenteditable="true"]:visible, textarea[placeholder*="Type a prompt"]:visible, textarea[aria-label*="prompt"]:visible';
+        await page.waitForSelector(editorSelector, { timeout: 30000 });
+        const editor = page.locator(editorSelector).last();
 
         // Check current button text to skip unnecessary model switching (but handle Veo mode enforcement)
         const dropdownBtn = page.locator('button[aria-haspopup="menu"]').last();

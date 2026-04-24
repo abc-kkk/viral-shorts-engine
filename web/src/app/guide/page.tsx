@@ -107,6 +107,10 @@ export default function GuidePage() {
           </p>
         </div>
 
+        <Tip>
+          <strong>桌面版更新提示：</strong>Windows 客户端用户，请在屏幕右下角任务栏的引擎小图标上<strong>右键点击</strong>，选择<strong>「检测更新」</strong>，以确保您使用的是最新版本。
+        </Tip>
+
         {/* Step 1 */}
         <StepCard stepNumber={1} icon={<Monitor className="w-5 h-5 text-blue-400" />} title="启动 CDP 调试浏览器" accent="blue">
           <p>
@@ -117,6 +121,16 @@ export default function GuidePage() {
             <li>在系统状态栏的托盘图标中，点击 <strong className="text-white">「🌐 启动调试 Chrome」</strong>。</li>
             <li>一个新的 Chrome 窗口会自动弹出，这就是您的<strong className="text-white">专属调试浏览器</strong>。</li>
           </ol>
+
+          <div className="bg-neutral-800/50 rounded-xl p-4 border border-neutral-700/50 mt-4">
+            <div className="font-bold text-white text-sm flex items-center gap-2 mb-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" /> 验证是否装配成功
+            </div>
+            <p className="text-xs text-neutral-400">
+              在新弹出的调试浏览器地址栏中，输入并访问 <code className="bg-neutral-900 px-1.5 py-0.5 rounded text-orange-300">http://127.0.0.1:9222/json/version</code>。如果网页能显示出一串带有浏览器版本号的英文代码，就说明装配成功了！如果显示“无法访问此网站”，请彻底退出当前所有打开的 Chrome 窗口后重试。
+            </p>
+          </div>
+
           <Tip>
             如果您想将调试浏览器的数据（登录状态等）与日常浏览器隔离，可以在托盘菜单中点击 <strong>「⚙️ 更改 Chrome 数据目录」</strong> 指定一个独立的文件夹。
           </Tip>
@@ -210,8 +224,12 @@ export default function GuidePage() {
                     <div className="text-xs text-neutral-500">负责生图 / 生视频 (Nano Pro & Veo 3.1)</div>
                   </div>
                 </div>
+                <a href="https://labs.google/fx/zh/tools/flow" target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 bg-purple-950/40 px-3 py-1.5 rounded-lg transition-colors">
+                  打开 <ExternalLink className="w-3 h-3" />
+                </a>
               </div>
-              <p className="text-xs text-neutral-500 pl-11">进入项目「设置」后，将您的 Flow 项目 URL 粘贴到「Flow 地址」字段中</p>
+              <p className="text-xs text-neutral-500 pl-11">labs.google/fx/zh/tools/flow · 进入项目「设置」后，将您的 Flow 项目 URL 粘贴到「Flow 地址」字段中</p>
             </div>
           </div>
 

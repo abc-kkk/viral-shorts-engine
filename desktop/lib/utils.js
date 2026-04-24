@@ -49,7 +49,7 @@ function waitForServer(port, timeout = 30000) {
   });
 }
 
-function launchDebugChrome() {
+async function launchDebugChrome() {
   const chromePaths = {
     darwin: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
     win32: [
@@ -59,23 +59,56 @@ function launchDebugChrome() {
     ],
   };
 
-  let chromePath;
+  let chromePath = store.get('customChromePath');
 
-  if (process.platform === 'darwin') {
-    chromePath = chromePaths.darwin;
-    if (!fs.existsSync(chromePath)) {
-      dialog.showErrorBox('未找到 Chrome', '请安装 Google Chrome 后重试。');
+  if (!chromePath || !fs.existsSync(chromePath)) {
+    if (process.platform === 'darwin') {
+      chromePath = chromePaths.darwin;
+      if (!fs.existsSync(chromePath)) chromePath = null;
+    } else if (process.platform === 'win32') {
+      chromePath = chromePaths.win32.find((p) => fs.existsSync(p));
+    } else {
+      dialog.showErrorBox('不支持的平台', '暂不支持 Linux。');
       return;
     }
-  } else if (process.platform === 'win32') {
-    chromePath = chromePaths.win32.find((p) => fs.existsSync(p));
+
     if (!chromePath) {
-      dialog.showErrorBox('未找到 Chrome', '请安装 Google Chrome 后重试。');
-      return;
+      const { response } = await dialog.showMessageBox({
+        type: 'warning',
+        title: '未找到 Chrome',
+        message: '无法在系统默认路径下找到 Google Chrome。',
+        detail: '如果您的 Chrome 安装在其他盘符，或正在使用其他 Chromium 内核浏览器（如 Edge、Brave），请点击“手动查找”来选择浏览器主程序（如 chrome.exe）。',
+        buttons: ['手动查找', '取消'],
+        defaultId: 0,
+        cancelId: 1,
+      });
+
+      if (response === 0) {
+        const { canceled, filePaths } = await dialog.showOpenDialog({
+          title: '选择浏览器可执行文件',
+          filters: [
+            { name: '浏览器程序', extensions: process.platform === 'win32' ? ['exe'] : ['app', '*'] }
+          ],
+          properties: ['openFile']
+        });
+
+        if (!canceled && filePaths.length > 0) {
+          chromePath = filePaths[0];
+          // Mac 下如果选了 .app，尝试找到内部真实的可执行文件
+          if (process.platform === 'darwin' && chromePath.endsWith('.app')) {
+            const appName = path.basename(chromePath, '.app');
+            let binPath = path.join(chromePath, 'Contents', 'MacOS', 'Google Chrome');
+            if (!fs.existsSync(binPath)) binPath = path.join(chromePath, 'Contents', 'MacOS', appName);
+            chromePath = binPath;
+          }
+          store.set('customChromePath', chromePath);
+        } else {
+          return;
+        }
+      } else {
+        return;
+      }
     }
-  } else {
-    dialog.showErrorBox('不支持的平台', '暂不支持 Linux。');
-    return;
   }
 
   // 使用自定义或默认的用户数据目录
