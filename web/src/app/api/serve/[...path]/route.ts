@@ -49,11 +49,16 @@ export async function GET(
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
     const buffer = fs.readFileSync(filePath);
+    // [BUGFIX] 使用 ETag + must-revalidate 替代 immutable
+    // 因为首尾帧文件会被同名覆盖（如 测试2_S4_Img.png），immutable 会导致浏览器永远返回旧图
+    // 配合 push-asset 返回的 ?v=timestamp 参数，新图会被正确请求
+    const etag = `"${stat.mtimeMs.toString(36)}-${stat.size.toString(36)}"`;
     return new NextResponse(buffer, {
       headers: {
         'Content-Type': contentType,
         'Content-Length': stat.size.toString(),
-        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Cache-Control': 'public, max-age=3600, must-revalidate',
+        'ETag': etag,
       },
     });
   } catch (err: any) {

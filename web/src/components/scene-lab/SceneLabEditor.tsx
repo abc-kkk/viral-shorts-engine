@@ -11,7 +11,7 @@ import * as THREE from 'three';
 
 interface SceneObject {
   id: string;
-  type: 'character' | 'sofa' | 'table' | 'chair';
+  type: 'character' | 'sofa' | 'table' | 'chair' | 'bed' | 'bookshelf' | 'tv' | 'lamp' | 'cabinet' | 'counter' | 'partition' | 'rug';
   position: [number, number, number];
   rotationY: number;
   color: string;
@@ -42,6 +42,26 @@ const CAMERA_PRESETS: CameraPreset[] = [
 
 const CHARACTER_COLORS = ['#22c55e', '#ef4444', '#3b82f6', '#f59e0b', '#a855f7'];
 const FURNITURE_COLOR = '#8B4513';
+
+// 扩展颜色选择器
+const COLOR_PALETTE = [
+  // 角色色
+  '#22c55e', '#ef4444', '#3b82f6', '#f59e0b', '#a855f7',
+  // 木材色
+  '#8B4513', '#D2691E', '#A0522D', '#DEB887',
+  // 中性色
+  '#374151', '#6b7280', '#9ca3af', '#d1d5db', '#f3f4f6',
+  // 现代色
+  '#1e293b', '#0f766e', '#be185d', '#7c3aed',
+  // 金属色
+  '#78716c', '#a8a29e', '#c0c0c0',
+];
+
+const FURNITURE_LABELS: Record<string, string> = {
+  sofa: '沙发', table: '桌子', chair: '椅子', bed: '床',
+  bookshelf: '书架', tv: '电视', lamp: '落地灯',
+  cabinet: '柜子', counter: '柜台', partition: '隔断', rug: '地毯',
+};
 
 /* ================================================================
    3D Primitives – Mannequin
@@ -160,16 +180,246 @@ function ChairMesh({ color, selected }: { color: string; selected: boolean }) {
 }
 
 /* ================================================================
+   3D Primitives – New Furniture
+   ================================================================ */
+
+function BedMesh({ color, selected }: { color: string; selected: boolean }) {
+  return (
+    <group>
+      {/* Mattress */}
+      <mesh position={[0, 0.25, 0]} castShadow>
+        <boxGeometry args={[1.0, 0.2, 1.8]} />
+        <meshStandardMaterial color={color} roughness={0.8} />
+      </mesh>
+      {/* Headboard */}
+      <mesh position={[0, 0.55, -0.85]} castShadow>
+        <boxGeometry args={[1.0, 0.5, 0.06]} />
+        <meshStandardMaterial color={color} roughness={0.7} />
+      </mesh>
+      {/* Legs */}
+      {[[-0.45, -0.85], [0.45, -0.85], [-0.45, 0.85], [0.45, 0.85]].map(([x, z], i) => (
+        <mesh key={i} position={[x, 0.08, z]} castShadow>
+          <cylinderGeometry args={[0.03, 0.03, 0.15, 8]} />
+          <meshStandardMaterial color={color} roughness={0.7} />
+        </mesh>
+      ))}
+      {selected && (
+        <mesh rotation-x={-Math.PI / 2} position={[0, 0.02, 0]}>
+          <ringGeometry args={[1.0, 1.06, 32]} />
+          <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+function BookshelfMesh({ color, selected }: { color: string; selected: boolean }) {
+  return (
+    <group>
+      {/* Back panel */}
+      <mesh position={[0, 0.7, -0.12]} castShadow>
+        <boxGeometry args={[0.8, 1.4, 0.04]} />
+        <meshStandardMaterial color={color} roughness={0.7} />
+      </mesh>
+      {/* Shelves */}
+      {[0.05, 0.4, 0.75, 1.1, 1.4].map((y, i) => (
+        <mesh key={i} position={[0, y, 0]} castShadow>
+          <boxGeometry args={[0.8, 0.04, 0.25]} />
+          <meshStandardMaterial color={color} roughness={0.7} />
+        </mesh>
+      ))}
+      {/* Side panels */}
+      {[-0.38, 0.38].map((x, i) => (
+        <mesh key={i} position={[x, 0.7, 0]} castShadow>
+          <boxGeometry args={[0.04, 1.4, 0.25]} />
+          <meshStandardMaterial color={color} roughness={0.7} />
+        </mesh>
+      ))}
+      {selected && (
+        <mesh rotation-x={-Math.PI / 2} position={[0, 0.02, 0]}>
+          <ringGeometry args={[0.5, 0.56, 32]} />
+          <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+function TvMesh({ color, selected }: { color: string; selected: boolean }) {
+  return (
+    <group>
+      {/* Screen */}
+      <mesh position={[0, 0.75, 0]} castShadow>
+        <boxGeometry args={[1.2, 0.7, 0.04]} />
+        <meshStandardMaterial color={'#111111'} roughness={0.3} metalness={0.5} />
+      </mesh>
+      {/* Bezel */}
+      <mesh position={[0, 0.75, -0.025]}>
+        <boxGeometry args={[1.25, 0.74, 0.01]} />
+        <meshStandardMaterial color={color} roughness={0.5} />
+      </mesh>
+      {/* Stand */}
+      <mesh position={[0, 0.35, 0]} castShadow>
+        <cylinderGeometry args={[0.03, 0.03, 0.3, 8]} />
+        <meshStandardMaterial color={color} roughness={0.5} />
+      </mesh>
+      {/* Base */}
+      <mesh position={[0, 0.2, 0]} castShadow>
+        <boxGeometry args={[0.4, 0.03, 0.25]} />
+        <meshStandardMaterial color={color} roughness={0.5} />
+      </mesh>
+      {selected && (
+        <mesh rotation-x={-Math.PI / 2} position={[0, 0.02, 0]}>
+          <ringGeometry args={[0.65, 0.71, 32]} />
+          <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+function LampMesh({ color, selected }: { color: string; selected: boolean }) {
+  return (
+    <group>
+      {/* Base */}
+      <mesh position={[0, 0.02, 0]} castShadow>
+        <cylinderGeometry args={[0.15, 0.18, 0.04, 16]} />
+        <meshStandardMaterial color={color} roughness={0.5} metalness={0.3} />
+      </mesh>
+      {/* Pole */}
+      <mesh position={[0, 0.7, 0]} castShadow>
+        <cylinderGeometry args={[0.02, 0.02, 1.35, 8]} />
+        <meshStandardMaterial color={color} roughness={0.5} metalness={0.3} />
+      </mesh>
+      {/* Shade */}
+      <mesh position={[0, 1.45, 0]} castShadow>
+        <cylinderGeometry args={[0.08, 0.2, 0.3, 16, 1, true]} />
+        <meshStandardMaterial color={'#f5f0e0'} roughness={0.9} side={THREE.DoubleSide} />
+      </mesh>
+      {selected && (
+        <mesh rotation-x={-Math.PI / 2} position={[0, 0.02, 0]}>
+          <ringGeometry args={[0.22, 0.28, 32]} />
+          <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+function CabinetMesh({ color, selected }: { color: string; selected: boolean }) {
+  return (
+    <group>
+      {/* Body */}
+      <mesh position={[0, 0.4, 0]} castShadow>
+        <boxGeometry args={[0.8, 0.8, 0.4]} />
+        <meshStandardMaterial color={color} roughness={0.7} />
+      </mesh>
+      {/* Door line */}
+      <mesh position={[0, 0.4, 0.205]}>
+        <boxGeometry args={[0.01, 0.7, 0.01]} />
+        <meshStandardMaterial color={'#00000033'} roughness={0.5} />
+      </mesh>
+      {/* Handles */}
+      {[-0.05, 0.05].map((x, i) => (
+        <mesh key={i} position={[x, 0.4, 0.22]} castShadow>
+          <sphereGeometry args={[0.02, 8, 8]} />
+          <meshStandardMaterial color={'#c0c0c0'} roughness={0.3} metalness={0.7} />
+        </mesh>
+      ))}
+      {selected && (
+        <mesh rotation-x={-Math.PI / 2} position={[0, 0.02, 0]}>
+          <ringGeometry args={[0.5, 0.56, 32]} />
+          <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+function CounterMesh({ color, selected }: { color: string; selected: boolean }) {
+  return (
+    <group>
+      {/* Counter top */}
+      <mesh position={[0, 0.9, 0]} castShadow>
+        <boxGeometry args={[1.5, 0.06, 0.5]} />
+        <meshStandardMaterial color={'#d1d5db'} roughness={0.3} metalness={0.2} />
+      </mesh>
+      {/* Body */}
+      <mesh position={[0, 0.43, 0]} castShadow>
+        <boxGeometry args={[1.5, 0.87, 0.45]} />
+        <meshStandardMaterial color={color} roughness={0.7} />
+      </mesh>
+      {selected && (
+        <mesh rotation-x={-Math.PI / 2} position={[0, 0.02, 0]}>
+          <ringGeometry args={[0.85, 0.91, 32]} />
+          <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+function PartitionMesh({ color, selected }: { color: string; selected: boolean }) {
+  return (
+    <group>
+      {/* Panel */}
+      <mesh position={[0, 0.9, 0]} castShadow>
+        <boxGeometry args={[1.5, 1.8, 0.06]} />
+        <meshStandardMaterial color={color} roughness={0.5} transparent opacity={0.7} />
+      </mesh>
+      {/* Base feet */}
+      {[-0.6, 0.6].map((x, i) => (
+        <mesh key={i} position={[x, 0.02, 0]} castShadow>
+          <boxGeometry args={[0.15, 0.04, 0.3]} />
+          <meshStandardMaterial color={color} roughness={0.5} />
+        </mesh>
+      ))}
+      {selected && (
+        <mesh rotation-x={-Math.PI / 2} position={[0, 0.02, 0]}>
+          <ringGeometry args={[0.85, 0.91, 32]} />
+          <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+function RugMesh({ color, selected }: { color: string; selected: boolean }) {
+  return (
+    <group>
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.01, 0]} receiveShadow>
+        <planeGeometry args={[1.5, 1.0]} />
+        <meshStandardMaterial color={color} roughness={0.95} side={THREE.DoubleSide} />
+      </mesh>
+      {selected && (
+        <mesh rotation-x={-Math.PI / 2} position={[0, 0.02, 0]}>
+          <ringGeometry args={[0.9, 0.96, 32]} />
+          <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+/* ================================================================
    Render object by type
    ================================================================ */
 
 function ObjectMesh({ obj, selected }: { obj: SceneObject; selected: boolean }) {
   switch (obj.type) {
-    case 'character': return <Mannequin color={obj.color} selected={selected} />;
-    case 'sofa':      return <SofaMesh color={obj.color} selected={selected} />;
-    case 'table':     return <TableMesh color={obj.color} selected={selected} />;
-    case 'chair':     return <ChairMesh color={obj.color} selected={selected} />;
-    default:          return null;
+    case 'character':  return <Mannequin color={obj.color} selected={selected} />;
+    case 'sofa':       return <SofaMesh color={obj.color} selected={selected} />;
+    case 'table':      return <TableMesh color={obj.color} selected={selected} />;
+    case 'chair':      return <ChairMesh color={obj.color} selected={selected} />;
+    case 'bed':        return <BedMesh color={obj.color} selected={selected} />;
+    case 'bookshelf':  return <BookshelfMesh color={obj.color} selected={selected} />;
+    case 'tv':         return <TvMesh color={obj.color} selected={selected} />;
+    case 'lamp':       return <LampMesh color={obj.color} selected={selected} />;
+    case 'cabinet':    return <CabinetMesh color={obj.color} selected={selected} />;
+    case 'counter':    return <CounterMesh color={obj.color} selected={selected} />;
+    case 'partition':  return <PartitionMesh color={obj.color} selected={selected} />;
+    case 'rug':        return <RugMesh color={obj.color} selected={selected} />;
+    default:           return null;
   }
 }
 
@@ -398,7 +648,7 @@ export default function SceneLabEditor({ returnUrl, initialPresetId, initialObje
     const obj: SceneObject = {
       id: newId(), type, position: [0, 0, 0], rotationY: 0,
       color: type === 'character' ? CHARACTER_COLORS[colorIdx % CHARACTER_COLORS.length] : FURNITURE_COLOR,
-      label: type === 'character' ? `角色${colorIdx + 1}` : type === 'sofa' ? '沙发' : type === 'table' ? '桌子' : '椅子',
+      label: type === 'character' ? `角色${colorIdx + 1}` : (FURNITURE_LABELS[type] || type),
       scaleX: 1, scaleZ: 1,
     };
     setObjects((prev) => [...prev, obj]);
@@ -467,10 +717,11 @@ export default function SceneLabEditor({ returnUrl, initialPresetId, initialObje
         <div style={{ fontSize: 16, fontWeight: 700, color: '#a78bfa' }}>🎬 布景编辑器</div>
         <div style={{ fontSize: 10, color: '#555', lineHeight: 1.4 }}>拖拽色块摆放站位，切换视角，完成后保存返回</div>
         <button onClick={() => addObject('character')} style={btnStyle('#22c55e')}>＋ 添加角色</button>
-        <div style={{ display: 'flex', gap: 4 }}>
-          <button onClick={() => addObject('sofa')} style={{ ...btnStyle('#8B4513'), flex: 1, fontSize: 11 }}>沙发</button>
-          <button onClick={() => addObject('table')} style={{ ...btnStyle('#8B4513'), flex: 1, fontSize: 11 }}>桌子</button>
-          <button onClick={() => addObject('chair')} style={{ ...btnStyle('#8B4513'), flex: 1, fontSize: 11 }}>椅子</button>
+        <div style={{ fontSize: 10, fontWeight: 600, color: '#666', marginTop: 4 }}>家具道具</div>
+        <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+          {(['sofa','table','chair','bed','bookshelf','tv','lamp','cabinet','counter','partition','rug'] as const).map(t => (
+            <button key={t} onClick={() => addObject(t)} style={{ ...btnStyle('#8B4513'), fontSize: 10, padding: '4px 7px' }}>{FURNITURE_LABELS[t]}</button>
+          ))}
         </div>
         <div style={{ fontSize: 11, fontWeight: 600, color: '#666', marginTop: 6 }}>场景物体</div>
         {objects.map((obj) => (
@@ -505,10 +756,11 @@ export default function SceneLabEditor({ returnUrl, initialPresetId, initialObje
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <label style={labelStyle}>标签<input value={selectedObj.label} onChange={(e) => updateSelected({ label: e.target.value })} style={inputStyle} /></label>
             <label style={labelStyle}>颜色
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {[...CHARACTER_COLORS, '#8B4513', '#666666', '#e0e0e0'].map((c) => (
-                  <span key={c} onClick={() => updateSelected({ color: c })} style={{ width: 22, height: 22, borderRadius: 5, background: c, cursor: 'pointer', border: selectedObj.color === c ? '2px solid #fff' : '2px solid transparent' }} />
+              <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                {COLOR_PALETTE.map((c) => (
+                  <span key={c} onClick={() => updateSelected({ color: c })} style={{ width: 18, height: 18, borderRadius: 4, background: c, cursor: 'pointer', border: selectedObj.color === c ? '2px solid #fff' : '2px solid transparent', transition: 'transform 0.1s', }} />
                 ))}
+                <input type="color" value={selectedObj.color} onChange={(e) => updateSelected({ color: e.target.value })} style={{ width: 18, height: 18, padding: 0, border: '1px solid #555', borderRadius: 4, cursor: 'pointer', background: 'transparent' }} title="自定义颜色" />
               </div>
             </label>
             <label style={labelStyle}>朝向 ({Math.round((selectedObj.rotationY * 180) / Math.PI)}°)<input type="range" min={-Math.PI} max={Math.PI} step={0.1} value={selectedObj.rotationY} onChange={(e) => updateSelected({ rotationY: parseFloat(e.target.value) })} style={{ width: '100%', accentColor: '#a855f7' }} /></label>

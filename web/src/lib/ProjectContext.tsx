@@ -91,6 +91,14 @@ interface ProjectContextValue {
   // Phase 3: 画板区
   activeSceneIndex: number;
   setActiveSceneIndex: React.Dispatch<React.SetStateAction<number>>;
+  sceneLocationPrompts: Record<number, string>;
+  setSceneLocationPrompts: React.Dispatch<React.SetStateAction<Record<number, string>>>;
+  sceneLocationImages: Record<number, string>;
+  setSceneLocationImages: React.Dispatch<React.SetStateAction<Record<number, string>>>;
+  handleGenerateSceneLocationPrompt: (sceneIndex: number, sceneComposition?: string) => Promise<void>;
+  generateSceneLocationImage: (sceneIndex: number, referenceKeywords?: string[]) => Promise<void>;
+  actionLayoutPrompts: Record<number, string>;
+  setActionLayoutPrompts: React.Dispatch<React.SetStateAction<Record<number, string>>>;
   sceneImagePrompts: Record<number, string>;
   setSceneImagePrompts: React.Dispatch<React.SetStateAction<Record<number, string>>>;
   sceneVideoPrompts: Record<number, string>;
@@ -205,6 +213,9 @@ export function ProjectProvider({ children, projectId }: { children: React.React
 
   // Phase 3: 画板区
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
+  const [sceneLocationPrompts, setSceneLocationPrompts] = useState<Record<number, string>>({});
+  const [sceneLocationImages, setSceneLocationImages] = useState<Record<number, string>>({});
+  const [actionLayoutPrompts, setActionLayoutPrompts] = useState<Record<number, string>>({});
   const [sceneImagePrompts, setSceneImagePrompts] = useState<Record<number, string>>({});
   const [sceneVideoPrompts, setSceneVideoPrompts] = useState<Record<number, string>>({});
   const [sceneStartImagePrompts, setSceneStartImagePrompts] = useState<Record<number, string>>({});
@@ -231,6 +242,23 @@ export function ProjectProvider({ children, projectId }: { children: React.React
   // ========================================
   // 自动加载 (从 API)
   // ========================================
+
+  // [BUGFIX] 给本地资源 URL 追加缓存破坏参数，防止浏览器使用之前 immutable 缓存的旧文件
+  const bustCache = useCallback((url: string) => {
+    if (!url || !url.startsWith('/api/serve/')) return url;
+    // 去掉旧的 ?v= 参数，加上新的
+    const base = url.split('?')[0];
+    return `${base}?v=${Date.now()}`;
+  }, []);
+
+  const bustCacheMap = useCallback((map: Record<string | number, string>) => {
+    const result: Record<string | number, string> = {};
+    for (const [k, v] of Object.entries(map)) {
+      result[k] = bustCache(v);
+    }
+    return result;
+  }, [bustCache]);
+
   useEffect(() => {
     fetch(`/api/state?projectId=${encodeURIComponent(projectId)}`).then(r => r.json()).then(res => {
       if (res.success && Object.keys(res.data).length > 0) {
@@ -252,10 +280,12 @@ export function ProjectProvider({ children, projectId }: { children: React.React
         if (data.scriptIteration) setScriptIteration(data.scriptIteration);
         if (data.userDirection) setUserDirection(data.userDirection);
         if (data.locationPrompt) setLocationPrompt(data.locationPrompt);
-        if (data.locationImage) setLocationImage(data.locationImage);
+        if (data.locationImage) bustCache(data.locationImage) && setLocationImage(bustCache(data.locationImage));
         if (data.characterPrompts) setCharacterPrompts(data.characterPrompts);
-        if (data.characterImages) setCharacterImages(data.characterImages);
-        if (data.activeSceneIndex) setActiveSceneIndex(data.activeSceneIndex);
+        if (data.characterImages) setCharacterImages(bustCacheMap(data.characterImages));
+        if (data.activeSceneIndex !== undefined) setActiveSceneIndex(data.activeSceneIndex);
+        if (data.sceneLocationPrompts) setSceneLocationPrompts(data.sceneLocationPrompts);
+        if (data.sceneLocationImages) setSceneLocationImages(bustCacheMap(data.sceneLocationImages));
         if (data.sceneImagePrompts) setSceneImagePrompts(data.sceneImagePrompts);
         if (data.sceneVideoPrompts) setSceneVideoPrompts(data.sceneVideoPrompts);
         if (data.sceneStartImagePrompts) setSceneStartImagePrompts(data.sceneStartImagePrompts);
@@ -266,15 +296,15 @@ export function ProjectProvider({ children, projectId }: { children: React.React
         if (data.sceneDurations) setSceneDurations(data.sceneDurations);
         if (data.sceneVideoTrimStart) setSceneVideoTrimStart(data.sceneVideoTrimStart);
         if (data.sceneVideoTrimEnd) setSceneVideoTrimEnd(data.sceneVideoTrimEnd);
-        if (data.sceneImages) setSceneImages(data.sceneImages);
-        if (data.sceneStartImages) setSceneStartImages(data.sceneStartImages);
+        if (data.sceneImages) setSceneImages(bustCacheMap(data.sceneImages));
+        if (data.sceneStartImages) setSceneStartImages(bustCacheMap(data.sceneStartImages));
         if (data.sceneImageRefs) setSceneImageRefs(data.sceneImageRefs);
-        if (data.sceneVideos) setSceneVideos(data.sceneVideos);
-        if (data.sceneAudio) setSceneAudio(data.sceneAudio);
+        if (data.sceneVideos) setSceneVideos(bustCacheMap(data.sceneVideos));
+        if (data.sceneAudio) setSceneAudio(bustCacheMap(data.sceneAudio));
         if (data.sceneAudioDelays) setSceneAudioDelays(data.sceneAudioDelays);
         // 封面数据
         if (data.coverPrompts) setCoverPrompts(data.coverPrompts);
-        if (data.coverImages) setCoverImages(data.coverImages);
+        if (data.coverImages) setCoverImages(bustCacheMap(data.coverImages));
       }
       stateLoaded.current = true;
     }).catch(e => {
@@ -293,6 +323,7 @@ export function ProjectProvider({ children, projectId }: { children: React.React
       publishInfo,
       writerStep, inspirations, creativeMode, rawScript, scriptReview, scriptIteration, userDirection,
       locationPrompt, locationImage, characterPrompts, characterImages, activeSceneIndex,
+      sceneLocationPrompts, sceneLocationImages,
       sceneImagePrompts, sceneVideoPrompts, sceneStartImagePrompts, sceneCharacters,
       sceneDurations, sceneVideoTrimStart, sceneVideoTrimEnd, sceneImages, sceneStartImages, sceneImageRefs, sceneVideos, sceneAudio, sceneAudioDelays,
       coverPrompts, coverImages
@@ -308,6 +339,7 @@ export function ProjectProvider({ children, projectId }: { children: React.React
     publishInfo, coverPrompts, coverImages,
     writerStep, inspirations, creativeMode, rawScript, scriptReview, scriptIteration, userDirection,
     locationPrompt, locationImage, characterPrompts, characterImages, activeSceneIndex,
+    sceneLocationPrompts, sceneLocationImages,
     sceneImagePrompts, sceneVideoPrompts, sceneStartImagePrompts, sceneCharacters,
     sceneDurations, sceneVideoTrimStart, sceneVideoTrimEnd, sceneImages, sceneStartImages, sceneImageRefs, sceneVideos, sceneAudio, sceneAudioDelays]);
     
@@ -325,6 +357,8 @@ export function ProjectProvider({ children, projectId }: { children: React.React
                   for (const item of body.data) {
                       if (item.targetType === 'locationImage') {
                           setLocationImage(item.url);
+                      } else if (item.targetType === 'sceneLocationImage' && item.index !== undefined) {
+                          setSceneLocationImages(prev => ({ ...prev, [item.index]: item.url }));
                       } else if (item.targetType === 'characterImage' && item.index !== undefined) {
                           setCharacterImages(prev => ({ ...prev, [item.index]: item.url }));
                       } else if (item.targetType === 'sceneImage' && item.index !== undefined) {
@@ -622,6 +656,47 @@ export function ProjectProvider({ children, projectId }: { children: React.React
     }
   }, [locationPrompt, flowUrl, projectId, useHitlMode]);
 
+  const handleGenerateSceneLocationPrompt = useCallback(async (sceneIndex: number, sceneComposition?: string) => {
+    setProcessingScene(p => ({ ...p, [sceneIndex]: 'action' })); // Reuse processingScene state
+    try {
+      const data = await fetchApi('/api/generate-prompts', { aiProvider,
+          taskType: 'location_prompt',
+          artStyle,
+          fullScriptContext: getFullScriptContext(),
+          sceneComposition: sceneComposition || undefined,
+      });
+      setSceneLocationPrompts(p => ({ ...p, [sceneIndex]: data.prompt }));
+    } catch (e: any) {
+      alert(`第 ${sceneIndex + 1} 幕自定义场景提示词生成失败: ` + e.message);
+    } finally {
+      setProcessingScene(p => ({ ...p, [sceneIndex]: null }));
+    }
+  }, [aiProvider, artStyle, getFullScriptContext]);
+
+  const generateSceneLocationImage = useCallback(async (sceneIndex: number, referenceKeywords?: string[]) => {
+    const prompt = sceneLocationPrompts[sceneIndex];
+    if (!prompt) return alert("请先生成该幕场景视觉提示词");
+    setProcessingScene(p => ({ ...p, [sceneIndex]: 'action' })); // Reuse processingScene state
+    try {
+      await fetch('/api/extension/active-context', { method: 'POST', body: JSON.stringify({ projectId, targetType: 'sceneLocationImage', index: sceneIndex }) });
+      const data = await fetchApi('/api/generate-assets', { 
+        prompt, 
+        model: 'Nano Banana Pro', 
+        referenceKeywords: referenceKeywords || [],
+        flowUrl, 
+        projectId, 
+        fireAndForget: useHitlMode 
+      });
+      if (!data.fireAndForget) {
+         setSceneLocationImages(p => ({ ...p, [sceneIndex]: data.url }));
+      }
+    } catch (e: any) {
+      alert(`第 ${sceneIndex + 1} 幕自定义场景生图失败: ` + e.message);
+    } finally {
+      setProcessingScene(p => ({ ...p, [sceneIndex]: null }));
+    }
+  }, [sceneLocationPrompts, flowUrl, projectId, useHitlMode]);
+
   const handleGenerateCharacterPrompt = useCallback(async (index: number, sheetElements?: string) => {
     setProcessingChars(p => ({ ...p, [index]: 'prompt' }));
     try {
@@ -669,6 +744,21 @@ export function ProjectProvider({ children, projectId }: { children: React.React
       const allCharactersContext = characters.map(c => `${c.name}: ${c.persona}${c.voice ? ` | voice: ${c.voice}` : ''}`).join('\n');
       const previousImagePrompt = i > 0 ? sceneImagePrompts[i - 1] : "";
       const previousVideoPrompt = i > 0 ? sceneVideoPrompts[i - 1] : "";
+      const activeLocationPrompt = sceneLocationPrompts[i] || locationPrompt || '';
+      // 过滤掉场景描述里的布局标签，防止 AI 在写首尾帧提示词时，误把“环境布局”当成“站位布局”写进去
+      const cleanLocationContext = activeLocationPrompt.replace(/\{@Layout_[^{}]+\}/g, '').trim();
+      // 提取独立配置的人物站位 3D 布局标签（专门用于分镜控制人物）
+      const extractLayoutKeyword = (p: string) => {
+        const matches = p.matchAll(/\{@(Layout_[^{}]+)\}/g);
+        const keywords = Array.from(matches, m => m[1]);
+        return keywords.length > 0 ? keywords[0] : null;
+      };
+      const activeActionLayoutPrompt = actionLayoutPrompts[i] || '';
+      const layoutTag = extractLayoutKeyword(activeActionLayoutPrompt);
+      const baseSceneToken = sceneLocationPrompts[i] ? `场景_S${i}` : '场景';
+      // 巧妙组合：如果配置了独立的人物站位布局，AI 将同时输出 {@Layout_动作} 和 {@场景_环境}
+      const sceneLocationToken = layoutTag ? `${layoutTag}} 布局和 {@${baseSceneToken}` : baseSceneToken;
+
       const data = await fetchApi('/api/generate-prompts', { aiProvider,
           taskType: 'action',
           artStyle,
@@ -679,7 +769,9 @@ export function ProjectProvider({ children, projectId }: { children: React.React
           sceneIndex: i,
           totalScenes: scriptLines.length,
           previousImagePrompt,
-          previousVideoPrompt
+          previousVideoPrompt,
+          sceneLocationContext: cleanLocationContext,
+          sceneLocationToken
       });
       // 尾帧提示词（所有镜头都有）
       setSceneImagePrompts(p => ({ ...p, [i]: data.imagePrompt }));
@@ -697,7 +789,7 @@ export function ProjectProvider({ children, projectId }: { children: React.React
     } finally {
       setProcessingScene(p => ({ ...p, [i]: null }));
     }
-  }, [aiProvider, scriptLines, characters, artStyle, getFullScriptContext, sceneImagePrompts, sceneVideoPrompts]);
+  }, [aiProvider, scriptLines, characters, artStyle, getFullScriptContext, sceneImagePrompts, sceneVideoPrompts, actionLayoutPrompts, sceneLocationPrompts, locationPrompt]);
 
   // ========================================
   // Cover 生成
@@ -768,8 +860,13 @@ export function ProjectProvider({ children, projectId }: { children: React.React
         refKeywords.push(characters[charIdx].name);
       }
     }
-    if (prompt.includes('{@场景}')) {
-      refKeywords.push('场景');
+    const regex = /\{@([^{}]+)\}/g;
+    let match;
+    while ((match = regex.exec(prompt)) !== null) {
+      const kw = match[1];
+      if (!refKeywords.includes(kw)) {
+        refKeywords.push(kw);
+      }
     }
     return refKeywords;
   }, [sceneCharacters, characters, scriptLines]);
@@ -947,6 +1044,10 @@ export function ProjectProvider({ children, projectId }: { children: React.React
     isProcessingLocation, setIsProcessingLocation,
     handleGenerateLocationPrompt, generateLocationImage,
     activeSceneIndex, setActiveSceneIndex,
+    sceneLocationPrompts, setSceneLocationPrompts,
+    sceneLocationImages, setSceneLocationImages,
+    actionLayoutPrompts, setActionLayoutPrompts,
+    handleGenerateSceneLocationPrompt, generateSceneLocationImage,
     sceneImagePrompts, setSceneImagePrompts,
     sceneVideoPrompts, setSceneVideoPrompts,
     sceneStartImagePrompts, setSceneStartImagePrompts,

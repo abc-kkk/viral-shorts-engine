@@ -99,6 +99,8 @@ export interface ProjectState {
 
   // Phase 3: 画板区
   activeSceneIndex: number;
+  sceneLocationPrompts: Record<number, string>;    // 单幕自定义场景提示词
+  sceneLocationImages: Record<number, string>;     // 单幕自定义场景参考图
   sceneImagePrompts: Record<number, string>;       // 中文尾帧图提示词
   sceneVideoPrompts: Record<number, string>;       // 中文视频动态提示词
   sceneStartImagePrompts: Record<number, string>;  // 中文首帧图提示词 (仅第1镜有值)

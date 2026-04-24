@@ -32,10 +32,25 @@ export async function POST(req: Request) {
         throw new Error('No active project context found. Please click something in Studio first.');
     }
     const context = JSON.parse(fs.readFileSync(cp, 'utf-8'));
-    const { projectId, targetType, index, meta } = context;
+    let { projectId, targetType, index, meta } = context;
 
     if (!projectId) {
          throw new Error('Active project context is missing projectId.');
+    }
+
+    // [HOTFIX]: 解决并发提取首尾帧时上下文被覆盖的 Bug
+    // 由于用户可能连续点击“生成首帧”和“生成尾帧”，active-context.json 只有最后一次的状态。
+    // 但是，由于用户在 Chrome 扩展的弹窗里确认了 ID（如 测试2_S4_StartImg），我们可以从 referenceKeyword 中提取真正的意图。
+    if (referenceKeyword && typeof referenceKeyword === 'string') {
+        if (referenceKeyword.includes('_StartImg')) {
+            targetType = 'sceneStartImage';
+            const sMatch = referenceKeyword.match(/_S(\d+)_StartImg/);
+            if (sMatch) index = parseInt(sMatch[1], 10);
+        } else if (referenceKeyword.includes('_Img')) {
+            targetType = 'sceneImage';
+            const sMatch = referenceKeyword.match(/_S(\d+)_Img/);
+            if (sMatch) index = parseInt(sMatch[1], 10);
+        }
     }
 
     let assetType = mediaType === 'video' ? 'videos' : 'images';
@@ -62,7 +77,11 @@ export async function POST(req: Request) {
     }
     
     let filename = `hitl_${Date.now()}_${Math.random().toString(36).substring(7)}${ext}`;
-    if (targetType === 'coverImage' && meta && meta.ratio) {
+    if (targetType === 'locationImage') {
+        filename = `场景${ext}`;
+    } else if (targetType === 'sceneLocationImage' && index !== undefined) {
+        filename = `场景_S${index}${ext}`;
+    } else if (targetType === 'coverImage' && meta && meta.ratio) {
         filename = `cover_${meta.ratio.replace(':', 'x')}${ext}`;
     } else if (targetType === 'sceneStartImage' && index !== undefined) {
         filename = `${projectId}_S${index}_StartImg${ext}`;
@@ -72,7 +91,8 @@ export async function POST(req: Request) {
     
     const filepath = path.join(assetsDir, filename);
     fs.writeFileSync(filepath, buffer);
-    const localUrl = getAssetUrl(projectId, assetType as any, filename);
+    // [BUGFIX] 加上时间戳缓存破坏参数，防止浏览器用 immutable 缓存返回旧版同名文件
+    const localUrl = getAssetUrl(projectId, assetType as any, filename) + `?v=${Date.now()}`;
     console.log(`[Extension] Saved: ${filepath}`);
 
     // Push to inbox array

@@ -5,15 +5,18 @@
 
 ## 1. 场景锚定与 Token 语法 (极其关键)
 为了保证同一场景下的背景画面一致性，系统使用硬编码的 Token 进行图片占位。
-- **强制使用固定的 `{@场景}`**：
-  在 `imagePrompt` 和 `startImagePrompt` 的开头或环境描写处，**只能使用 `{@场景}` 这四个字**。
-  - ❌ 错误示范：`{@银行大厅}`、`{@我的卧室}`
+- **全局场景引用 `{@场景}`**：
+  在分镜的 `imagePrompt` 和 `startImagePrompt` 的开头或环境描写处，必须使用 `{@场景}` 来引用全局场景参考图。
+  - ❌ 错误示范：`{@银行大厅}`、`{@我的卧室}`、`{@Layout_572599}`
   - ✅ 正确示范：`在{@场景}中...`
-  *原因*：底层前端逻辑及拦截器**仅能严格识别并替换** `{@场景}` 这个固定字符串，用来映射全局场景参考图。一旦 AI 自作主张改名，所有背景图注入将直接报废！
+  *原因*：底层前端逻辑及拦截器**仅能严格识别并替换**这些固定标识符，用来映射场景参考图。一旦 AI 自作主张改名，所有背景图注入将直接报废！
+- **分镜独立场景引用 `{@场景_S{序号}}`**：
+  如果某个分镜定义了独立场景（覆盖全局），则该幕的 `imagePrompt` 中必须使用 `{@场景_S0}`（第0幕）、`{@场景_S1}`（第1幕）等格式。系统会自动根据 `sceneLocationPrompts[i]` 是否存在来决定注入哪个 token。
 
 ## 2. 媒体资产(Assets)命名铁律（不可更改！）
 Chrome 扩展（`content.js`）及后端自动生成文件时，必须严格遵守以下标识符，**任何开发者不得乱改此规则**：
-- `locationImage` (场景概念图)：目标名称强制锁定为 **`场景`**。
+- `locationImage` (全局场景概念图)：目标名称强制锁定为 **`场景`**。
+- `sceneLocationImage` (分镜独立场景概念图)：目标名称格式为 **`场景_S{序号}`**（如 `场景_S0`、`场景_S2`）。
 - `characterImage` (角色定妆照)：目标名称强制锁定为 **角色原始全名**（如 `小雪`）。
 - `sceneStartImage` (分镜首帧图)：标识符必须为 `[项目名]_S[序号]_StartImg`。
 - `sceneImage` (分镜尾帧图)：标识符必须为 `[项目名]_S[序号]_Img`。
@@ -50,5 +53,85 @@ Chrome 扩展（`content.js`）及后端自动生成文件时，必须严格遵�
 - 在生成角色定妆照、全局场景概念图以及最终的分镜画面提示词时，必须明确强调：“不完美之美 (imperfect beauty)”、“不磨皮、不美颜、无滤镜”、“真实可见的皮肤微小瑕疵（如毛孔）”、“真实的居家自然光影不均”等。
 - 坚决杜绝 AI 习惯性的“精美海报感”、“商业打光”或任何像 AI 画作的痕迹。
 
-## 6. 全中文输出 (Chinese-Only)
+## 7. 全中文输出 (Chinese-Only)
 - 结合底层生图接口对本土化细节的卓越理解能力，目前引擎的所有生图、生视频 Prompt **全部强制要求输出纯中文**（除极个别底层保留的英文参数）。这样既能提高 AI 在处理中国文化背景时的写实感，也方便用户直接在 UI 界面上审查和微调。
+
+---
+
+## 8. ⚠️ 开发踩坑记录（血泪教训，必读！）
+
+以下是历史开发中实际遇到的严重 Bug 及其根因分析。**任何开发者在修改相关模块前必须仔细阅读**，避免重蹈覆辙。
+
+### 踩坑 1：布局图 Token 与 场景图 Token 的注入逻辑（已进化为双轨制）
+- **背景**：早期版本中正则提取错误，导致分镜提示词只拿到了 `{@Layout_XXXXXX}` 而丢了已渲染的场景图 `{@场景}`，导致首尾帧生图失去了风格锚定。
+- **最新双轨架构**：为了让分镜首尾帧**既能受到 3D 布局的位置约束，又能保持已生成场景的风格一致性**，引擎现在采用**双 Token 组合注入**。
+- **核心逻辑**：
+  在 `handleGenerateActionPrompt` 中，程序会主动从 `activeLocationPrompt` 中提取 `{@Layout_XXXXXX}`（如果用户搭建了 3D 布局），并与场景图 Token (`场景_S{i}` 或 `场景`) 组合。
+  - 最终 AI 收到的强制占位符变为：`{@Layout_123456} 布局和 {@场景_S{i}}`
+  - 这样 Flow 在生成首尾帧时，会同时加载这两张图作为图生图参考！
+  - **铁律**：`sceneLocationToken` 必须通过代码逻辑主动拼装，**绝对不能**再用正则去傻傻提取用户提示词里第一个出现的 `{@...}` 标签。
+- **涉及文件**：`ProjectContext.tsx` → `handleGenerateActionPrompt`
+
+### 踩坑 2：新增 targetType 时必须同步修改四个位置
+- **现象**：新增了 `sceneLocationImage` 这一资产类型，但 Chrome 扩展显示名为 `VS_Generic_Asset_786`，且"提取落盘"后图片无法回显到前端。
+- **根因**：新 `targetType` 只在 `ProjectContext` 的 `active-context` 设置处加了，但遗漏了其他三个消费端。
+- **铁律**：每次新增一个 `targetType`，必须同步修改以下**全部四个文件**：
+  1. `web/src/lib/ProjectContext.tsx` → `active-context` POST 设置 + inbox poller 接收
+  2. `web/src/app/api/generate-assets/route.ts` → 文件命名规则
+  3. `web/src/app/api/extension/push-asset/route.ts` → 文件命名规则
+  4. `web/viral-shorts-extension/content.js` → `fetchTargetId()` 显示名映射
+  - 缺一个都会导致命名异常或数据丢失！
+
+### 踩坑 3：扩展代码修改后必须手动刷新
+- **现象**：修改了 `content.js` 代码，但浏览器中的扩展行为没有变化。
+- **根因**：Chrome 扩展不像 Next.js 有热更新。修改 `content.js` 后必须手动操作。
+- **操作**：Chrome → `chrome://extensions` → 找到扩展 → 点击 🔄 刷新按钮 → 刷新 Flow 页面。
+
+### 踩坑 4：场景/角色资产不需要弹框确认重命名
+- **现象**：用户点击"提取落盘"后弹出一个需要手动确认的对话框，要求先去 Flow 中重命名素材，严重阻碍操作效率。
+- **根因**：扩展中所有资产类型统一使用了 `customConfirm` 弹框。但场景图和角色定妆照不需要在 Flow 中被其他 prompt 引用（它们的引用是通过固定 token 如 `{@场景}` 自动完成的），所以不需要手动重命名。
+- **铁律**：只有分镜首尾帧 (`sceneImage` / `sceneStartImage`) 和视频 (`sceneVideo`) 需要确认弹框（因为它们需要在 Flow 中保持正确命名以供后续引用）。`locationImage`、`sceneLocationImage`、`characterImage` 类型应跳过弹框直接提取。
+
+### 踩坑 5：AI 生成场景描述时会"画蛇添足"
+- **现象**：用户在 3D 编辑器中只放了「柜台 + 隔断玻璃」两样东西，但 AI 生成的场景 prompt 中多出了地毯、盆栽、壁画等用户从未放置的物品。
+- **根因**：AI 模型有补全环境细节的习惯，会主动脑补额外的软装元素。
+- **铁律**：
+  - 在 `LocationPanel.tsx` 的 `compositionHint` 中必须明确告知 AI：「场景内**仅**包含以下核心物品：xxx。请**绝对不要**增加任何未提及的家具、摆件或环境元素」。
+  - 在 `defaultTemplates.ts` 的 `location_prompt` 系统指令中，必须包含"严格遵照已有物品"的强约束规则。
+  - AI 应该把精力放在已有物品的**材质细节、颜色、光影氛围**的写实描写上，而不是发明新物品。
+
+### 踩坑 6：复用组件时 UI 文案要区分上下文
+- **现象**：在分镜面板中，按钮仍然显示「提取全局场景中文 Prompt」，容易让用户误认为是在操作全局设置。
+- **根因**：`LocationPanel` 组件在全局和分镜两个场景中复用，但按钮文案是硬编码的。
+- **铁律**：通用组件的用户可见文案必须根据 props（如 `isCollapsible`）做动态区分。复用 UI 组件时，一定要检查所有面向用户的文字是否在不同上下文中都合理。
+
+### 踩坑 7：确定性文件名 + immutable 缓存 = 旧图永远不更新（2026-04-24 修复）
+- **现象**：Chrome 扩展提取落盘显示"✅ 成功"，磁盘上文件也已更新，但 Studio 工作台始终显示昨天的旧图。用户硬刷新也没用（第一次提取的场景正常，再次提取同一场景就不更新了）。
+- **根因**：
+  1. 首尾帧文件名是**确定性的**（如 `测试2_S4_Img.png`），每次提取同一幕都覆盖同一个文件。
+  2. `/api/serve/` 端点返回了 `Cache-Control: public, max-age=31536000, immutable`（一年永不过期缓存）。
+  3. 浏览器第一次加载后缓存了旧图，之后即使磁盘文件已被覆盖，同一 URL 会直接返回缓存的旧图，**永远不会重新请求服务器**。
+- **修复**：
+  1. `push-asset/route.ts`：返回的 URL 追加 `?v=${Date.now()}` 缓存破坏参数。
+  2. `serve/[...path]/route.ts`：缓存策略从 `immutable` 改为 `must-revalidate` + ETag。
+  3. `ProjectContext.tsx`：加载已保存 URL 时自动追加新的缓存破坏时间戳。
+- **铁律**：
+  - **可覆盖的文件绝对不能用 `immutable` 缓存**！`immutable` 只适用于内容哈希作为文件名的场景（如 `file.abc123.js`）。
+  - 如果文件名是确定性的（同名覆盖），必须使用 `?v=timestamp` 或内容哈希来绕过缓存。
+  - **涉及文件**：`push-asset/route.ts`、`serve/[...path]/route.ts`、`ProjectContext.tsx`
+
+### 踩坑 8：Chrome 扩展 scroll capture 事件导致提取按钮静默失效（2026-04-24 修复）
+- **现象**：在 Flow 页面悬停图片时按钮正常出现，点击"提取落盘"后**没有任何反应**——不报错、不弹窗、不显示任何状态变化，完全静默失败。
+- **根因**：
+  1. `content.js` 中 `document.addEventListener('scroll', hideButton, true)` 使用了 **capture 模式**（第三个参数 `true`），导致 Flow 页面内**任何子元素**的 scroll 事件（如内容容器滚动）都会触发 `hideButton()`。
+  2. `hideButton()` 会把 `currentHoveredMedia` 设为 `null`。
+  3. 点击按钮时，click handler 的第一行 `if (!currentHoveredMedia) return;` 发现是 `null`，直接 **静默退出**，没有任何错误提示。
+  4. 这是一个竞态条件：用户点击按钮前的微小滚动（甚至触摸板惯性滚动）就会清空状态。
+- **修复**：
+  1. scroll 监听改为 `false`（bubbling 模式），不再拦截子元素的滚动。
+  2. 点击时立即**快照** `currentHoveredMedia` 的引用和 URL，后续异步操作全程使用快照值。
+- **铁律**：
+  - **`addEventListener` 的第三个参数 `capture: true` 要极其谨慎使用**，它会拦截所有子元素的事件。
+  - 异步操作中引用外部可变状态时，必须在入口处做快照（snapshot），防止竞态条件。
+  - **静默失败是最危险的 Bug**——任何 `return` 前都应该有日志或用户提示。
+  - **涉及文件**：`viral-shorts-extension/content.js`

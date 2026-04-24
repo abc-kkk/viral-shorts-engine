@@ -1,13 +1,24 @@
 const LOCAL_HOST = 'http://localhost:3000';
 
-function customConfirm(message) {
+function customConfirm(message, defaultValue = null) {
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
         overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.6);z-index:99999999;display:flex;align-items:center;justify-content:center;';
         
         const dialog = document.createElement('div');
         dialog.style.cssText = 'background:#1f2937;color:#fff;padding:24px;border-radius:12px;max-width:450px;width:90%;font-family:sans-serif;box-shadow:0 20px 25px -5px rgba(0,0,0,0.2);font-size:14px;line-height:1.6;white-space:pre-wrap;';
-        dialog.innerText = message;
+        
+        const msgDiv = document.createElement('div');
+        msgDiv.innerText = message;
+        dialog.appendChild(msgDiv);
+        
+        let inputEl = null;
+        if (defaultValue !== null) {
+            inputEl = document.createElement('input');
+            inputEl.value = defaultValue;
+            inputEl.style.cssText = 'width:100%; box-sizing:border-box; margin-top:16px; padding:10px; border-radius:6px; border:1px solid #4b5563; background:#374151; color:#fff; font-family:monospace; font-size:14px; focus:outline-none;';
+            dialog.appendChild(inputEl);
+        }
         
         const btnContainer = document.createElement('div');
         btnContainer.style.cssText = 'margin-top:24px;display:flex;justify-content:flex-end;gap:12px;';
@@ -20,11 +31,14 @@ function customConfirm(message) {
         cancelBtn.onclick = () => { document.body.removeChild(overlay); resolve(false); };
         
         const okBtn = document.createElement('button');
-        okBtn.innerText = '确定';
+        okBtn.innerText = '确定提取';
         okBtn.style.cssText = 'padding:8px 16px;border:none;border-radius:6px;background:#3b82f6;color:#fff;cursor:pointer;font-weight:bold;';
         okBtn.onmouseover = () => okBtn.style.background = '#2563eb';
         okBtn.onmouseout = () => okBtn.style.background = '#3b82f6';
-        okBtn.onclick = () => { document.body.removeChild(overlay); resolve(true); };
+        okBtn.onclick = () => { 
+            document.body.removeChild(overlay); 
+            resolve(inputEl ? inputEl.value.trim() : true); 
+        };
         
         btnContainer.appendChild(cancelBtn);
         btnContainer.appendChild(okBtn);
@@ -51,6 +65,8 @@ async function fetchTargetId() {
                targetId = `${safeProjectId}_S${index}_Vid`;
            } else if (targetType === 'locationImage') {
                targetId = '场景';
+           } else if (targetType === 'sceneLocationImage') {
+               targetId = `场景_S${index}`;
            } else if (targetType === 'characterImage') {
                targetId = (ctxData.data.meta && ctxData.data.meta.charName) ? ctxData.data.meta.charName : `${safeProjectId}_Char${index}`;
            } else if (targetType === 'coverImage' && ctxData.data.meta) {
@@ -68,6 +84,9 @@ let currentHoveredMedia = null;
 let currentMediaType = null;
 let buttonTimeout = null;
 let isButtonLocked = false;
+// [BUGFIX] 快照：点击时保存当前媒体的引用和 URL，防止异步操作期间 hover 状态变化导致丢失
+let snapshotMediaUrl = null;
+let snapshotMediaType = null;
 
 const floatContainer = document.createElement('div');
 floatContainer.className = 'vs-extension-floating-container';
@@ -139,7 +158,15 @@ document.addEventListener('mousemove', (e) => {
   }
 });
 
-document.addEventListener('scroll', hideButton, true);
+// [BUGFIX] scroll 事件不再使用 capture 模式，只监听 document 本身的滚动
+// 之前使用了 capture:true，导致 Flow 页面内任何子容器的 scroll 事件都会清空 currentHoveredMedia
+// 即使 isButtonLocked 阻止了 hideButton，也会在点击前的微小滚动中竞态清空状态
+document.addEventListener('scroll', () => {
+  // 滚动时如果按钮没锁定就隐藏（但不干扰正在进行的提取操作）
+  if (!isButtonLocked) {
+    hideButton();
+  }
+}, false);  // passive bubbling，不再 capture 子元素滚动
 
 copyBtn.addEventListener('click', async (e) => {
     e.preventDefault(); e.stopPropagation();
@@ -159,30 +186,37 @@ extractBtn.addEventListener('click', async (e) => {
     e.preventDefault();
     e.stopPropagation();
     
-    if (!currentHoveredMedia) return;
-    
+    // [BUGFIX] 如果已锁定（上一次操作完成或失败后），解锁并关闭
     if (isButtonLocked) {
         isButtonLocked = false;
         hideButton();
         return;
     }
     
-    isButtonLocked = true; // 锁定按钮，防止移开鼠标消失
+    // [BUGFIX] 立即快照当前媒体信息，防止后续异步操作期间 hover 状态被 scroll/mousemove 清空
+    const mediaEl = currentHoveredMedia;
+    if (!mediaEl) {
+        console.warn('[VS Extension] currentHoveredMedia is null at click time');
+        return;
+    }
     
-    // Check if it's a blob url or standard src
-    let mediaUrl = currentHoveredMedia.src || currentHoveredMedia.querySelector('source')?.src;
-    
+    const mediaUrl = mediaEl.src || mediaEl.querySelector('source')?.src;
     if (!mediaUrl) {
       alert('无法获取媒体 URL');
       return;
     }
+    
+    // 快照当前类型
+    const mediaType = currentMediaType || (mediaEl.tagName.toLowerCase() === 'img' ? 'image' : 'video');
+    
+    isButtonLocked = true; // 锁定按钮，防止移开鼠标消失
 
     try {
         extractBtn.innerHTML = '🔄 拉取引擎上下文...';
         
         let targetId = await fetchTargetId();
 
-        let originalName = currentHoveredMedia.alt || currentHoveredMedia.title || "未知截图";
+        let originalName = mediaEl.alt || mediaEl.title || "未知截图";
 
         let copySuccess = false;
         try {
@@ -192,17 +226,35 @@ extractBtn.addEventListener('click', async (e) => {
             console.error('Failed to copy to clipboard', err);
         }
         
-        const conf = await customConfirm(`【一键防崩溃重命名】\n\nGoogle生成的原图显示为：\n"${originalName.substring(0,60)}..."\n\n由于原名太长可能导致后续“生视频找图”失败，\n${copySuccess ? "我们已将防伪标签复制到您的剪贴板：" : "请手动复制下方防伪标签："}\n\n👉 【 ${targetId} 】 👈\n\n请在当前网页中将该素材重命名为 ${targetId}，然后再点击“确定”发送！`);
-        
-        if (!conf) {
-            extractBtn.innerHTML = '已取消';
-            isButtonLocked = false; // 解除锁定
-            setTimeout(() => { hideButton() }, 1000);
-            return;
+        // 对于场景类和角色类资产，跳过弹窗确认，直接提取（因为它们不需要在 Flow 中手动重命名）
+        let skipConfirm = false;
+        try {
+            const ctxCheck = await fetch(`${LOCAL_HOST}/api/extension/active-context`, { mode: 'cors' });
+            const ctxCheckData = await ctxCheck.json();
+            if (ctxCheckData.success && ctxCheckData.data) {
+                const tt = ctxCheckData.data.targetType;
+                if (tt === 'locationImage' || tt === 'sceneLocationImage' || tt === 'characterImage') {
+                    skipConfirm = true;
+                }
+            }
+        } catch(e) {}
+
+        if (!skipConfirm) {
+            const conf = await customConfirm(`【一键防崩溃重命名】\n\nGoogle生成的原图显示为：\n"${originalName.substring(0,60)}..."\n\n如果这是首帧，请确保后缀为 _StartImg\n如果这是尾帧，请确保后缀为 _Img\n\n系统推测当前的防伪标签为：`, targetId);
+            
+            if (!conf) {
+                extractBtn.innerHTML = '已取消';
+                isButtonLocked = false;
+                setTimeout(() => { hideButton() }, 1000);
+                return;
+            }
+            // 使用用户确认过的 ID
+            targetId = typeof conf === 'string' ? conf : targetId;
         }
 
         extractBtn.innerHTML = '⏳ 正在拉取介质...';
         
+        // [BUGFIX] 使用快照的 mediaUrl，而不是再从 currentHoveredMedia 读取（可能已被清空）
         // Fetch media in browser context to reuse authentication/cookies
         let base64Data = null;
         try {
@@ -217,18 +269,19 @@ extractBtn.addEventListener('click', async (e) => {
                  reader.readAsDataURL(mediaBlob);
             });
         } catch(e) {
-            console.warn("Could not fetch media directly from browser", e);
+            console.warn("Could not fetch media directly from browser, will send URL for server-side fetch", e);
             // Ignore error here and fallback to just sending the URL, maybe Node fetch will work
         }
 
         extractBtn.innerHTML = '⏳ 发送落盘中...';
 
+        // [BUGFIX] 使用快照的 mediaUrl 和 mediaType
         const pushRes = await fetch(`${LOCAL_HOST}/api/extension/push-asset`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 mediaUrl,
-                mediaType: currentMediaType,
+                mediaType,
                 referenceKeyword: targetId,
                 base64Data
             }),

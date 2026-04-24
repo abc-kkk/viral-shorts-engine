@@ -41,8 +41,9 @@ npm install
 
 ## 🔑 第三步：配置环境变量
 
-为了让引擎正常工作，你需要配置以下路径：
+为了让引擎正常工作，你需要配置两个文件夹里的环境变量：
 
+### 1. 配置 Web 前端
 1. 进入 `web` 目录，你会看到一个名为 `.env.example` 的文件。
 2. 把它**复制并重命名**为 `.env.local`。
 3. 使用代码编辑器（如 VS Code）打开 `.env.local`，填入你的配置：
@@ -55,6 +56,16 @@ WORKSPACE_PATH="/Users/你的名字/Desktop/短剧项目"
 # Google Labs Flow 项目地址
 # 请自己去 Google Labs 创建一个 Flow 项目，把网址贴过来
 FLOW_PROJECT_URL="https://labs.google/fx/tools/flow/project/..."
+```
+
+### 2. 配置 AI Gateway 后端
+1. 进入 `ai-gateway` 目录，找到 `.env.example` 文件。
+2. 把它**复制并重命名**为 `.env`。
+3. 这里面的默认配置通常不需要改动，但**必须确保存在这个文件**，否则会导致后续生图失败：
+
+```env
+CHROME_CDP_URL=http://127.0.0.1:9222
+PORT=4100
 ```
 
 > 💡 **提示**：本系统已经全面进化为**“Web 自动化接管”**模式！无论是写剧本的 Gemini 还是生图的 NanoBanana，全是利用本地浏览器劫持来白嫖的，**完全不需要你花钱去买任何大模型的 API Key！**

@@ -77,7 +77,11 @@ export async function POST(req: Request) {
                     const context = JSON.parse(fs.readFileSync(cp, 'utf-8'));
                     if (context.projectId === projectId) {
                         const { targetType, index, meta } = context;
-                        if (targetType === 'coverImage' && meta && meta.ratio) {
+                        if (targetType === 'locationImage') {
+                            filename = `场景${ext}`;
+                        } else if (targetType === 'sceneLocationImage' && index !== undefined) {
+                            filename = `场景_S${index}${ext}`;
+                        } else if (targetType === 'coverImage' && meta && meta.ratio) {
                             filename = `cover_${meta.ratio.replace(':', 'x')}${ext}`;
                         } else if (targetType === 'sceneStartImage' && index !== undefined) {
                             filename = `${projectId}_S${index}_StartImg${ext}`;

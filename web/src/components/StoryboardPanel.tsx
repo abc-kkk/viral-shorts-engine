@@ -4,13 +4,18 @@ import React from 'react';
 import { Camera, Video, Mic, CheckCircle2, ImageIcon } from 'lucide-react';
 import { useProject } from '@/lib/ProjectContext';
 import { VOICE_OPTIONS } from '@/lib/constants';
+import LocationPanel from './LocationPanel';
 
 export default function StoryboardPanel() {
   const {
     currentPhase, setCurrentPhase,
     characters, updateCharacter,
-    scriptLines,
+    scriptLines, projectId,
     activeSceneIndex, setActiveSceneIndex,
+    sceneLocationPrompts, setSceneLocationPrompts,
+    sceneLocationImages, setSceneLocationImages,
+    actionLayoutPrompts, setActionLayoutPrompts,
+    handleGenerateSceneLocationPrompt, generateSceneLocationImage,
     sceneImagePrompts, setSceneImagePrompts,
     sceneVideoPrompts, setSceneVideoPrompts,
     sceneStartImagePrompts, setSceneStartImagePrompts,
@@ -54,6 +59,35 @@ export default function StoryboardPanel() {
                </div>
 
                <div className="flex flex-col gap-4">
+                   <LocationPanel
+                        title="🎯 自定义本幕独立场景 (可选)"
+                        description="留空则默认使用全局场景"
+                        prompt={sceneLocationPrompts[activeSceneIndex] || ''}
+                        onPromptChange={(p) => setSceneLocationPrompts(prev => ({ ...prev, [activeSceneIndex]: p }))}
+                        image={sceneLocationImages[activeSceneIndex] || ''}
+                        isProcessingPrompt={processingScene[activeSceneIndex] === 'action'}
+                        isProcessingImage={processingScene[activeSceneIndex] === 'action'}
+                        onGeneratePrompt={(hint) => handleGenerateSceneLocationPrompt(activeSceneIndex, hint)}
+                        onGenerateImage={(keywords) => generateSceneLocationImage(activeSceneIndex, keywords)}
+                        projectId={projectId}
+                        isCollapsible={true}
+                   />
+
+                   <LocationPanel
+                        title="🧍 人物站位 3D 布局 (可选)"
+                        description="仅包含人物方块的纯空间结构图，用于精准控制首尾帧站位"
+                        prompt={actionLayoutPrompts[activeSceneIndex] || ''}
+                        onPromptChange={(p) => setActionLayoutPrompts(prev => ({ ...prev, [activeSceneIndex]: p }))}
+                        image={''}
+                        isProcessingPrompt={false}
+                        isProcessingImage={false}
+                        onGeneratePrompt={() => {}}
+                        onGenerateImage={() => {}}
+                        projectId={projectId}
+                        isCollapsible={true}
+                        hideImageGeneration={true}
+                   />
+
                    {/* STEP 1: 生成提示词 */}
                    <div className="border border-neutral-800 rounded-xl p-4 bg-black/40 flex flex-col gap-4">
                        <div className="flex items-center justify-between mb-1">
