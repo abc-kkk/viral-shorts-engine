@@ -171,8 +171,14 @@ export async function createProject(projectName: string) {
   }
 
   const p = getPrisma();
-  await p.project.create({
-    data: {
+  await p.project.upsert({
+    where: { id: projectId },
+    update: {
+      projectName,
+      currentPhase: 1,
+      artStyle: 'Pixar 3D animated movie, highly detailed, vibrant colors',
+    },
+    create: {
       id: projectId,
       projectName,
       currentPhase: 1,
@@ -180,7 +186,7 @@ export async function createProject(projectName: string) {
     }
   });
 
-  console.log(`[DB] Created project in SQLite: ${projectId}`);
+  console.log(`[DB] Created/Updated project in SQLite: ${projectId}`);
   return { projectId, projectDir };
 }
 
