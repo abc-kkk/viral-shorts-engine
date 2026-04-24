@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Film, Clock, Layers, Trash2, FolderOpen } from 'lucide-react';
+import { Plus, Film, Clock, Layers, Trash2, FolderOpen, Settings } from 'lucide-react';
 
 interface ProjectInfo {
   projectId: string;
@@ -104,6 +104,15 @@ export default function ProjectList() {
             >
               <Layers className="w-5 h-5" /> 提示词中心
             </a>
+            {typeof window !== 'undefined' && (window as any).electronAPI && (
+              <button
+                onClick={() => (window as any).electronAPI.changeWorkspacePath()}
+                className="flex items-center gap-2 px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold rounded-xl transition-all"
+                title="更改工作空间目录"
+              >
+                <Settings className="w-5 h-5" /> 更改目录
+              </button>
+            )}
             <a
               href="/scene-lab"
               className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-600/80 to-purple-600/80 hover:from-violet-500 hover:to-purple-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-purple-900/20 hover:scale-105"

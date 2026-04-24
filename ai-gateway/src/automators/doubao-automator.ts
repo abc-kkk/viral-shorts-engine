@@ -1,4 +1,4 @@
-import { chromium } from '@playwright/test';
+import { chromium } from 'playwright-core';
 
 // 全局并发锁，防止多个请求同时控制同一个网页导致互相删除对话
 let isDoubaoGenerating = false;

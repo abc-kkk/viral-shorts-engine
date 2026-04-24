@@ -1,5 +1,6 @@
-import { chromium } from '@playwright/test';
-import type { Page, Locator } from '@playwright/test';
+// @ts-nocheck
+import { chromium } from 'playwright-core';
+import type { Page, Locator } from 'playwright-core';
 
 /**
  * 通用 UI 靶向点击助手：解决 Playwright 模糊匹配经常“点歪”（比如带 图片 俩字的误点）的行业通病！

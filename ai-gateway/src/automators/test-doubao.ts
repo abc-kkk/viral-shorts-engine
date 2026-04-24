@@ -1,4 +1,4 @@
-import { chromium } from '@playwright/test';
+import { chromium } from 'playwright-core';
 import 'dotenv/config';
 
 async function testDoubaoDelete() {

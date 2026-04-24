@@ -1,4 +1,4 @@
-import { chromium } from '@playwright/test';
+import { chromium } from 'playwright-core';
 
 /**
  * Automates the active gemini.google.com tab to generate prompts.

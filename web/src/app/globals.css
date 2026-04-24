@@ -23,4 +23,62 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  margin-top: 38px !important; /* 为顶部红绿灯预留空间 */
+}
+
+/* ============================================ */
+/* Electron macOS: 标题栏适配 + 滚动条隐藏      */
+/* ============================================ */
+
+/* 顶部拖拽区域 (实体背景，防止滚动时内容透出) */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 38px;
+  background-color: #0a0a0a;
+  -webkit-app-region: drag;
+  z-index: 999999;
+}
+
+/* 修复所有 100vh 容器的高度，防止底部超出 */
+.h-screen,
+[class*="h-screen"],
+[style*="100vh"] {
+  height: calc(100vh - 38px) !important;
+}
+
+.min-h-screen,
+[class*="min-h-screen"] {
+  min-height: calc(100vh - 38px) !important;
+}
+
+/* 修复所有吸顶元素，防止钻到标题栏下面 */
+.top-0 {
+  top: 38px !important;
+}
+
+/* 修复全屏遮罩层 (Modal) 的位置 */
+.inset-0, .fixed.inset-0 {
+  top: 38px !important;
+}
+
+/* 保持 UI 交互元素的点击穿透 */
+button, a, input, select, textarea,
+[role="button"], [onclick], label, svg {
+  -webkit-app-region: no-drag;
+}
+
+/* 彻底隐藏所有滚动条 */
+::-webkit-scrollbar {
+  width: 0px !important;
+  height: 0px !important;
+  display: none !important;
+  background: transparent !important;
+}
+* {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }

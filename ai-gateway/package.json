@@ -8,7 +8,7 @@
     "start": "tsx src/server.ts"
   },
   "dependencies": {
-    "@playwright/test": "^1.59.1",
+    "playwright-core": "^1.59.1",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^5.1.0"

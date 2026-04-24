@@ -386,3 +386,19 @@ Scene Lab 编辑器通过 URL 参数控制行为：
 - **错误示范**：当你在业务中新增了一种生成任务（比如 `startImage` 首帧生成），你在 UI 组件里兴冲冲地写了 `processingScene[i] === 'startImage'`。
 - **灾难后果**：开发环境 `npm run dev` 不会立刻报错（仅会有编辑器波浪线），但这会在最终生产环境构建 (`npm run build`) 的严格类型检查阶段引发致命的 `Type error: no overlap` 错误，导致发版失败！
 - **正确做法**：在新增任何功能时，先通过全局搜索（`grep_search`）去同步更新底层 Context 和自定义 Hook 中的对应 `Record` 联合类型定义。
+
+### 十六、 桌面客户端架构与打包避坑 (Desktop Architecture & Packaging) [v8.0]
+
+项目从纯 Web 服务全面迁移到了 `Electron` 桌面客户端架构，实现了真正的一键分发。但这也引入了两个极其致命的底层问题：
+
+#### 1. Node Native ABI 跨平台穿透陷阱 (C++ 编译失配)
+Next.js (作为 UI/API 层) 与 Electron (作为宿主) 使用的是不同底层 Node.js 版本的 C++ 动态链接库。因为我们使用了 Prisma + SQLite，底层依赖 `better-sqlite3`。
+- **灾难后果**：如果直接通过 `electron-builder` 打包 Next.js 的 `.next/standalone` 目录，生成的应用程序在启动时会瞬间崩溃，控制台报 `Module did not self-register` 或 `The module was compiled against a different Node.js version using NODE_MODULE_VERSION xxx`。
+- **解决方案 (Deep Patching)**：我们在 `desktop/afterPack.js` 生命周期钩子中，强制获取了由 Electron `electron-rebuild` 工具为当前目标架构 (Mac x64/arm64 或 Win x64) 重编译的最新 `better_sqlite3.node` 文件，并将其物理复制（注入）到了打包好的 `server/node_modules/` 以及 `adapter-better-sqlite3` 深层目录中。这是解决打包环境下数据库崩溃的唯一解法！
+
+#### 2. macOS LaunchServices 死锁陷阱 (错误码 -600 procNotFound)
+由于我们在 Electron 中脱机运行了 `ai-gateway` 进程和 Next.js 进程，这导致了非常严重的僵尸进程隐患。
+- **灾难后果**：如果在开发过程中强杀应用（比如在终端 `Ctrl+C` 或者在活动监视器强制结束），其底层衍生的 Node 孤儿服务依然驻留在后台运行。此时，如果你将一个新的安装包（`.app`）覆盖安装到 `/Applications` 文件夹，macOS 底层的 LaunchServices 缓存系统会陷入精神错乱。它会永久将该应用程序拉黑，每当你双击时都会弹窗：“应用程序已不能再打开 (The application can no longer be opened)”，并且终端返回 `-600 procNotFound` 错误。
+- **正确做法与应急预案**：
+  - 代码层面：我们在 `main.js` 中的 `app.on('before-quit')` 钩子中写死了进程清理逻辑，保证任何正常退出都能杀死后台衍生树。
+  - 用户自救指南：如果已经陷入了被拉黑的死锁状态，只需将 `/Applications/` 中的应用程序重命名（例如改为 `Viral Shorts Studio.app`），即可瞬间绕过损坏的缓存重新启动！千万不要让用户去重装电脑！

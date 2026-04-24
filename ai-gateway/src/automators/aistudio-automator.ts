@@ -1,4 +1,4 @@
-import { chromium } from '@playwright/test';
+import { chromium } from 'playwright-core';
 
 /**
  * AI Studio TTS Automator (Playwright CDP)

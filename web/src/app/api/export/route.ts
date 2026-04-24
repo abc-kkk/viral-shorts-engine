@@ -127,24 +127,22 @@ export async function POST(req: Request) {
             filterComplex = filterComplex.trim().replace(/;$/, '');
             const filterArg = filterComplex ? `-filter_complex "${filterComplex}"` : '';
             
-            const ffmpegBin = fs.existsSync('/usr/local/lib/node_modules/@ffmpeg-installer/ffmpeg/node_modules/@ffmpeg-installer/darwin-x64/ffmpeg') 
-                ? '/usr/local/lib/node_modules/@ffmpeg-installer/ffmpeg/node_modules/@ffmpeg-installer/darwin-x64/ffmpeg' 
-                : 'ffmpeg';
+            const ffmpegPath = require('ffmpeg-static');
+            const chunkFfmpegBin = process.env.FFMPEG_PATH || ffmpegPath || 'ffmpeg';
 
             // `-t ${duration}` rigorously slices the output so the padded audio perfectly matches the video duration
-            const cmd = `"${ffmpegBin}" -y ${inputs} ${filterArg} ${mapV} ${mapA} -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p -r 30 -c:a aac -ar 44100 -b:a 192k -t ${duration} "${chunkOut}"`;
+            const cmd = `"${chunkFfmpegBin}" -y ${inputs} ${filterArg} ${mapV} ${mapA} -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p -r 30 -c:a aac -ar 44100 -b:a 192k -t ${duration} "${chunkOut}"`;
             console.log(`[Chunk ${i}] Executing filter...`);
             await runCommand(cmd);
         }
         
+        const ffmpegPath = require('ffmpeg-static');
+        const ffmpegBin = process.env.FFMPEG_PATH || ffmpegPath || 'ffmpeg';
+
         // 2) Concat Chunk files
         const concatListPath = path.join(exportsDir, `concat_${timestamp}.txt`);
         const concatContent = chunkFiles.map(f => `file '${f}'`).join('\n');
         fs.writeFileSync(concatListPath, concatContent, 'utf-8');
-        
-        const ffmpegBin = fs.existsSync('/usr/local/lib/node_modules/@ffmpeg-installer/ffmpeg/node_modules/@ffmpeg-installer/darwin-x64/ffmpeg') 
-            ? '/usr/local/lib/node_modules/@ffmpeg-installer/ffmpeg/node_modules/@ffmpeg-installer/darwin-x64/ffmpeg' 
-            : 'ffmpeg';
 
         const concatCmd = `"${ffmpegBin}" -y -f concat -safe 0 -i "${concatListPath}" -c copy "${outFile}"`;
         console.log(`[Concat] Executing concat...`);

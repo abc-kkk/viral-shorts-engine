@@ -1,0 +1,116 @@
+{
+  "name": "viral-shorts-engine-desktop",
+  "version": "1.0.1",
+  "description": "全自动 AI 短剧引擎 — 桌面客户端",
+  "main": "main.js",
+  "author": "Viral Shorts Engine Team",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "build:server": "cd ../web && npm run build",
+    "build:gateway": "cd ../ai-gateway && npm install && npx tsc && npm prune --production",
+    "prebuild": "npm run build:server && npm run build:gateway",
+    "pack": "electron-builder --dir",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win",
+    "dist:all": "electron-builder --mac --win"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "electron-store": "^8.2.0",
+    "electron-updater": "^6.3.0"
+  },
+  "devDependencies": {
+    "electron": "^36.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "com.viralshorts.engine",
+    "productName": "Viral Shorts Engine",
+    "afterPack": "./afterPack.js",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "release"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "YOUR_GITHUB_USERNAME",
+        "repo": "viral-shorts-engine",
+        "releaseType": "release"
+      }
+    ],
+    "extraResources": [
+      {
+        "from": "../web/.next/standalone",
+        "to": "server",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../web/.next/static",
+        "to": "server/.next/static"
+      },
+      {
+        "from": "../web/public",
+        "to": "server/public"
+      },
+      {
+        "from": "../web/prisma",
+        "to": "prisma"
+      },
+      {
+        "from": "../ai-gateway",
+        "to": "ai-gateway",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../web/viral-shorts-extension",
+        "to": "viral-shorts-extension",
+        "filter": [
+          "**/*",
+          "!node_modules/**"
+        ]
+      }
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png",
+      "category": "public.app-category.video",
+      "darkModeSupport": true
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**",
+      "node_modules/@prisma/**"
+    ]
+  }
+}
