@@ -473,6 +473,7 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on('update-downloaded', () => {
+    if (mainWindow) mainWindow.setProgressBar(-1);
     dialog.showMessageBox({
       type: 'info',
       title: '更新已就绪',
@@ -488,6 +489,15 @@ function setupAutoUpdater() {
 
   autoUpdater.on('error', (err) => {
     console.error('[AutoUpdater] Error:', err);
+    dialog.showErrorBox('更新下载失败', `网络或服务器异常导致更新失败。请稍后重启软件重试，或前往官网下载。\n\n详情：${err.message}`);
+    if (mainWindow) mainWindow.setProgressBar(-1);
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    if (mainWindow) {
+      // 在任务栏图标上显示进度 (0.0 到 1.0)
+      mainWindow.setProgressBar(progressObj.percent / 100);
+    }
   });
 
   // 启动后延迟检查更新
