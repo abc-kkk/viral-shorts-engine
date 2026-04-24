@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build:ext": "tsc -p viral-shorts-extension/tsconfig.json && esbuild viral-shorts-extension/src/content.ts --bundle --outfile=viral-shorts-extension/dist/content.js",
-    "build": "npm run build:ext && next build",
+    "build": "npx prisma generate && npm run build:ext && next build",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "cross-env DATABASE_URL=\"file:./dev.db\" npx prisma db push"
