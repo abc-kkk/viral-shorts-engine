@@ -1,12 +1,8 @@
 import { NextResponse } from 'next/server';
-import OpenAI from 'openai';
 import { getTemplate } from '@/lib/prompts/promptStore';
 import { renderTemplate } from '@/lib/prompts/templateEngine';
 
-const openai = new OpenAI({
-  apiKey: process.env.MINIMAX_API_KEY,
-  baseURL: 'https://api.minimax.chat/v1',
-});
+const AI_GATEWAY_URL = process.env.AI_GATEWAY_URL || 'http://localhost:4100';
 
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
@@ -26,17 +22,25 @@ export async function POST(req: Request) {
 
     const userPrompt = renderTemplate(template.userPrompt, variables);
 
-    const response = await openai.chat.completions.create({
-      model: 'MiniMax-M2.7', 
-      messages: [
-          { role: 'system', content: template.systemPrompt || '' },
-          { role: 'user', content: userPrompt }
-      ],
-      temperature: 0.7,
-      stream: false
+    console.log(`🚀 [BGM Gen] 正在通过 AI Gateway 生成 BGM 提示词...`);
+    const gatewayRes = await fetch(`${AI_GATEWAY_URL}/api/text/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        systemPrompt: template.systemPrompt || '', 
+        userPrompt, 
+        forceJson: false,
+        provider: 'minimax' 
+      }),
     });
-
-    let resultText = response.choices[0]?.message?.content || '';
+    
+    if (!gatewayRes.ok) {
+      const errBody = await gatewayRes.json().catch(() => ({ error: `Gateway returned ${gatewayRes.status}` }));
+      throw new Error(`AI Gateway Error: ${errBody.error}`);
+    }
+    
+    const gatewayData = await gatewayRes.json();
+    let resultText = gatewayData.text || '';
     
     // Clean up if it outputs think blocks from M2.7
     resultText = resultText.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();

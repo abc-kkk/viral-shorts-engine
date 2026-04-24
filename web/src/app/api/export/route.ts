@@ -44,7 +44,11 @@ export async function POST(req: Request) {
             });
         };
 
-        const fontPath = '/System/Library/Fonts/PingFang.ttc';
+        let fontPath = '/System/Library/Fonts/PingFang.ttc';
+        if (process.platform === 'win32') {
+            fontPath = 'C:\\\\Windows\\\\Fonts\\\\msyh.ttc'; // Microsoft YaHei on Windows
+            if (!fs.existsSync(fontPath)) fontPath = 'C:\\\\Windows\\\\Fonts\\\\simhei.ttf'; // Fallback
+        }
         const chunkFiles: string[] = [];
         
         console.log(`[Export FFmpeg] Starting FFmpeg rapid compile for ${projectId}...`);
