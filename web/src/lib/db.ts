@@ -35,12 +35,27 @@ export function getPrisma() {
     // Ensure DB file exists and has tables
     if (!fs.existsSync(dbPath) || fs.statSync(dbPath).size === 0) {
       console.log('[DB] Initializing new SQLite database with schema...');
-      fs.writeFileSync(dbPath, ''); // Ensure the file is at least created before pushing
-      // Push schema to the newly created dynamic database
-      execSync(`npx prisma db push --accept-data-loss`, { 
-        env: { ...process.env, DATABASE_URL: `file:${dbPath}` },
-        stdio: 'inherit'
-      });
+      
+      const isProd = process.env.NODE_ENV === 'production';
+      let templatePath = '';
+      
+      if (isProd) {
+        templatePath = process.env.PRISMA_TEMPLATE_PATH || '';
+      } else {
+        templatePath = path.join(process.cwd(), 'prisma', 'template.db');
+      }
+
+      if (templatePath && fs.existsSync(templatePath)) {
+        console.log(`[DB] Copying template database from ${templatePath}`);
+        fs.copyFileSync(templatePath, dbPath);
+      } else {
+        console.log(`[DB] Template not found. Executing prisma db push (dev mode only)...`);
+        fs.writeFileSync(dbPath, ''); // Ensure the file is at least created before pushing
+        execSync(`npx prisma db push --accept-data-loss`, { 
+          env: { ...process.env, DATABASE_URL: `file:${dbPath}` },
+          stdio: 'inherit'
+        });
+      }
     }
 
     const adapter = new PrismaBetterSqlite3({ url: `file:${dbPath}` });

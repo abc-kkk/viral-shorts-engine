@@ -110,6 +110,9 @@ function startNextServer(port, gatewayPort) {
     MINIMAX_API_KEY: store.get('minimaxApiKey') || '',
     MINIMAX_BASE_URL: store.get('minimaxBaseUrl'),
     ELECTRON_RUN_AS_NODE: '1',
+    PRISMA_TEMPLATE_PATH: isDev 
+      ? path.join(__dirname, '..', 'web', 'prisma', 'template.db')
+      : path.join(process.resourcesPath, 'prisma', 'template.db'),
   };
 
   if (isDev) {
@@ -125,17 +128,18 @@ function startNextServer(port, gatewayPort) {
     // 生产模式：运行 standalone server.js
     console.log('[Main] Starting Next.js standalone server...');
 
-    // 首次运行时需要初始化数据库 schema
+    // 首次运行时需要初始化数据库
     if (!fs.existsSync(dbPath)) {
-      console.log('[Main] Initializing SQLite database...');
+      console.log('[Main] Initializing SQLite database from template...');
       try {
-        const prismaSchemaPath = path.join(process.resourcesPath, 'prisma', 'schema.prisma');
-        execSync(`npx prisma db push --accept-data-loss --schema="${prismaSchemaPath}"`, {
-          env: { ...env, DATABASE_URL: `file:${dbPath}` },
-          stdio: 'inherit',
-        });
+        if (fs.existsSync(env.PRISMA_TEMPLATE_PATH)) {
+          fs.copyFileSync(env.PRISMA_TEMPLATE_PATH, dbPath);
+          console.log('[Main] Database template copied successfully.');
+        } else {
+          console.error('[Main] Template database not found at:', env.PRISMA_TEMPLATE_PATH);
+        }
       } catch (e) {
-        console.error('[Main] Failed to initialize database:', e);
+        console.error('[Main] Failed to copy database template:', e);
       }
     }
 

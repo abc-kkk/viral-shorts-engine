@@ -9,7 +9,7 @@
     "start": "electron .",
     "build:server": "cd ../web && npm run build",
     "build:gateway": "cd ../ai-gateway && npm install && npx tsc && npm prune --production",
-    "prebuild": "npm run build:server && npm run build:gateway",
+    "prebuild": "cd ../web && npm run build:db-template && cd ../desktop && npm run build:server && npm run build:gateway",
     "pack": "electron-builder --dir",
     "dist:mac": "electron-builder --mac",
     "dist:win": "electron-builder --win",
