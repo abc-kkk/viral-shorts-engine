@@ -1,31 +1,48 @@
-import fs from 'fs';
-import path from 'path';
+import { getPrisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
+  const p = getPrisma();
+  
   const stream = new ReadableStream({
     start(controller) {
-      const inboxPath = path.join(process.cwd(), 'tmp', 'inbox.json');
+      let isFetching = false;
       
-      const interval = setInterval(() => {
+      const interval = setInterval(async () => {
+        if (isFetching) return;
+        isFetching = true;
         try {
-          if (fs.existsSync(inboxPath)) {
-            const dataStr = fs.readFileSync(inboxPath, 'utf-8');
-            if (!dataStr) return;
-            const data = JSON.parse(dataStr);
-            if (data && data.length > 0) {
-              data.forEach((item: any) => {
-                controller.enqueue(`data: ${JSON.stringify(item)}\n\n`);
+          const data = await p.$transaction(async (tx) => {
+              const messages = await tx.inboxMessage.findMany({
+                  orderBy: { timestamp: 'asc' }
               });
-              // Clear inbox after sending
-              fs.writeFileSync(inboxPath, '[]');
-            }
+              
+              if (messages.length > 0) {
+                  await tx.inboxMessage.deleteMany({
+                      where: {
+                          id: { in: messages.map(m => m.id) }
+                      }
+                  });
+              }
+              return messages;
+          });
+
+          if (data && data.length > 0) {
+            data.forEach((msg) => {
+              const item = {
+                  ...msg,
+                  meta: msg.meta ? JSON.parse(msg.meta) : undefined
+              };
+              controller.enqueue(`data: ${JSON.stringify(item)}\n\n`);
+            });
           }
         } catch (e) {
-          // Ignore read/parse errors during concurrent writes
+          // Ignore DB errors during polling
+        } finally {
+          isFetching = false;
         }
-      }, 500); // Super fast 500ms polling under the hood
+      }, 500);
 
       req.signal.addEventListener('abort', () => {
         clearInterval(interval);

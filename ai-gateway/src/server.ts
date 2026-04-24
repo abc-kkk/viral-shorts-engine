@@ -66,10 +66,10 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 // Start
 // ========================================
 
-app.listen(PORT, () => {
+app.listen(PORT, '127.0.0.1', () => {
   console.log(`\n🚀 ========================================`);
-  console.log(`   AI Gateway is running on port ${PORT}`);
-  console.log(`   http://localhost:${PORT}/health`);
+  console.log(`   AI Gateway is running on port ${PORT} (Bound to 127.0.0.1 for security)`);
+  console.log(`   http://127.0.0.1:${PORT}/health`);
   console.log(`   CDP Target: ${process.env.CHROME_CDP_URL || 'http://127.0.0.1:9222'}`);
   console.log(`========================================\n`);
 });

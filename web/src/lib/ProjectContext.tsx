@@ -130,8 +130,8 @@ interface ProjectContextValue {
   setCurrentVideoTimes: React.Dispatch<React.SetStateAction<Record<number, number>>>;
   sceneCharacters: Record<number, string[]>;
   setSceneCharacters: React.Dispatch<React.SetStateAction<Record<number, string[]>>>;
-  processingScene: Record<number, 'action' | 'image' | 'video' | 'voice' | null>;
-  setProcessingScene: React.Dispatch<React.SetStateAction<Record<number, 'action' | 'image' | 'video' | 'voice' | null>>>;
+  processingScene: Record<number, 'action' | 'startImage' | 'image' | 'video' | 'voice' | null>;
+  setProcessingScene: React.Dispatch<React.SetStateAction<Record<number, 'action' | 'startImage' | 'image' | 'video' | 'voice' | null>>>;
   handleGenerateActionPrompt: (i: number) => Promise<void>;
   handleGenerateEndFrame: (i: number) => Promise<void>;
   handleGenerateStartFrame: (i: number) => Promise<void>;

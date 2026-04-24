@@ -189,16 +189,16 @@ export default function LocationPanel({
                 onClick={() => setIsCollapsed(!isCollapsed)}
                 className="flex items-center justify-between w-full hover:bg-neutral-800/50 p-1 -m-1 rounded transition-colors"
             >
-                <div className="flex items-center gap-2">
-                    {isCollapsed ? <ChevronRight className="w-5 h-5 text-purple-400"/> : <ChevronDown className="w-5 h-5 text-purple-400"/>}
-                    <div className="font-bold text-lg text-purple-300">{title}</div>
+                <div className="flex items-center gap-1.5">
+                    {isCollapsed ? <ChevronRight className="w-4 h-4 text-purple-400"/> : <ChevronDown className="w-4 h-4 text-purple-400"/>}
+                    <div className="font-bold text-sm text-purple-300">{title}</div>
                 </div>
-                {description && <span className="text-xs text-neutral-500">{description}</span>}
+                {description && <span className="text-[10px] text-neutral-500">{description}</span>}
             </button>
         ) : (
             <div className="flex justify-between items-center">
-                <div className="font-bold text-lg text-purple-300">{title}</div>
-                {description && <span className="text-xs text-neutral-500">{description}</span>}
+                <div className="font-bold text-sm text-purple-300">{title}</div>
+                {description && <span className="text-[10px] text-neutral-500">{description}</span>}
             </div>
         )}
         

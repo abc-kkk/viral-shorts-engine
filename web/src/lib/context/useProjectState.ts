@@ -62,7 +62,7 @@ export function useProjectState(projectId: string) {
   const [sceneAudioDelays, setSceneAudioDelays] = useState<Record<number, number>>({});
   const [currentVideoTimes, setCurrentVideoTimes] = useState<Record<number, number>>({});
   const [sceneCharacters, setSceneCharacters] = useState<Record<number, string[]>>({});
-  const [processingScene, setProcessingScene] = useState<Record<number, 'action' | 'image' | 'video' | 'voice' | null>>({});
+  const [processingScene, setProcessingScene] = useState<Record<number, 'action' | 'startImage' | 'image' | 'video' | 'voice' | null>>({});
 
   // カバー（Cover）
   const [coverPrompts, setCoverPrompts] = useState<Record<string, string>>({});

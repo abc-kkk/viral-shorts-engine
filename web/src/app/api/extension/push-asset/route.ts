@@ -4,6 +4,7 @@ import { generateAssetFilename, getAssetTypeForTarget, getAssetUrlWithCacheBust 
 import type { TargetType, InboxItem } from '@/lib/types';
 import fs from 'fs';
 import path from 'path';
+import { getPrisma } from '@/lib/db';
 
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
@@ -14,9 +15,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
-function getInboxPath() {
-    return path.join(process.cwd(), 'tmp', 'inbox.json');
-}
+
 
 export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders });
@@ -29,11 +28,12 @@ export async function POST(req: Request) {
     if (!mediaUrl && !base64Data) return NextResponse.json({ error: 'Missing media source' }, { status: 400, headers: corsHeaders });
 
     // Read active context to know where to save
-    const cp = path.join(process.cwd(), 'tmp', 'active-context.json');
-    if (!fs.existsSync(cp)) {
+    const p = getPrisma();
+    const state = await p.systemState.findUnique({ where: { key: 'active-context' } });
+    if (!state) {
         throw new Error('No active project context found. Please click something in Studio first.');
     }
-    const context = JSON.parse(fs.readFileSync(cp, 'utf-8'));
+    const context = JSON.parse(state.value);
     let { projectId, targetType, index, meta } = context as {
         projectId: string;
         targetType: TargetType;
@@ -85,29 +85,17 @@ export async function POST(req: Request) {
     const localUrl = getAssetUrlWithCacheBust(projectId, assetType, filename);
     console.log(`[Extension] Saved: ${filepath}`);
 
-    // Push to inbox array (File-based IPC because Next.js isolates API routes)
-    const inboxPath = path.join(process.cwd(), 'tmp', 'inbox.json');
-    const inboxDir = path.dirname(inboxPath);
-    if (!fs.existsSync(inboxDir)) fs.mkdirSync(inboxDir, { recursive: true });
-    
-    let inbox: InboxItem[] = [];
-    if (fs.existsSync(inboxPath)) {
-        try {
-            inbox = JSON.parse(fs.readFileSync(inboxPath, 'utf-8'));
-        } catch(e) {}
-    }
-    
-    inbox.push({
-        url: localUrl,
-        mediaType,
-        targetType,
-        index,
-        referenceKeyword,
-        meta,
-        timestamp: Date.now()
+    // Push to inbox array (Database-based IPC)
+    await p.inboxMessage.create({
+        data: {
+            url: localUrl,
+            mediaType,
+            targetType,
+            index,
+            referenceKeyword,
+            meta: meta ? JSON.stringify(meta) : null
+        }
     });
-
-    fs.writeFileSync(inboxPath, JSON.stringify(inbox), 'utf-8');
 
     return NextResponse.json({ success: true, url: localUrl }, { headers: corsHeaders });
 

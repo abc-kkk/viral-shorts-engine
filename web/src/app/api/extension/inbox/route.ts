@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { getPrisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,28 +9,38 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
-function getInboxPath() {
-    return path.join(process.cwd(), 'tmp', 'inbox.json');
-}
-
 export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders });
 }
 
 export async function GET() {
   try {
-    const ip = getInboxPath();
-    if (!fs.existsSync(ip)) {
-      return NextResponse.json({ success: true, data: [] }, { headers: corsHeaders });
-    }
-    const data = JSON.parse(fs.readFileSync(ip, 'utf-8'));
+    const p = getPrisma();
     
-    // Clear inbox after reading
-    fs.writeFileSync(ip, JSON.stringify([]), 'utf-8');
+    // Use transaction to fetch and delete atomically
+    const data = await p.$transaction(async (tx) => {
+        const messages = await tx.inboxMessage.findMany({
+            orderBy: { timestamp: 'asc' }
+        });
+        
+        if (messages.length > 0) {
+            await tx.inboxMessage.deleteMany({
+                where: {
+                    id: { in: messages.map(m => m.id) }
+                }
+            });
+        }
+        return messages;
+    });
     
-    return NextResponse.json({ success: true, data }, { headers: corsHeaders });
+    // Parse meta JSON strings back to objects for the client
+    const formattedData = data.map(msg => ({
+        ...msg,
+        meta: msg.meta ? JSON.parse(msg.meta) : undefined
+    }));
+    
+    return NextResponse.json({ success: true, data: formattedData }, { headers: corsHeaders });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500, headers: corsHeaders });
   }
 }
-

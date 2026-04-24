@@ -96,3 +96,19 @@ model Cover {
 
   @@unique([projectId, ratio])
 }
+
+model SystemState {
+  key   String @id
+  value String
+}
+
+model InboxMessage {
+  id               String   @id @default(cuid())
+  url              String
+  mediaType        String
+  targetType       String
+  referenceKeyword String?
+  index            Int?
+  meta             String?
+  timestamp        DateTime @default(now())
+}

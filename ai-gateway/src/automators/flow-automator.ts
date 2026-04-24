@@ -436,8 +436,9 @@ export async function uploadAssetToFlow(
   if (!flowUrl) return { success: false, error: "Missing flowUrl parameter." };
 
   console.log(`[Flow Automator] Uploading asset ${name} to Flow...`);
+  let browser: any = null;
   try {
-    const browser = await chromium.connectOverCDP(CDP_URL);
+    browser = await chromium.connectOverCDP(CDP_URL);
     const defaultContext = browser.contexts()[0];
     
     let page = defaultContext.pages().find(p => p.url().includes('labs.google/fx') && p.url().includes('tools/flow'));
@@ -499,6 +500,10 @@ export async function uploadAssetToFlow(
   } catch (err: any) {
     console.error('[Flow Automator] Upload Error:', err.message);
     return { success: false, error: err.message };
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
   }
 }
 

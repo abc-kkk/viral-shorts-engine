@@ -362,3 +362,27 @@ Scene Lab 编辑器通过 URL 参数控制行为：
 #### 2. “补丁 (PATCH) 式”并发写策略与热迁移
 - **精准差异更新 (Deep Diff)**：前端 `useProjectState.ts` 不再粗暴地每秒向服务器发送包含几十个变量的完整庞大状态。现在它通过对比 `useRef` 缓存，计算出真正改变了的字段 (Diff)。API 端改为 `PATCH /api/state` 接收增量对象，并在 Node.js 内存中利用 `lodash/merge` 与旧状态深度合并，最后通过 Prisma 的单一事务写入多张关系表 (`Project`, `Character`, `Scene`) 中。这就实现了并发修改互相不干扰（例如同时修改第一幕台词与推送第二幕的配图）。
 - **无感热迁移 (Hot Migration)**：为了兼容旧项目，当后端 `db.ts` 扫描工作空间发现旧版 `project.json` 但在数据库中无此记录时，它会**全自动解析并倒库入表**，将老 JSON 改名为 `.bak` 备份，实现历史数据的透明升级。
+
+### 十五、 开发者避坑指南 (Developer Gotchas) [血泪教训]
+
+> **致未来的 AI 与开发者：以下错误已经在历史重构中发生过，请勿重蹈覆辙！**
+
+#### 1. 动态数据库 Schema 推送陷阱
+虽然 `package.json` 中的 `postinstall` 钩子会在 `npm install` 时向默认的 `./dev.db` 推送 Schema，但**系统真正在运行时，使用的是 `WORKSPACE_PATH` 里的 `viral-shorts.db`**！
+- **错误示范**：如果你修改了 `schema.prisma`，然后傻乎乎地在开发环境跑了一句 `npx prisma db push`。
+- **灾难后果**：这只会更新 `web` 目录下的空壳库，而你真实工作空间里的库根本没更新。API 调用时会直接报 `The table main.XXX does not exist in the current database`！
+- **正确做法**：在开发阶段修改数据库结构后，**必须带上你的真实工作空间路径进行推送**，例如：
+  `DATABASE_URL="file:/Users/ios/Desktop/work-data/短剧项目/viral-shorts.db" npx prisma db push`。
+
+#### 2. 提示词模板反引号 (Backtick) 转义陷阱
+`web/src/lib/prompts/defaultTemplates.ts` 是整个系统提示词的 Source of Truth。
+- 整个模板是被包裹在 JavaScript 模板字符串 (Template Literals) `` `...` `` 里面的。
+- **灾难后果**：如果在写提示词时，你需要让 AI 原样输出反引号包裹的内容（例如要求 AI 输出 `` `{@xxx}` ``），你**必须**使用转义符 `\`。如果你在替换文件时不小心丢失了转义符（写成了 `` `{@xxx}` ``），会导致整个 TS 文件的 AST 解析崩溃，出现 `Expected ',', got '{'` 这样的编译错误，进而导致整个 Next.js 生产构建瘫痪！
+- **正确做法**：对模板里的反引号万分小心，修改后务必运行 `npm run build` 测试编译。
+
+#### 3. TypeScript 联合类型严格度陷阱
+系统为了防止拼写错误，在 `useProjectState.ts` 和 `ProjectContext.tsx` 中使用了极度严格的字面量联合类型。
+- 例如 `processingScene` 被限制为 `'action' | 'image' | 'video' | 'voice' | null`。
+- **错误示范**：当你在业务中新增了一种生成任务（比如 `startImage` 首帧生成），你在 UI 组件里兴冲冲地写了 `processingScene[i] === 'startImage'`。
+- **灾难后果**：开发环境 `npm run dev` 不会立刻报错（仅会有编辑器波浪线），但这会在最终生产环境构建 (`npm run build`) 的严格类型检查阶段引发致命的 `Type error: no overlap` 错误，导致发版失败！
+- **正确做法**：在新增任何功能时，先通过全局搜索（`grep_search`）去同步更新底层 Context 和自定义 Hook 中的对应 `Record` 联合类型定义。
