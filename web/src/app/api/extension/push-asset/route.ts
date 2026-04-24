@@ -4,7 +4,6 @@ import { generateAssetFilename, getAssetTypeForTarget, getAssetUrlWithCacheBust 
 import type { TargetType, InboxItem } from '@/lib/types';
 import fs from 'fs';
 import path from 'path';
-import { eventEmitter } from '@/lib/events';
 
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
@@ -86,8 +85,19 @@ export async function POST(req: Request) {
     const localUrl = getAssetUrlWithCacheBust(projectId, assetType, filename);
     console.log(`[Extension] Saved: ${filepath}`);
 
-    // Emit to memory SSE stream
-    eventEmitter.emit('inbox', {
+    // Push to inbox array (File-based IPC because Next.js isolates API routes)
+    const inboxPath = path.join(process.cwd(), 'tmp', 'inbox.json');
+    const inboxDir = path.dirname(inboxPath);
+    if (!fs.existsSync(inboxDir)) fs.mkdirSync(inboxDir, { recursive: true });
+    
+    let inbox: InboxItem[] = [];
+    if (fs.existsSync(inboxPath)) {
+        try {
+            inbox = JSON.parse(fs.readFileSync(inboxPath, 'utf-8'));
+        } catch(e) {}
+    }
+    
+    inbox.push({
         url: localUrl,
         mediaType,
         targetType,
@@ -96,6 +106,8 @@ export async function POST(req: Request) {
         meta,
         timestamp: Date.now()
     });
+
+    fs.writeFileSync(inboxPath, JSON.stringify(inbox), 'utf-8');
 
     return NextResponse.json({ success: true, url: localUrl }, { headers: corsHeaders });
 

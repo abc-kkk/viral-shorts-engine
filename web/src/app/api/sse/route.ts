@@ -1,24 +1,34 @@
-import { eventEmitter } from '@/lib/events';
+import fs from 'fs';
+import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   const stream = new ReadableStream({
     start(controller) {
-      const listener = (data: any) => {
+      const inboxPath = path.join(process.cwd(), 'tmp', 'inbox.json');
+      
+      const interval = setInterval(() => {
         try {
-          controller.enqueue(`data: ${JSON.stringify(data)}\n\n`);
+          if (fs.existsSync(inboxPath)) {
+            const dataStr = fs.readFileSync(inboxPath, 'utf-8');
+            if (!dataStr) return;
+            const data = JSON.parse(dataStr);
+            if (data && data.length > 0) {
+              data.forEach((item: any) => {
+                controller.enqueue(`data: ${JSON.stringify(item)}\n\n`);
+              });
+              // Clear inbox after sending
+              fs.writeFileSync(inboxPath, '[]');
+            }
+          }
         } catch (e) {
-          console.error('[SSE] Failed to enqueue data', e);
+          // Ignore read/parse errors during concurrent writes
         }
-      };
+      }, 500); // Super fast 500ms polling under the hood
 
-      // Register listener
-      eventEmitter.on('inbox', listener);
-
-      // Cleanup on client disconnect
       req.signal.addEventListener('abort', () => {
-        eventEmitter.off('inbox', listener);
+        clearInterval(interval);
         try {
           controller.close();
         } catch(e){}
