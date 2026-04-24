@@ -18,7 +18,7 @@ export async function GET() {
     const p = getPrisma();
     
     // Use transaction to fetch and delete atomically
-    const data = await p.$transaction(async (tx) => {
+    const data = await p.$transaction(async (tx: any) => {
         const messages = await tx.inboxMessage.findMany({
             orderBy: { timestamp: 'asc' }
         });
@@ -26,7 +26,7 @@ export async function GET() {
         if (messages.length > 0) {
             await tx.inboxMessage.deleteMany({
                 where: {
-                    id: { in: messages.map(m => m.id) }
+                    id: { in: messages.map((m: any) => m.id) }
                 }
             });
         }
@@ -34,7 +34,7 @@ export async function GET() {
     });
     
     // Parse meta JSON strings back to objects for the client
-    const formattedData = data.map(msg => ({
+    const formattedData = data.map((msg: any) => ({
         ...msg,
         meta: msg.meta ? JSON.parse(msg.meta) : undefined
     }));
