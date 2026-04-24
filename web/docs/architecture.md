@@ -393,8 +393,9 @@ Scene Lab 编辑器通过 URL 参数控制行为：
 
 #### 1. Node Native ABI 跨平台穿透陷阱 (C++ 编译失配)
 Next.js (作为 UI/API 层) 与 Electron (作为宿主) 使用的是不同底层 Node.js 版本的 C++ 动态链接库。因为我们使用了 Prisma + SQLite，底层依赖 `better-sqlite3`。
-- **灾难后果**：如果直接通过 `electron-builder` 打包 Next.js 的 `.next/standalone` 目录，生成的应用程序在启动时会瞬间崩溃，控制台报 `Module did not self-register` 或 `The module was compiled against a different Node.js version using NODE_MODULE_VERSION xxx`。
-- **解决方案 (Deep Patching)**：我们在 `desktop/afterPack.js` 生命周期钩子中，强制获取了由 Electron `electron-rebuild` 工具为当前目标架构 (Mac x64/arm64 或 Win x64) 重编译的最新 `better_sqlite3.node` 文件，并将其物理复制（注入）到了打包好的 `server/node_modules/` 以及 `adapter-better-sqlite3` 深层目录中。这是解决打包环境下数据库崩溃的唯一解法！
+- **灾难后果**：如果直接通过 `electron-builder` 打包 Next.js 的 `.next/standalone` 目录，生成的应用程序在启动时会瞬间崩溃，控制台报 `Module did not self-register` 或 `The module was compiled against a different Node.js version using NODE_MODULE_VERSION xxx`（比如 115 vs 135 错误）。
+- **Windows 下的终极深坑 (The Hashed Directory Trap)**：最初我们在 `desktop/afterPack.js` 钩子中，写死了替换 `server/node_modules/better-sqlite3` 目录里的文件。这在 macOS 上完美运行，因为 Mac 系统支持软链接（Symlink），替换源文件就能直接生效。但在 Windows（NTFS 文件系统）下，Next.js 为了规避软链接问题，会**在底层偷偷硬复制一份名为 `better-sqlite3-xxxx`（带有一串乱码哈希值）的实体文件夹**！结果死板的替换脚本完美漏掉了这个隐藏的真实生效文件，导致在 Windows 上 Electron（Node 22）直接撞上了旧版的 Node 20 底层文件，瞬间抛出 `invalid invocation` 的连环爆炸。
+- **最终解决方案 (Recursive Deep Patching)**：我们彻底重写了 `desktop/afterPack.js` 生命周期钩子，不再硬编码路径，而是**全盘递归搜索**整个 `server/` 文件夹下所有名字以 `better-sqlite3` 开头的目录。无论 Next.js 给它加上多变态的哈希后缀，脚本都会像追踪导弹一样把它揪出来，强制替换为 Electron 刚刚编译好的原生 `.node` 文件。这是彻底解决跨平台（特别是 Windows）数据库崩溃的终极解法！
 
 #### 2. macOS LaunchServices 死锁陷阱 (错误码 -600 procNotFound)
 由于我们在 Electron 中脱机运行了 `ai-gateway` 进程和 Next.js 进程，这导致了非常严重的僵尸进程隐患。
