@@ -32,8 +32,27 @@ export function getPrisma() {
     ensureWorkspace();
     const dbPath = path.join(getWorkspacePath(), 'viral-shorts.db');
     
-    // Ensure DB file exists and has tables
+    let shouldInitialize = false;
     if (!fs.existsSync(dbPath) || fs.statSync(dbPath).size === 0) {
+      shouldInitialize = true;
+    } else {
+      // 检查表结构是否完整（针对旧版本残留的半成品数据库）
+      try {
+        const db = new Database(dbPath, { fileMustExist: true });
+        const stmt = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='Project'");
+        const row = stmt.get();
+        db.close();
+        if (!row) {
+          console.warn('[DB] Existing database is corrupted or incomplete. Re-initializing...');
+          shouldInitialize = true;
+        }
+      } catch (e) {
+        console.warn('[DB] Failed to read existing database. Re-initializing...', e);
+        shouldInitialize = true;
+      }
+    }
+
+    if (shouldInitialize) {
       console.log('[DB] Initializing new SQLite database with schema...');
       
       const isProd = process.env.NODE_ENV === 'production';
