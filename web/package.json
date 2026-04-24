@@ -8,7 +8,7 @@
     "build": "npm run build:ext && next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "DATABASE_URL=\"file:./dev.db\" npx prisma db push"
+    "postinstall": "cross-env DATABASE_URL=\"file:./dev.db\" npx prisma db push"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.8.0",
@@ -40,6 +40,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "cross-env": "^10.1.0",
     "esbuild": "^0.28.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
