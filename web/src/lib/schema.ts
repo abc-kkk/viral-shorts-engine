@@ -19,6 +19,7 @@ export const projects = sqliteTable('Project', {
   theme: text('theme'),
   aiProvider: text('aiProvider'),
   useHitlMode: integer('useHitlMode', { mode: 'boolean' }).notNull().default(true),
+  jianyingPath: text('jianyingPath'),
   
   writerStep: integer('writerStep').notNull().default(1),
   creativeMode: text('creativeMode'),

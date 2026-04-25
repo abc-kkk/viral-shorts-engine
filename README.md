@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org/)
-[![Remotion](https://img.shields.io/badge/Remotion-Video-pink)](https://www.remotion.dev/)
+[![CapCut](https://img.shields.io/badge/CapCut-Draft-red)](https://www.capcut.com/)
 
 > 彻底解放双手！一款手搓的工业级全自动 AI 短剧生产线，包含完整的 Web 可视化工作台与底层自动化渲染引擎。
 > 
@@ -26,7 +26,7 @@
 
 受够了市面上难用的 AI 视频生成工具？人工写提示词太累、生成的角色疯狂“变脸”、视频背景到处乱飘、稍有不慎接口就被封……
 
-**Viral Shorts Engine** 正是为了解决这些痛点而生！它不是一个简单的脚本，而是一套完整的 **5 步制片流水线**。从 v8.2 开始，它已全面进化为**开箱即用的桌面级客户端 (Desktop App)**！你只需要双击安装，它就能包办从编剧、分镜、定妆、生视频、到配音、加字幕的全套流程，最终在本地渲染出一条高清的 4K 爆款短剧。
+**Viral Shorts Engine** 正是为了解决这些痛点而生！它不是一个简单的脚本，而是一套完整的 **5 步制片流水线**。从 v8.2 开始，它已全面进化为**开箱即用的桌面级客户端 (Desktop App)**！你只需要双击安装，它就能包办从编剧、分镜、定妆、生视频、到配音、加字幕的全套流程，最终一键导出为**剪映专业版原生草稿工程**，让你在剪映中进行最后的精修与成片。
 
 ### 🔥 核心痛点解决：
 1. **告别绞尽脑汁写提示词**：底层自动中翻英，并强制挂载爆款标签。

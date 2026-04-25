@@ -186,14 +186,14 @@ export default function RenderRoom() {
                       onClick={async (e) => {
                           const btn = e.currentTarget;
                           const originalText = btn.innerHTML;
-                          btn.innerHTML = '⏳ 全马力本地渲染中 (约需1-3分钟)...';
+                          btn.innerHTML = '⏳ 正在拼装剪映工程轨道...';
                           btn.disabled = true;
                           btn.classList.add('opacity-50', 'cursor-not-allowed', 'animate-pulse');
                           try {
                               const res = await fetch(`/api/export?projectId=${encodeURIComponent(projectId)}`, { method: 'POST' });
                               const data = await res.json();
                               if (res.ok) {
-                                  toast.success(`✅ 绝赞落幕！成片已成功导出并保存至您的项目目录:\n${data.file}\n\n您可以去文件管理器里直接双击播放，或者拉进剪映/上架抖音了！`);
+                                  toast.success(`✅ 剪映草稿已就绪！\n草稿路径: ${data.file}\n请打开剪映桌面端查看并精修！`);
                                   setCurrentPhase(5); // 前往发布中心
                               } else {
                                   toast.error(`❌ 渲染遭遇滑铁卢:\n${data.error}\n\n请检查控制台获取详细报错。`);
@@ -208,7 +208,7 @@ export default function RenderRoom() {
                       }}
                       className="w-full px-4 py-4 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-bold text-lg rounded-xl shadow-lg hover:scale-105 transition-all mt-4"
                   >
-                      🚀 渲染导出 4K 视频
+                      🚀 极速导出至剪映草稿箱
                   </button>
               </div>
 

@@ -308,6 +308,7 @@ export async function loadState(projectId: string) {
     currentPhase: proj.currentPhase,
     artStyle: proj.artStyle,
     flowUrl: proj.flowUrl,
+    jianyingPath: proj.jianyingPath,
     theme: proj.theme,
     aiProvider: proj.aiProvider,
     useHitlMode: proj.useHitlMode,
@@ -392,7 +393,7 @@ export async function saveState(patch: any, projectId: string) {
 
   // Update Project table
   const projectData: any = {};
-  for (const field of ['theme', 'flowUrl', 'artStyle', 'aiProvider', 'currentPhase', 'writerStep', 'creativeMode', 'rawScript', 'scriptIteration', 'userDirection', 'locationPrompt', 'locationImage', 'activeSceneIndex']) {
+  for (const field of ['theme', 'flowUrl', 'jianyingPath', 'artStyle', 'aiProvider', 'currentPhase', 'writerStep', 'creativeMode', 'rawScript', 'scriptIteration', 'userDirection', 'locationPrompt', 'locationImage', 'activeSceneIndex']) {
     if (mergedState[field] !== undefined) projectData[field] = mergedState[field];
   }
   if (mergedState.publishInfo !== undefined) projectData.publishInfo = JSON.stringify(mergedState.publishInfo);

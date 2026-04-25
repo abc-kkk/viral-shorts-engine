@@ -1,0 +1,1 @@
+ALTER TABLE `Project` ADD `jianyingPath` text;

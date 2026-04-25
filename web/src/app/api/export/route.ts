@@ -1,15 +1,24 @@
 import { NextResponse } from 'next/server';
-import { loadState, getAssetDir, getProjectDir } from '@/lib/db';
-import { exec } from 'child_process';
+import { loadState, getProjectDir } from '@/lib/db';
 import path from 'path';
 import fs from 'fs';
+import { 
+  DraftFolder, 
+  TrackType, 
+  VideoMaterial, 
+  VideoSegment, 
+  AudioMaterial, 
+  AudioSegment, 
+  TextSegment, 
+  trange 
+} from 'jsjianyingdraft';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 3000;
 
 export async function POST(req: Request) {
     try {
-        const { searchParams, origin } = new URL(req.url);
+        const { searchParams } = new URL(req.url);
         const projectId = searchParams.get('projectId');
         if (!projectId) return NextResponse.json({ error: '缺少 projectId' }, { status: 400 });
         
@@ -17,45 +26,56 @@ export async function POST(req: Request) {
         if (!state || !state.scriptLines) throw new Error("No script lines found in state.");
 
         const projectDir = getProjectDir(projectId);
-        const exportsDir = getAssetDir(projectId, 'exports');
-        const timestamp = Date.now();
-        const outFileName = `final_${timestamp}.mp4`;
-        const outFile = path.join(exportsDir, outFileName);
 
         const getLocalPath = (url: string) => {
              if (!url) return "";
-             const match = url.match(/^\/api\/serve\/[^\/]+\/([^\/]+)\/(.+)$/);
+             const pathname = url.split('?')[0];
+             const match = pathname.match(/^\/api\/serve\/[^\/]+\/([^\/]+)\/(.+)$/);
              if (match) {
-                 return path.join(projectDir, match[1], match[2]);
+                 return path.join(projectDir, match[1], decodeURIComponent(match[2]));
              }
              return "";
         };
 
-        const runCommand = (cmd: string): Promise<string> => {
-            return new Promise((resolve, reject) => {
-                exec(cmd, {
-                    cwd: process.cwd(),
-                    maxBuffer: 1024 * 1024 * 100, // 100MB output allowance
-                    env: { ...process.env, PATH: `${process.env.PATH}:/usr/local/bin:/opt/homebrew/bin` }
-                }, (error, stdout, stderr) => {
-                    if (error) reject(new Error(stderr || error.message));
-                    else resolve(stdout);
-                });
-            });
-        };
-
-        let fontPath = '/System/Library/Fonts/PingFang.ttc';
-        if (process.platform === 'win32') {
-            fontPath = 'C:\\\\Windows\\\\Fonts\\\\msyh.ttc'; // Microsoft YaHei on Windows
-            if (!fs.existsSync(fontPath)) fontPath = 'C:\\\\Windows\\\\Fonts\\\\simhei.ttf'; // Fallback
+        // Resolve JianYing Draft Path
+        let jyBasePath = state.jianyingPath?.trim();
+        if (!jyBasePath) {
+            if (process.platform === 'win32') {
+                jyBasePath = path.join(process.env.LOCALAPPDATA || '', 'JianyingPro/User Data/Projects/com.lveditor.draft');
+            } else if (process.platform === 'darwin') {
+                jyBasePath = path.join(process.env.HOME || '', 'Movies/JianyingPro/User Data/Projects/com.lveditor.draft');
+            } else {
+                throw new Error("暂不支持在该系统上自动查找剪映草稿目录，请在设置中手动配置。");
+            }
         }
-        const chunkFiles: string[] = [];
+
+        if (!fs.existsSync(jyBasePath)) {
+            fs.mkdirSync(jyBasePath, { recursive: true });
+        }
+
+        const draftFolder = new DraftFolder(jyBasePath);
+        const timestamp = Date.now();
+        const draftName = `${projectId}_${timestamp}`;
         
-        console.log(`[Export FFmpeg] Starting FFmpeg rapid compile for ${projectId}...`);
+        // createDraft returns a ScriptFile object
+        const script = draftFolder.createDraft(draftName, 1080, 1920, { allowReplace: true });
+
+        // Add 3 tracks: video, audio, text
+        script.addTrack(TrackType.video).addTrack(TrackType.audio).addTrack(TrackType.text);
+
+        // Create a 1x1 black image for fallback (Title Cards, missing videos, etc.)
+        const blackImagePath = path.join(projectDir, 'black_bg.jpg');
+        if (!fs.existsSync(blackImagePath)) {
+            const blackJpgBase64 = "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=";
+            fs.writeFileSync(blackImagePath, Buffer.from(blackJpgBase64, 'base64'));
+        }
+
+        let currentGlobalTime = 0; // tracking cumulative seconds
 
         for (let i = 0; i < state.scriptLines.length; i++) {
             const dialogue = (state.scriptLines[i].dialogue || "").replace(/\[.*?\]\s*/g, '').trim();
-            const videoUrl = state.sceneVideos[i]; 
+            // Fallback to static images if video is not generated (useful for title cards or unrendered scenes)
+            const videoUrl = state.sceneVideos[i] || state.sceneImages[i] || state.sceneStartImages[i]; 
             const audioUrl = state.sceneAudio[i];
             
             const videoPath = getLocalPath(videoUrl);
@@ -64,106 +84,67 @@ export async function POST(req: Request) {
             const trimStart = state.sceneVideoTrimStart?.[i] ?? 0;
             let fallbackDur = state.sceneDurations[i] || 8.0;
             const trimEnd = state.sceneVideoTrimEnd?.[i] ?? fallbackDur;
-            const duration = Math.max(0.1, trimEnd - trimStart).toFixed(2);
+            const duration = Math.max(0.1, trimEnd - trimStart);
             const audioDelay = state.sceneAudioDelays?.[i] || 0;
-            
-            const chunkOut = path.join(exportsDir, `chunk_${timestamp}_${i}.mp4`);
-            chunkFiles.push(chunkOut);
-            
-            let filterComplex = '';
-            let inputs = '';
-            let mapV = '';
-            let mapA = '';
-            let inputIdx = 0;
-            
-            // Video Input
-            if (videoPath && fs.existsSync(videoPath)) {
-                inputs += `-ss ${trimStart} -t ${duration} -i "${videoPath}" `;
-                // TikTok Style Blurred Background trick for FFmpeg
-                filterComplex += `[${inputIdx}:v]split[bg_${i}][fg_${i}]; `;
-                filterComplex += `[bg_${i}]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=40:5[bgout_${i}]; `;
-                filterComplex += `[fg_${i}]scale=1080:1920:force_original_aspect_ratio=decrease[fgout_${i}]; `;
-                filterComplex += `[bgout_${i}][fgout_${i}]overlay=(W-w)/2:(H-h)/2[vscaled]; `;
-                inputIdx++;
-            } else {
-                inputs += `-f lavfi -i color=c=black:s=1080x1920:d=${duration} `;
-                filterComplex += `[${inputIdx}:v]null[vscaled]; `;
-                inputIdx++;
+
+            const globalStart = currentGlobalTime;
+            const durationStr = `${duration.toFixed(3)}s`;
+
+            // --- 1. Video Segment ---
+            let finalVideoPath = videoPath;
+            if (!finalVideoPath || !fs.existsSync(finalVideoPath)) {
+                finalVideoPath = blackImagePath; // Fallback to black screen to keep timeline contiguous
             }
-            
-            // Audio Input
-            if (audioPath && fs.existsSync(audioPath)) {
-                inputs += `-i "${audioPath}" `;
-                const delayMs = Math.round(audioDelay * 1000);
-                // `apad` ensures the audio track pads with silence indefinitely to cover any trailing gaps
-                filterComplex += `[${inputIdx}:a]adelay=${delayMs}|${delayMs},apad[a1]; `;
-                mapA = `-map "[a1]"`;
-                inputIdx++;
-            } else {
-                inputs += `-f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -t ${duration} `;
-                mapA = `-map ${inputIdx}:a`;
-                inputIdx++;
-            }
-            
-            // Subtitles (No Shadow, Auto-Wrapped)
-            if (dialogue) {
-                const wrapText = (text: string, max: number = 15) => {
-                    let res = '';
-                    while (text.length > max) {
-                        res += text.substring(0, max) + '\n';
-                        text = text.substring(max);
+
+            if (finalVideoPath && fs.existsSync(finalVideoPath)) {
+                try {
+                    // Provide a safe fallback duration (e.g. 1 hour) to bypass ffprobe requirement
+                    const vidMat = new VideoMaterial(finalVideoPath, { width: 1080, height: 1920, duration: 3600 * 1000000 });
+                    const vidSeg = new VideoSegment(vidMat, trange(`${globalStart.toFixed(3)}s`, durationStr));
+                    if (trimStart > 0) {
+                        vidSeg.sourceTimerange = trange(`${trimStart.toFixed(3)}s`, durationStr);
+                    } else {
+                        vidSeg.sourceTimerange = trange(`0s`, durationStr);
                     }
-                    res += text;
-                    return res;
-                };
-                const wrappedDialogue = wrapText(dialogue);
-                
-                const textFile = path.join(exportsDir, `text_${timestamp}_${i}.txt`);
-                fs.writeFileSync(textFile, wrappedDialogue, 'utf-8');
-                // Removed the fixed y=h*0.85 and instead used y=h-250 so multi-lines grow upwards predictably? 
-                // Actually `drawtext` grows downwards. If `y=h*0.80` is used, it sits at 80%.
-                filterComplex += `[vscaled]drawtext=fontfile='${fontPath}':textfile='${textFile}':fontcolor=white:fontsize=54:borderw=3:bordercolor=black:x=(w-text_w)/2:y=h*0.80:enable='between(t,${audioDelay},${duration})'[vfinal]`;
-                mapV = `-map "[vfinal]"`;
-            } else {
-                mapV = `-map "[vscaled]"`;
+                    script.addSegment(vidSeg);
+                } catch(e) {
+                    console.error("VideoMaterial error:", e);
+                }
             }
-            
-            filterComplex = filterComplex.trim().replace(/;$/, '');
-            const filterArg = filterComplex ? `-filter_complex "${filterComplex}"` : '';
-            
-            const ffmpegPath = require('ffmpeg-static');
-            const chunkFfmpegBin = process.env.FFMPEG_PATH || ffmpegPath || 'ffmpeg';
 
-            // `-t ${duration}` rigorously slices the output so the padded audio perfectly matches the video duration
-            const cmd = `"${chunkFfmpegBin}" -y ${inputs} ${filterArg} ${mapV} ${mapA} -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p -r 30 -c:a aac -ar 44100 -b:a 192k -t ${duration} "${chunkOut}"`;
-            console.log(`[Chunk ${i}] Executing filter...`);
-            await runCommand(cmd);
+            // --- 2. Audio Segment ---
+            if (audioPath && fs.existsSync(audioPath)) {
+                try {
+                    const audMat = new AudioMaterial(audioPath, { duration: 3600 * 1000000 });
+                    const audioGlobalStart = globalStart + audioDelay;
+                    const audioDuration = Math.max(0.1, duration - audioDelay);
+                    const audSeg = new AudioSegment(audMat, trange(`${audioGlobalStart.toFixed(3)}s`, `${audioDuration.toFixed(3)}s`));
+                    audSeg.sourceTimerange = trange(`0s`, `${audioDuration.toFixed(3)}s`);
+                    script.addSegment(audSeg);
+                } catch(e) {
+                    console.error("AudioMaterial error:", e);
+                }
+            }
+
+            // --- 3. Text Segment ---
+            if (dialogue) {
+                const textGlobalStart = globalStart + audioDelay;
+                const textDuration = Math.max(0.1, duration - audioDelay);
+                const textSeg = new TextSegment(dialogue, trange(`${textGlobalStart.toFixed(3)}s`, `${textDuration.toFixed(3)}s`));
+                script.addSegment(textSeg);
+            }
+
+            currentGlobalTime += duration;
         }
-        
-        const ffmpegPath = require('ffmpeg-static');
-        const ffmpegBin = process.env.FFMPEG_PATH || ffmpegPath || 'ffmpeg';
 
-        // 2) Concat Chunk files
-        const concatListPath = path.join(exportsDir, `concat_${timestamp}.txt`);
-        const concatContent = chunkFiles.map(f => `file '${f}'`).join('\n');
-        fs.writeFileSync(concatListPath, concatContent, 'utf-8');
+        script.save();
 
-        const concatCmd = `"${ffmpegBin}" -y -f concat -safe 0 -i "${concatListPath}" -c copy "${outFile}"`;
-        console.log(`[Concat] Executing concat...`);
-        await runCommand(concatCmd);
-        
-        // 3) Background Cleanup
-        setTimeout(() => {
-            chunkFiles.forEach(f => { try { fs.unlinkSync(f); } catch(e){} });
-            try { fs.unlinkSync(concatListPath); } catch(e){}
-            for(let i=0; i<state.scriptLines.length; i++) {
-                try { fs.unlinkSync(path.join(exportsDir, `text_${timestamp}_${i}.txt`)); } catch(e){}
-            }
-        }, 3000);
-        
-        return NextResponse.json({ success: true, file: outFile });
+        const draftFullPath = path.join(jyBasePath, draftName);
+
+        return NextResponse.json({ success: true, file: draftFullPath });
 
     } catch (err: any) {
+        console.error("Export Error:", err);
         return NextResponse.json({ error: err.message }, { status: 500 });
     }
 }

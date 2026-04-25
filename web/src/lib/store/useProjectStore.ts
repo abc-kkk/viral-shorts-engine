@@ -13,6 +13,9 @@ export interface ProjectStore {
   flowUrl: string;
   setFlowUrl: (flowUrl: string) => void;
   
+  jianyingPath: string;
+  setJianyingPath: (jianyingPath: string) => void;
+  
   aiProvider: 'gemini' | 'doubao';
   setAiProvider: (aiProvider: 'gemini' | 'doubao') => void;
   
@@ -135,6 +138,9 @@ export const useProjectStore = create<ProjectStore>((set) => ({
   flowUrl: '',
   setFlowUrl: (flowUrl) => set({ flowUrl }),
   
+  jianyingPath: '',
+  setJianyingPath: (jianyingPath) => set({ jianyingPath }),
+  
   aiProvider: 'gemini',
   setAiProvider: (aiProvider) => set({ aiProvider }),
   
@@ -254,7 +260,7 @@ useProjectStore.subscribe((state, prevState) => {
   let hasChanges = false;
 
   const fieldsToWatch = [
-    'artStyle', 'flowUrl', 'aiProvider', 'useHitlMode',
+    'artStyle', 'flowUrl', 'jianyingPath', 'aiProvider', 'useHitlMode',
     'theme', 'characters', 'scriptLines', 'writerStep', 'inspirations', 'creativeMode',
     'rawScript', 'scriptReview', 'scriptIteration', 'userDirection',
     // Casting Room & Scene Media

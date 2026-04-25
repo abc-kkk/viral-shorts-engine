@@ -46,7 +46,7 @@ src/
 │       ├── generate-voice/       # Playwright AI Studio TTS 配音
 │       ├── prompt-templates/     # 提示词模板 CRUD API
 │       ├── layouts/route.ts      # 布局预设 CRUD（存储在 _layouts/ 目录）
-│       └── export/               # Remotion CLI 离线渲染导出
+│       └── export/               # 剪映草稿生成引擎 (jsjianyingdraft) 代替原有的 FFmpeg
 ├── components/
 │   ├── ProjectList.tsx           # 项目卡片网格 + 新建弹窗
 │   ├── PhaseNav.tsx              # 顶部导航：← 返回 | 项目名 | 阶段 | ⚙️ 设置 | 清空
@@ -144,9 +144,10 @@ WORKSPACE_PATH=/Users/ios/Desktop/work-data/短剧项目
    - **多角色防闪避**：准确提取 `characters_in_scene`，并联挂载参考图
    - **解耦式生图**：首图(Nano Pro) → 视频(Veo 3.1) 两步走
 
-4. **渲染室 (Remotion Cut)** → `RenderRoom.tsx`
+4. **渲染室 (Render Room)** → `RenderRoom.tsx`
    - 绝密潜入 AI Studio 获取 Gemini TTS 配音
    - **所见即所得打点仪**：拖动视频进度条 → 一键标记起声延迟
+   - **剪映草稿无缝协同 (CapCut Workflow)**：彻底弃用容易崩溃且缓慢的 FFmpeg 本地硬渲染，改用 `jsjianyingdraft` 在后台瞬间拼装带有独立音视频与文本轨道的 `draft_content.json`，一键生成并直达「剪映专业版」草稿箱。
 
 ---
 
