@@ -386,3 +386,25 @@ Scene Lab 编辑器通过 URL 参数控制行为：
 关于 Electron 打包过程中的 C++ Native ABI 失配问题以及 macOS LaunchServices 缓存死锁的详细说明和解决方案，请查阅独立的：
 👉 [桌面打包规约 (desktop-packaging.md)](./desktop-packaging.md)
 
+---
+
+## 十七、 未来架构演进与待优化技术债 (Future Technical Debt & Optimizations)
+
+> **致未来的 AI 助手与开发者：本阶段（v8.x）已经完成了 Zustand 的深水区迁移，但系统仍有以下已知技术债等待清理。在下一阶段开发时，建议优先解决以下问题：**
+
+### 1. 终极目标：彻底消灭 `ProjectContext.tsx`
+- **现状**：目前 `ProjectContext` 还残留了一些轻量级状态（如 `currentPhase`、`aiProvider`、`publishInfo` 以及 API 轮询轮子的初始化）。
+- **优化方向**：把这些最后的状态也全盘移入 `useProjectStore`，将整个应用彻底转变为单向数据流的 Redux/Zustand 极致架构，最终物理删除 `ProjectContext.tsx` 文件，实现前端状态的完全解耦。
+
+### 2. 渲染室 (`RenderRoom.tsx`) 的彻底重构
+- **现状**：目前只是给渲染室换了 Zustand 数据源以修复全局重绘问题，但它内部依然存在大量为了妥协 HTML5 `<video>` 播放机制而写的老旧时间轴同步逻辑。
+- **优化方向**：如果你后续决定不砍掉这个模块，建议利用 Zustand 的 **瞬态更新 (Transient Updates)** 机制重构时间轴拖拽。拖拽进度条时可以完全脱离 React 的生命周期，达到原生客户端级别的 60fps 剪辑体验。
+
+### 3. 前后端 Type 共享工程化
+- **现状**：目前 Chrome 插件 (`viral-shorts-extension`) 是通过非常 Hack 的 `import type ... from '../../src/lib/types'` 跨目录拉取后端的接口定义。
+- **优化方向**：建议引入简单的 Monorepo 思想（例如建立一个 shared 文件夹或独立的 npm package），让扩展和 Web 后端更安全地共享 `TargetType` 等资产字典，避免未来打包工具链升级时产生路径编译断裂。
+
+### 4. 极端并发下的 Toast 与任务流体验
+- **现状**：虽然已经用纯净的 Toast 替换掉了浏览器阻塞的 `alert()`，但在极端并发的批量生图场景下，Toast 依然可能会疯狂堆叠。
+- **优化方向**：可以考虑引入更轻量的全局进度条 (NProgress) 或独立的任务流侧边栏来聚合展示大批量的资产生成与拉取任务状态。
+
