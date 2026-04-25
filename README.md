@@ -66,7 +66,7 @@
 本项目采用全栈组件化架构，代码逻辑极其严密：
 
 - **核心框架**：`Next.js` (React 19) + `TypeScript`
-- **本地数据库**：`Prisma 7` + `SQLite` (原生支持原子化高并发写入，完美替代不可靠的 JSON 存储)
+- **本地数据库**：`Drizzle ORM` + `SQLite` (通过 better-sqlite3 提供极速的原生读写，彻底告别 Prisma 的 C++ 编译噩梦)
 - **实时通信**：纯内存级 `SSE (Server-Sent Events)` 桥接机制，实现 Chrome 插件与 Web 端零延迟数据同步
 - **视频渲染**：`Remotion 4.0` (纯代码驱动视频合成，零卡顿回放)
 - **3D 引擎**：`Three.js` + `React Three Fiber` (构建 Scene Lab 可视化布局编辑器)

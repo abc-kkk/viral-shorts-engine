@@ -1,3 +1,11 @@
+/**
+ * 🚨 @AI-CRITICAL-WARNING 🚨
+ * PROMPT TEMPLATE TRAPS:
+ * 1. The templates are wrapped in JS Template Literals. 
+ * 2. If you want the AI to output a literal backtick or `{@xxx}` tag, you MUST ESCAPE IT (e.g., `\\\`{@xxx}\\\``).
+ *    A single unescaped backtick will crash the entire Next.js build AST.
+ * 3. If you modify `systemPrompt` without adding new `variables`, it won't auto-upgrade in the user's disk cache!
+ */
 import { PromptTemplate } from '../promptTypes';
 
 const baseSystemPrompt = "你是全网最顶级的短剧/自媒体金牌编导。所有的输出都必须是简体中文。\n\n";

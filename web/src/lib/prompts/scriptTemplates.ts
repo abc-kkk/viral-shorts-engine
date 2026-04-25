@@ -1,3 +1,10 @@
+/**
+ * 🚨 @AI-CRITICAL-WARNING 🚨
+ * PROMPT TEMPLATE TRAPS:
+ * 1. The templates are wrapped in JS Template Literals. 
+ * 2. If you want the AI to output a literal backtick or `{@xxx}` tag, you MUST ESCAPE IT (e.g., `\\\`{@xxx}\\\``).
+ *    A single unescaped backtick will crash the entire Next.js build AST.
+ */
 export function getScriptPrompt(theme: string) {
     const systemPrompt = `CRITICAL NARRATIVE DIRECTION:
 我们要制作一个多角色互动的搞笑剧情短片（段子）。 

@@ -1,4 +1,4 @@
-# Viral Shorts Engine v5.0 (反差奇观/怪诞写实引擎) - AI 交接文档
+# Viral Shorts Engine v8.2 (反差奇观/怪诞写实引擎) - AI 交接文档
 
 > **⚠️ 致下一位 AI 助手的特别叮嘱 (To the Next AI Assistant):**
 > 
@@ -350,71 +350,35 @@ Scene Lab 编辑器通过 URL 参数控制行为：
 - **透明网关传递 (passthroughMeta)**：在调用 `ai-gateway` 生图接口时，这些上下文被打包为 `passthroughMeta` 交给网关。网关内部不关心这些业务逻辑，但在完成 Playwright 流程（成功、失败、或后台 FireAndForget 挂起）返回响应时，会将 `passthroughMeta` 原样弹回。
 - 这项重构让后端生图彻底无状态化，极大提升了多任务并发生图时的落盘稳定性。*(注：Chrome 扩展依然会读取 `active-context` 以实现人工抽卡时的快速防伪名填充，但这已与后端核心落盘逻辑完全解耦。)*
 
-### 十四、 Prisma + SQLite 动态本地数据库与增量同步机制 [v6.4]
+### 十四、 Drizzle ORM + SQLite 动态本地数据库与增量同步机制 [v8.2]
 
-为了彻底解决长久以来基于 `project.json` 全量写入引发的数据损坏（文件系统读写竞争）问题，我们在架构中全面引入了 Prisma 7 与 SQLite，并将存储策略改为了“本地零负担关系型模型”。
+详细关于数据库迁移、热备及相关开发避坑指南，请查阅独立的：
+👉 [数据库与持久化规约 (database-migration.md)](./database-migration.md)
 
-#### 1. 动态绑定的外部 SQLite 存储
-- 数据库文件并没有随代码提交在仓库中。我们使用了 Prisma 7 的 `@prisma/adapter-better-sqlite3` 动态适配器，在运行时将 SQLite 数据库文件 (`viral-shorts.db`) 生成在 `WORKSPACE_PATH` （即用户的“短剧项目”外部文件夹）中。
-- 这样实现了**代码与资产的绝对隔离**。用户只要备份工作空间文件夹，就能同时备份图片、视频、和**涵盖所有项目剧本的整库数据**。
-- `package.json` 中的 `postinstall` 钩子会在其他用户拉取项目执行 `npm install` 时，自动运行 `npx prisma db push --accept-data-loss`，为新用户自动完成初始化建库，无需配置外部云数据库。
-
-#### 2. “补丁 (PATCH) 式”并发写策略与热迁移
-- **精准差异更新 (Deep Diff)**：前端 `useProjectState.ts` 不再粗暴地每秒向服务器发送包含几十个变量的完整庞大状态。现在它通过对比 `useRef` 缓存，计算出真正改变了的字段 (Diff)。API 端改为 `PATCH /api/state` 接收增量对象，并在 Node.js 内存中利用 `lodash/merge` 与旧状态深度合并，最后通过 Prisma 的单一事务写入多张关系表 (`Project`, `Character`, `Scene`) 中。这就实现了并发修改互相不干扰（例如同时修改第一幕台词与推送第二幕的配图）。
-- **无感热迁移 (Hot Migration)**：为了兼容旧项目，当后端 `db.ts` 扫描工作空间发现旧版 `project.json` 但在数据库中无此记录时，它会**全自动解析并倒库入表**，将老 JSON 改名为 `.bak` 备份，实现历史数据的透明升级。
-
-### 十五、 开发者避坑指南 (Developer Gotchas) [血泪教训]
+### 十五、 提示词与其它开发者避坑指南 (Developer Gotchas)
 
 > **致未来的 AI 与开发者：以下错误已经在历史重构中发生过，请勿重蹈覆辙！**
 
-#### 1. 动态数据库 Schema 推送陷阱
-虽然 `package.json` 中的 `postinstall` 钩子会在 `npm install` 时向默认的 `./dev.db` 推送 Schema，但**系统真正在运行时，使用的是 `WORKSPACE_PATH` 里的 `viral-shorts.db`**！
-- **错误示范**：如果你修改了 `schema.prisma`，然后傻乎乎地在开发环境跑了一句 `npx prisma db push`。
-- **灾难后果**：这只会更新 `web` 目录下的空壳库，而你真实工作空间里的库根本没更新。API 调用时会直接报 `The table main.XXX does not exist in the current database`！
-- **正确做法**：在开发阶段修改数据库结构后，**必须带上你的真实工作空间路径进行推送**，例如：
-  `DATABASE_URL="file:/Users/ios/Desktop/work-data/短剧项目/viral-shorts.db" npx prisma db push`。
-
-#### 2. 提示词模板反引号 (Backtick) 转义陷阱
+#### 1. 提示词模板反引号 (Backtick) 转义陷阱
 `web/src/lib/prompts/defaultTemplates.ts` 是整个系统提示词的 Source of Truth。
 - 整个模板是被包裹在 JavaScript 模板字符串 (Template Literals) `` `...` `` 里面的。
 - **灾难后果**：如果在写提示词时，你需要让 AI 原样输出反引号包裹的内容（例如要求 AI 输出 `` `{@xxx}` ``），你**必须**使用转义符 `\`。如果你在替换文件时不小心丢失了转义符（写成了 `` `{@xxx}` ``），会导致整个 TS 文件的 AST 解析崩溃，出现 `Expected ',', got '{'` 这样的编译错误，进而导致整个 Next.js 生产构建瘫痪！
 - **正确做法**：对模板里的反引号万分小心，修改后务必运行 `npm run build` 测试编译。
 
-#### 3. TypeScript 联合类型严格度陷阱
+#### 2. TypeScript 联合类型严格度陷阱
 系统为了防止拼写错误，在 `useProjectState.ts` 和 `ProjectContext.tsx` 中使用了极度严格的字面量联合类型。
 - 例如 `processingScene` 被限制为 `'action' | 'image' | 'video' | 'voice' | null`。
 - **错误示范**：当你在业务中新增了一种生成任务（比如 `startImage` 首帧生成），你在 UI 组件里兴冲冲地写了 `processingScene[i] === 'startImage'`。
 - **灾难后果**：开发环境 `npm run dev` 不会立刻报错（仅会有编辑器波浪线），但这会在最终生产环境构建 (`npm run build`) 的严格类型检查阶段引发致命的 `Type error: no overlap` 错误，导致发版失败！
 - **正确做法**：在新增任何功能时，先通过全局搜索（`grep_search`）去同步更新底层 Context 和自定义 Hook 中的对应 `Record` 联合类型定义。
 
-#### 4. 场景与资产通信命名陷阱 (The Asset Naming Trap)
+#### 3. 场景与资产通信命名陷阱 (The Asset Naming Trap)
 这个项目是一个前后端与端外（Chrome Extension）深度耦合的流水线。UI 里的文本框提示词，同时也是系统层面的“通信寻址协议”。
-- **错误示范**：为了让 AI 提示词显得更“生动智能”，在 `location_prompt` 模板里指示 AI 发明自定义场景标签（如 `{@高档写字楼办公室}`），然后在 `useStoryboard.ts` 中写一段自作聪明的正则提取逻辑，把它作为锚点发给下游的视频大模型。
 - **灾难后果**：发给大模型的提示词确实变成了 `在 {@高档写字楼办公室} 中`，但在 Chrome 扩展的生图底层逻辑中，全剧的通用背景必定被**硬编码**为 `场景`，独立幕背景必定为 `场景_S[x]`！当大模型生成的提示词传回 Flow 端时，自动化脚本根本找不到名为 `高档写字楼办公室` 的资产图，瞬间抛出 404 资产找不到的致命报错！
 - **正确做法**：**绝对禁止**对任何跨端流转的占位符（如 `{@场景}`）做“动态化、智能化”的正则表达式提取或重命名。必须死死遵守底层的硬编码规则。写死就是最好的系统健壮性保证！
 
-#### 5. React 状态与数据库持久化脱节陷阱 (The State Persistence Trap)
-这个系统的前端由几十个庞大的 `Record<number, any>` 对象（如 `sceneImages`, `sceneVideoPrompts` 等）构成。在新增任何 UI 功能时，极容易犯下“只管前端内存，不管后端落盘”的低级错误。
-- **错误示范**：你在 Chrome 扩展轮询回调中高兴地调用了 `setSceneImageRefs` 记下了文件的防伪名，然后在下一步生成视频时直接去读内存，并且以为大功告成。
-- **灾难后果**：这只是把数据存到了内存！只要用户中途离开、刷新页面或者重启软件重开项目，这些内存状态会瞬间灰飞烟灭！由于没有保存在底层的 SQLite 数据库中，后续的所有生成流转都会因为读不到内存而发生各种离奇的降级 Fallback 甚至 404 崩溃！
-- **正确做法**：当你向 `useProjectState.ts` 增加任何需要跨越刷新留存的业务字段时，**必须且只能**严格遵循这三步：
-  1. 在 `prisma/schema.prisma` 的对应模型（如 `Scene`）中显式增加字段；
-  2. 务必带上真实工作空间路径执行 `DATABASE_URL="file:/绝对路径/viral-shorts.db" npx prisma db push` 和 `npx prisma generate`；
-  3. **最容易漏的一步**：在 `src/lib/db.ts` 的 `loadState` 和 `saveState`（特别是 `upsert` 的 `create` 和 `update` 块）中，**亲手**将新字段映射绑定进去！绝对不要相信只活在内存里的状态！
-
 ### 十六、 桌面客户端架构与打包避坑 (Desktop Architecture & Packaging) [v8.0]
 
-项目从纯 Web 服务全面迁移到了 `Electron` 桌面客户端架构，实现了真正的一键分发。但这也引入了两个极其致命的底层问题：
+关于 Electron 打包过程中的 C++ Native ABI 失配问题以及 macOS LaunchServices 缓存死锁的详细说明和解决方案，请查阅独立的：
+👉 [桌面打包规约 (desktop-packaging.md)](./desktop-packaging.md)
 
-#### 1. Node Native ABI 跨平台穿透陷阱 (C++ 编译失配)
-Next.js (作为 UI/API 层) 与 Electron (作为宿主) 使用的是不同底层 Node.js 版本的 C++ 动态链接库。因为我们使用了 Prisma + SQLite，底层依赖 `better-sqlite3`。
-- **灾难后果**：如果直接通过 `electron-builder` 打包 Next.js 的 `.next/standalone` 目录，生成的应用程序在启动时会瞬间崩溃，控制台报 `Module did not self-register` 或 `The module was compiled against a different Node.js version using NODE_MODULE_VERSION xxx`（比如 115 vs 135 错误）。
-- **Windows 下的终极深坑 (The Hashed Directory Trap)**：最初我们在 `desktop/afterPack.js` 钩子中，写死了替换 `server/node_modules/better-sqlite3` 目录里的文件。这在 macOS 上完美运行，因为 Mac 系统支持软链接（Symlink），替换源文件就能直接生效。但在 Windows（NTFS 文件系统）下，Next.js 为了规避软链接问题，会**在底层偷偷硬复制一份名为 `better-sqlite3-xxxx`（带有一串乱码哈希值）的实体文件夹**！结果死板的替换脚本完美漏掉了这个隐藏的真实生效文件，导致在 Windows 上 Electron（Node 22）直接撞上了旧版的 Node 20 底层文件，瞬间抛出 `invalid invocation` 的连环爆炸。
-- **最终解决方案 (Recursive Deep Patching)**：我们彻底重写了 `desktop/afterPack.js` 生命周期钩子，不再硬编码路径，而是**全盘递归搜索**整个 `server/` 文件夹下所有名字以 `better-sqlite3` 开头的目录。无论 Next.js 给它加上多变态的哈希后缀，脚本都会像追踪导弹一样把它揪出来，强制替换为 Electron 刚刚编译好的原生 `.node` 文件。这是彻底解决跨平台（特别是 Windows）数据库崩溃的终极解法！
-
-#### 2. macOS LaunchServices 死锁陷阱 (错误码 -600 procNotFound)
-由于我们在 Electron 中脱机运行了 `ai-gateway` 进程和 Next.js 进程，这导致了非常严重的僵尸进程隐患。
-- **灾难后果**：如果在开发过程中强杀应用（比如在终端 `Ctrl+C` 或者在活动监视器强制结束），其底层衍生的 Node 孤儿服务依然驻留在后台运行。此时，如果你将一个新的安装包（`.app`）覆盖安装到 `/Applications` 文件夹，macOS 底层的 LaunchServices 缓存系统会陷入精神错乱。它会永久将该应用程序拉黑，每当你双击时都会弹窗：“应用程序已不能再打开 (The application can no longer be opened)”，并且终端返回 `-600 procNotFound` 错误。
-- **正确做法与应急预案**：
-  - 代码层面：我们在 `main.js` 中的 `app.on('before-quit')` 钩子中写死了进程清理逻辑，保证任何正常退出都能杀死后台衍生树。
-  - 用户自救指南：如果已经陷入了被拉黑的死锁状态，只需将 `/Applications/` 中的应用程序重命名（例如改为 `Viral Shorts Studio.app`），即可瞬间绕过损坏的缓存重新启动！千万不要让用户去重装电脑！

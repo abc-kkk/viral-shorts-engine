@@ -1,4 +1,4 @@
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const { store, isDev } = require('./config');
@@ -108,15 +108,23 @@ function startGateway(port) {
   });
 }
 
+function killProcessTree(childProcess, name) {
+  if (!childProcess || childProcess.killed) return;
+  console.log(`[Main] Shutting down ${name}...`);
+  if (process.platform === 'win32') {
+    try {
+      execSync(`taskkill /pid ${childProcess.pid} /T /F`, { stdio: 'ignore' });
+    } catch (e) {
+      // 忽略无法找到进程的错误
+    }
+  } else {
+    childProcess.kill('SIGTERM');
+  }
+}
+
 function stopProcesses() {
-  if (nextProcess && !nextProcess.killed) {
-    console.log('[Main] Shutting down Next.js...');
-    nextProcess.kill('SIGTERM');
-  }
-  if (gatewayProcess && !gatewayProcess.killed) {
-    console.log('[Main] Shutting down ai-gateway...');
-    gatewayProcess.kill('SIGTERM');
-  }
+  killProcessTree(nextProcess, 'Next.js');
+  killProcessTree(gatewayProcess, 'ai-gateway');
 }
 
 module.exports = {

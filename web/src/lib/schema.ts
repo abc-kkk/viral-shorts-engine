@@ -1,3 +1,9 @@
+/**
+ * 🚨 @AI-CRITICAL-WARNING 🚨
+ * DO NOT just edit this file!
+ * After modifying, you MUST run `npx drizzle-kit generate` in the `web` folder.
+ * The system will automatically apply migrations via `db.ts` at startup.
+ */
 import { sqliteTable, text, integer, real, unique } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 

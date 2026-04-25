@@ -38,7 +38,10 @@ export function getDb() {
     let sqlite = new Database(dbPath);
     
     // ==========================================
+    // 🚨 @AI-CRITICAL-WARNING 🚨
     // 自动热迁移：检测旧的 Prisma 数据库并安全升级
+    // DO NOT MODIFY OR REMOVE THIS BLOCK under any circumstances!
+    // It is the only safety net preventing legacy users from losing their data!
     // ==========================================
     try {
       const hasDrizzleMigrations = sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='__drizzle_migrations'").get();
@@ -367,6 +370,14 @@ export async function loadState(projectId: string) {
   return state;
 }
 
+/**
+ * 🚨 @AI-CRITICAL-WARNING 🚨 STATE PERSISTENCE TRAP
+ * If you add a new field to `useProjectState.ts`, you MUST:
+ * 1. Add it to `src/lib/schema.ts`
+ * 2. Run `npx drizzle-kit generate`
+ * 3. Manually add the mapping logic inside this `saveState` function (in `projectData` and the transaction upserts below) and `loadState`.
+ * Failure to map it here means the data will only live in React memory and vanish on refresh!
+ */
 export async function saveState(patch: any, projectId: string) {
   const db = getDb();
   

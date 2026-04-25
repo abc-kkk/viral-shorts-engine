@@ -152,6 +152,8 @@ app.whenReady().then(async () => {
       '服务启动失败',
       `Next.js 服务未能在 60 秒内启动。\n请检查控制台日志。\n\n错误：${e.message}`
     );
+    app.quit();
+    return;
   }
 
   // 创建主窗口
@@ -183,4 +185,15 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+// 处理终端的 Ctrl+C (SIGINT/SIGTERM) 信号，确保触发完整的退出清理流程
+process.on('SIGINT', () => {
+  console.log('[Main] Received SIGINT (Ctrl+C), quitting gracefully...');
+  app.quit();
+});
+
+process.on('SIGTERM', () => {
+  console.log('[Main] Received SIGTERM, quitting gracefully...');
+  app.quit();
 });

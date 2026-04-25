@@ -1,21 +1,36 @@
 # 🤖 AI Assistant Guidelines for viral-shorts-engine
 
 > [!CRITICAL]
-> **DATABASE SCHEMA MIGRATION RULES - READ CAREFULLY**
-> This project has fully transitioned from Prisma to **Drizzle ORM** with `better-sqlite3`.
+> **READ THIS BEFORE MODIFYING ANY CODE. THIS IS YOUR PRIMARY MEMORY OVERRIDE.**
+> You are working on a highly complex Electron + Next.js + Drizzle ORM architecture. Many historical pitfalls have destroyed the project in the past. Adhere strictly to the following 6 Iron Rules.
 
-## 🚨 ALWAYS REMEMBER WHEN MODIFYING Drizzle Schema (`src/lib/schema.ts`) 🚨
+## 🔴 1. THE DRIZZLE SCHEMA RULE (`src/lib/schema.ts`)
+- **NEVER** edit `schema.ts` without immediately running `npx drizzle-kit generate` in the `web` folder. 
+- **DO NOT** run `npx drizzle-kit push`. The system applies SQL patches automatically at runtime via `migrate()` inside `db.ts`.
 
-If you add, remove, or modify columns/tables in `web/src/lib/schema.ts`, you **MUST** follow these steps to ensure the changes are applied safely to user databases:
+## 🔴 2. THE HOT-MIGRATION RULE (`src/lib/db.ts`)
+- The `getDb()` function contains a critical Prisma-to-Drizzle migration block (creating `.bak.db`). 
+- **DO NOT TOUCH, REFACTOR, OR OPTIMIZE THIS BLOCK.** It is the only safety net preventing legacy users from losing their entire life's work.
 
-**How to migrate data correctly:**
-1. Open and modify `web/src/lib/schema.ts` using Drizzle ORM syntax.
-2. Run `npx drizzle-kit generate` inside the `web` directory. This will automatically generate the corresponding SQL migration files in the `web/drizzle` folder.
-3. **DO NOT** run `npx drizzle-kit push` manually for local user migrations unless you are testing locally. The desktop application automatically handles this at startup.
+## 🔴 3. THE STATE PERSISTENCE RULE (`src/lib/db.ts`)
+- When adding a new field to `useProjectState.ts`, you **MUST** map it inside `schema.ts` AND manually write the mapping logic inside the `loadState` and `saveState` (upsert blocks) in `db.ts`. 
+- If you only save it to React memory, the app will break upon refresh.
 
-**Automatic Migration & Upgrades:**
-- Inside `web/src/lib/db.ts` (`getDb` function), the application automatically executes `migrate(dbInstance, { migrationsFolder })` on startup.
-- There is also a robust legacy upgrade hook in `getDb()` that automatically detects old Prisma databases lacking `__drizzle_migrations`, renames them to `.bak.db`, rebuilds the schema using Drizzle, and seamlessly copies the legacy data over.
-- You **do not** need to write raw `db.exec("ALTER TABLE...")` scripts anymore. Rely on Drizzle's `generate` command and the automated runtime migration logic.
+## 🔴 4. THE PROMPT TEMPLATE TRAPS (`src/lib/prompts/defaultTemplates.ts`)
+- The templates are wrapped in JS Template Literals (`` `...` ``). 
+- If you want the AI to output a literal backtick or `{@xxx}` tag, you **MUST ESCAPE IT** (e.g., `\`{@xxx}\``). A single unescaped backtick will crash the entire Next.js build AST.
+- If you modify `systemPrompt` without adding new `variables`, it won't auto-upgrade in the user's disk cache!
 
-Failure to follow these rules (e.g. modifying `schema.ts` without running `drizzle-kit generate`) will cause Next.js backend errors (like 500s on `/api/state`) when querying fields that don't yet exist in the local SQLite file.
+## 🔴 5. THE DESKTOP NATIVE ABI RULE (`desktop/afterPack.js`)
+- Do not refactor the recursive `better-sqlite3` deep-patching logic in `afterPack.js`. 
+- Windows Next.js builds secretly clone hashed directories for Native node modules. This brute-force replacement is necessary to prevent `invalid invocation` C++ crashes.
+
+## 🔴 6. THE STRONG TYPING & TEST RULE (Zod & Vitest)
+- The project enforces strict Zod validation at the API Gateway boundaries.
+- **AFTER any modification**, you MUST run `npx vitest run` in the `web` folder.
+- **CRITICAL**: Unit tests are not enough. Next.js enforces extremely strict TypeScript checks during `npm run build`. You MUST run `npm run build` in the `web` folder to ensure no strict type errors (e.g., Zod generic arguments) break the production deployment.
+
+## 🔴 7. WINDOWS PROCESS MANAGEMENT TRAP (Next.js & Electron)
+- Never use standard `child.kill('SIGTERM')` for Next.js or Gateway processes spawned from Electron. On Windows, this leaves orphaned Turbopack workers (zombie `node.exe` processes) which will lock port 3000 and crash future launches.
+- ALWAYS use `taskkill /pid <PID> /T /F` to destroy the entire process tree on Windows.
+- `isPortAvailable` checks must omit the hostname (`server.listen(port)`) to properly scan all IPv4/IPv6 interfaces, preventing Next.js EADDRINUSE crashes.

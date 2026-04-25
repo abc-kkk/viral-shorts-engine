@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAssetDir } from '@/lib/db';
 import { generateAssetFilename, getAssetTypeForTarget, getAssetUrlWithCacheBust } from '@/lib/assetUrl';
 import type { TargetType } from '@/lib/types';
+import { PassthroughMetaSchema } from '@/lib/validation';
 import fs from 'fs';
 import path from 'path';
 
@@ -16,6 +17,21 @@ export async function POST(req: Request) {
 
     if (!prompt) return NextResponse.json({ error: 'Missing prompt' }, { status: 400 });
     if (!projectId) return NextResponse.json({ error: 'Missing projectId' }, { status: 400 });
+
+    // --- Zod 强类型校验 ---
+    const validationResult = PassthroughMetaSchema.safeParse({
+        targetType: reqTargetType,
+        index: reqIndex,
+        meta: reqMeta
+    });
+
+    if (!validationResult.success) {
+        console.error('[Asset Gen] Invalid passthrough meta:', validationResult.error.format());
+        return NextResponse.json({ error: 'Invalid passthrough meta parameters', details: validationResult.error.format() }, { status: 400 });
+    }
+    
+    // 使用校验后清洗过的值
+    const validMeta = validationResult.data;
 
     const targetModel = model || 'Veo 3.1';
     console.log(`[Asset Gen] [${projectId}] Requesting ${targetModel} for: "${prompt.substring(0, 30)}..." (FireAndForget: ${fireAndForget})`);
@@ -37,7 +53,7 @@ export async function POST(req: Request) {
     const gatewayRes = await fetch(`${AI_GATEWAY_URL}/api/media/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, model: targetModel, referenceKeywords: keywords, flowUrl, fireAndForget, veoMode, passthroughMeta: { targetType: reqTargetType, index: reqIndex, meta: reqMeta } }),
+      body: JSON.stringify({ prompt, model: targetModel, referenceKeywords: keywords, flowUrl, fireAndForget, veoMode, passthroughMeta: validMeta }),
     });
     
     if (!gatewayRes.ok) {
