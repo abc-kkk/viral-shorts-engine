@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { BookOpen, Globe, Terminal, LayoutDashboard, ArrowLeft, Monitor, Puzzle, ExternalLink, Shield, Sparkles, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, Zap } from 'lucide-react';
+import { BookOpen, Globe, Terminal, LayoutDashboard, ArrowLeft, Monitor, Puzzle, ExternalLink, Shield, Sparkles, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, Zap, Copy } from 'lucide-react';
 
 function StepCard({ stepNumber, icon, title, children, accent = 'orange' }: {
   stepNumber: number;
@@ -72,6 +72,24 @@ function FAQ({ question, children }: { question: string; children: React.ReactNo
         </div>
       )}
     </div>
+  );
+}
+
+function CopyLinkButton({ url, className }: { url: string; className: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button 
+      onClick={() => {
+        navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }}
+      className={className}
+      title="复制网址并在调试浏览器中粘贴打开"
+    >
+      {copied ? <CheckCircle2 className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+      {copied ? '已复制' : '复制网址'}
+    </button>
   );
 }
 
@@ -170,10 +188,10 @@ export default function GuidePage() {
                     <div className="text-xs text-neutral-500">负责写剧本 / 生成台词（默认）</div>
                   </div>
                 </div>
-                <a href="https://gemini.google.com/app" target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 bg-blue-950/40 px-3 py-1.5 rounded-lg transition-colors">
-                  打开 <ExternalLink className="w-3 h-3" />
-                </a>
+                <CopyLinkButton 
+                  url="https://gemini.google.com/app"
+                  className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 bg-blue-950/40 px-3 py-1.5 rounded-lg transition-colors"
+                />
               </div>
               <p className="text-xs text-neutral-500 pl-11">gemini.google.com/app</p>
             </div>
@@ -188,10 +206,10 @@ export default function GuidePage() {
                     <div className="text-xs text-neutral-500">可替代 Gemini 负责写剧本（国内网络友好）</div>
                   </div>
                 </div>
-                <a href="https://www.doubao.com/chat" target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300 bg-sky-950/40 px-3 py-1.5 rounded-lg transition-colors">
-                  打开 <ExternalLink className="w-3 h-3" />
-                </a>
+                <CopyLinkButton 
+                  url="https://www.doubao.com/chat"
+                  className="flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300 bg-sky-950/40 px-3 py-1.5 rounded-lg transition-colors"
+                />
               </div>
               <p className="text-xs text-neutral-500 pl-11">doubao.com/chat · 进入项目设置(⚙️)可切换为豆包模式</p>
             </div>
@@ -206,10 +224,10 @@ export default function GuidePage() {
                     <div className="text-xs text-neutral-500">负责生成角色配音</div>
                   </div>
                 </div>
-                <a href="https://aistudio.google.com/generate-speech?model=gemini-3.1-flash-tts-preview" target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 px-3 py-1.5 rounded-lg transition-colors">
-                  打开 <ExternalLink className="w-3 h-3" />
-                </a>
+                <CopyLinkButton 
+                  url="https://aistudio.google.com/generate-speech?model=gemini-3.1-flash-tts-preview"
+                  className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 px-3 py-1.5 rounded-lg transition-colors"
+                />
               </div>
               <p className="text-xs text-neutral-500 pl-11">aistudio.google.com/generate-speech</p>
             </div>
@@ -224,10 +242,10 @@ export default function GuidePage() {
                     <div className="text-xs text-neutral-500">负责生图 / 生视频 (Nano Pro & Veo 3.1)</div>
                   </div>
                 </div>
-                <a href="https://labs.google/fx/zh/tools/flow" target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 bg-purple-950/40 px-3 py-1.5 rounded-lg transition-colors">
-                  打开 <ExternalLink className="w-3 h-3" />
-                </a>
+                <CopyLinkButton 
+                  url="https://labs.google/fx/zh/tools/flow"
+                  className="flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 bg-purple-950/40 px-3 py-1.5 rounded-lg transition-colors"
+                />
               </div>
               <p className="text-xs text-neutral-500 pl-11">labs.google/fx/zh/tools/flow · 进入项目「设置」后，将您的 Flow 项目 URL 粘贴到「Flow 地址」字段中</p>
             </div>

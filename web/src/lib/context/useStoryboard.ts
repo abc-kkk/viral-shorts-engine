@@ -39,8 +39,25 @@ export function useStoryboard(state: any, getFullScriptContext: () => string) {
       const previousVideoPrompt = i > 0 ? sceneVideoPrompts[i - 1] : "";
       const activeLocationPrompt = sceneLocationPrompts[i] || locationPrompt || '';
       
-      const cleanLocationContext = activeLocationPrompt.replace(/\{@Layout_[^{}]+\}/g, '').trim();
-      const sceneLocationToken = sceneLocationPrompts[i] ? `场景_S${i}` : '场景';
+      let cleanLocationContext = activeLocationPrompt;
+      let sceneLocationToken = sceneLocationPrompts[i] ? `场景_S${i}` : '场景';
+      
+      // 绝对禁止提取所谓的自定义场景标签！
+      // 因为 Chrome 扩展端的 Flow 自动化脚本是写死的：
+      // 全局场景固定命名为 "场景"，各幕自定义场景固定命名为 "场景_S[x]"。
+      // 如果任由 AI 或正则把名字改成 {@高档写字楼办公室}，会导致 Flow 生图时找不到资产！
+      
+      // 提取真正的"站位骨架"标签：从分镜面板的专属输入框里取
+      let startLayoutToken = '';
+      const startTagMatch = (startLayoutPrompts[i] || '').match(/\{@(Layout_[^{}]+)\}/);
+      if (startTagMatch) startLayoutToken = startTagMatch[1];
+      
+      let endLayoutToken = '';
+      const endTagMatch = (endLayoutPrompts[i] || '').match(/\{@(Layout_[^{}]+)\}/);
+      if (endTagMatch) endLayoutToken = endTagMatch[1];
+      
+      // 将场景提示词中的所有 {@标签} 剔除，防止 AI 看到多重指令导致幻觉
+      cleanLocationContext = activeLocationPrompt.replace(/\{@([^{}]+)\}/g, '').trim();
 
       const data = await fetchApi('/api/generate-prompts', {
           aiProvider,
@@ -55,7 +72,9 @@ export function useStoryboard(state: any, getFullScriptContext: () => string) {
           previousImagePrompt,
           previousVideoPrompt,
           sceneLocationContext: cleanLocationContext,
-          sceneLocationToken
+          sceneLocationToken,
+          startLayoutToken,
+          endLayoutToken
       });
       
       setSceneImagePrompts((p: any) => ({ ...p, [i]: data.imagePrompt }));
@@ -71,7 +90,7 @@ export function useStoryboard(state: any, getFullScriptContext: () => string) {
     } finally {
       setProcessingScene((p: any) => ({ ...p, [i]: null }));
     }
-  }, [aiProvider, scriptLines, characters, artStyle, getFullScriptContext, sceneImagePrompts, sceneVideoPrompts, sceneLocationPrompts, locationPrompt, setProcessingScene, setSceneImagePrompts, setSceneVideoPrompts, setSceneStartImagePrompts, setSceneCharacters]);
+  }, [aiProvider, scriptLines, characters, artStyle, getFullScriptContext, sceneImagePrompts, sceneVideoPrompts, sceneLocationPrompts, locationPrompt, startLayoutPrompts, endLayoutPrompts, setProcessingScene, setSceneImagePrompts, setSceneVideoPrompts, setSceneStartImagePrompts, setSceneCharacters]);
 
   const getRefKeywords = useCallback((i: number, prompt: string) => {
     const charsInScene = sceneCharacters[i] || [];
@@ -156,15 +175,16 @@ export function useStoryboard(state: any, getFullScriptContext: () => string) {
 
       let prompt = videoPrompt.trim();
       
+      const safeProjectId = (projectId || 'Proj').replace(/[^\w\u4e00-\u9fa5]/g, '');
       let startRef = (sceneImageRefs as Record<string, string>)[`start_${i}`];
       if (!startRef) {
           if (i === 0) {
-              startRef = getRefKeywords(0, sceneStartImagePrompts[0] || '')[0] || '场景';
+              startRef = `${safeProjectId}_S0_StartImg`;
           } else {
-              startRef = sceneImageRefs[i - 1] || getRefKeywords(i - 1, sceneImagePrompts[i - 1] || '')[0] || '场景';
+              startRef = sceneImageRefs[i - 1] || `${safeProjectId}_S${i - 1}_Img`;
           }
       }
-      const endRef = sceneImageRefs[i] || getRefKeywords(i, sceneImagePrompts[i] || '')[0] || '场景';
+      const endRef = sceneImageRefs[i] || `${safeProjectId}_S${i}_Img`;
 
       await fetch('/api/extension/active-context', { method: 'POST', body: JSON.stringify({ projectId, targetType: 'sceneVideo', index: i }) });
       const data = await fetchApi('/api/generate-assets', { prompt, model: 'Veo 3.1', referenceKeywords: [startRef, endRef], flowUrl, projectId, fireAndForget: useHitlMode, veoMode: 'frame', targetType: 'sceneVideo', index: i });

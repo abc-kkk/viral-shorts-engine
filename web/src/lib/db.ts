@@ -275,6 +275,7 @@ export async function loadState(projectId: string) {
     characterImages: {},
     scriptLines: [],
     sceneLocationPrompts: {}, sceneLocationImages: {},
+    startLayoutPrompts: {}, endLayoutPrompts: {},
     sceneImagePrompts: {}, sceneVideoPrompts: {}, sceneStartImagePrompts: {}, sceneCharacters: {},
     sceneDurations: {}, sceneVideoTrimStart: {}, sceneVideoTrimEnd: {}, sceneImages: {}, sceneStartImages: {}, sceneImageRefs: {}, sceneVideos: {}, sceneAudio: {}, sceneAudioDelays: {},
     coverPrompts: {}, coverImages: {}
@@ -291,6 +292,8 @@ export async function loadState(projectId: string) {
     state.scriptLines[idx] = { speaker: s.speaker, dialogue: s.dialogue, actionHint: s.actionHint };
     if (s.locationPrompt) state.sceneLocationPrompts[idx] = s.locationPrompt;
     if (s.locationImage) state.sceneLocationImages[idx] = s.locationImage;
+    if (s.startLayoutPrompt) state.startLayoutPrompts[idx] = s.startLayoutPrompt;
+    if (s.endLayoutPrompt) state.endLayoutPrompts[idx] = s.endLayoutPrompt;
     if (s.imagePrompt) state.sceneImagePrompts[idx] = s.imagePrompt;
     if (s.videoPrompt) state.sceneVideoPrompts[idx] = s.videoPrompt;
     if (s.startImagePrompt) state.sceneStartImagePrompts[idx] = s.startImagePrompt;
@@ -303,6 +306,8 @@ export async function loadState(projectId: string) {
     if (s.videoAsset) state.sceneVideos[idx] = s.videoAsset;
     if (s.audioAsset) state.sceneAudio[idx] = s.audioAsset;
     if (s.audioDelay !== null) state.sceneAudioDelays[idx] = s.audioDelay;
+    if (s.imageRef) state.sceneImageRefs[idx] = s.imageRef;
+    if (s.startImageRef) state.sceneImageRefs[`start_${idx}`] = s.startImageRef;
   });
 
   proj.covers.forEach(c => {
@@ -385,6 +390,8 @@ export async function saveState(patch: any, projectId: string) {
             actionHint: line.actionHint,
             locationPrompt: mergedState.sceneLocationPrompts?.[idx],
             locationImage: mergedState.sceneLocationImages?.[idx],
+            startLayoutPrompt: mergedState.startLayoutPrompts?.[idx],
+            endLayoutPrompt: mergedState.endLayoutPrompts?.[idx],
             imagePrompt: mergedState.sceneImagePrompts?.[idx],
             videoPrompt: mergedState.sceneVideoPrompts?.[idx],
             startImagePrompt: mergedState.sceneStartImagePrompts?.[idx],
@@ -397,6 +404,8 @@ export async function saveState(patch: any, projectId: string) {
             videoAsset: mergedState.sceneVideos?.[idx],
             audioAsset: mergedState.sceneAudio?.[idx],
             audioDelay: mergedState.sceneAudioDelays?.[idx],
+            imageRef: mergedState.sceneImageRefs?.[idx],
+            startImageRef: mergedState.sceneImageRefs?.[`start_${idx}`],
           },
           update: {
             speaker: line.speaker,
@@ -404,6 +413,8 @@ export async function saveState(patch: any, projectId: string) {
             actionHint: line.actionHint,
             locationPrompt: mergedState.sceneLocationPrompts?.[idx],
             locationImage: mergedState.sceneLocationImages?.[idx],
+            startLayoutPrompt: mergedState.startLayoutPrompts?.[idx],
+            endLayoutPrompt: mergedState.endLayoutPrompts?.[idx],
             imagePrompt: mergedState.sceneImagePrompts?.[idx],
             videoPrompt: mergedState.sceneVideoPrompts?.[idx],
             startImagePrompt: mergedState.sceneStartImagePrompts?.[idx],
@@ -416,6 +427,8 @@ export async function saveState(patch: any, projectId: string) {
             videoAsset: mergedState.sceneVideos?.[idx],
             audioAsset: mergedState.sceneAudio?.[idx],
             audioDelay: mergedState.sceneAudioDelays?.[idx],
+            imageRef: mergedState.sceneImageRefs?.[idx],
+            startImageRef: mergedState.sceneImageRefs?.[`start_${idx}`],
           }
         });
       }

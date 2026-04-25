@@ -78,10 +78,10 @@ sudo apt-get update && sudo apt-get install cloudflare-warp -y
 # 启动后台服务
 sudo warp-svc --accept-tos > /dev/null 2>&1 &
 
-# 注册账号并连接
-warp-cli --accept-tos register
-warp-cli --accept-tos set-mode proxy
-warp-cli --accept-tos set-proxy-port 40000
+# 注册账号并连接（注意：新版 WARP 更改了命令语法）
+warp-cli --accept-tos registration new
+warp-cli --accept-tos mode proxy
+warp-cli --accept-tos proxy port 40000
 warp-cli --accept-tos connect
 ```
 
@@ -154,3 +154,39 @@ gh cs ssh -c 填入你的Codespace_ID -- -L 1081:127.0.0.1:40000
 > 💡 **日常复活小贴士（必看！）**
 > GitHub 的免费云电脑如果太久不用会自动休眠。
 > 每天开工前，如果你发现隧道连不上了，只需要去 GitHub 网页把那台 Codespace 重新唤醒。唤醒后，记得在网页的黑框框里执行一句 `nohup sudo warp-svc --accept-tos > /dev/null 2>&1 &` 重新拉起 WARP 进程，然后再在本地电脑跑第二阶段的隧道指令即可光速复活！
+
+---
+
+## 🛑 常见避坑指南 (Troubleshooting)
+
+如果你在使用一键脚本或配置途中遇到报错，请对照以下方案解决：
+
+### 1. 报错：`HTTP 403: Must have admin rights to Repository...`
+**原因**：当你登录 GitHub CLI 时，系统默认没有给你云电脑（Codespace）的控制权和上传 SSH 秘钥的权限。
+**解决办法**：在终端执行以下命令补充权限，然后在弹出的浏览器里点击 `Authorize` 同意：
+```bash
+gh auth refresh -h github.com -s codespace -s admin:public_key
+```
+
+### 2. 报错：`Permission denied (publickey,password)`
+**原因**：这是一个新注册的 GitHub 账号，你的账号后台没有绑定任何本机的 SSH 物理秘钥。云电脑启动后处于“锁死”状态，拒绝你的 Mac 连入。
+**解决办法**：在终端执行以下命令，把你本机的秘钥绑定到新账号上：
+```bash
+gh ssh-key add ~/.ssh/id_rsa.pub -t "Mac Key"
+```
+*(如果提示 `key is already in use`，说明该秘钥已被老账号占用，你可以换用备用秘钥：`gh ssh-key add ~/.ssh/id_ed25519.pub -t "Mac Key"`)*。绑定成功后再跑脚本即可。
+
+### 3. 报错：`HTTP 400: You have too many codespaces running`
+**原因**：因为之前遇到报错反复重试，导致后台堆积了太多死机的云电脑，把免费账号的“最大同时开机数量”（通常为 2 台）占满了。
+**解决办法**：在终端执行以下命令，强制清空所有废弃云电脑：
+```bash
+gh cs delete --all -f
+```
+
+### 4. 警告：切号导致原项目 `git push` 失败
+**原因**：为了白嫖免费额度，你在终端登录了新账号。如果你之前克隆代码使用的是 HTTPS 链接，那么 `git push` 会使用新账号的身份尝试提交代码，从而报 403 权限不足错误。
+**完美解决办法**：将代码仓库强制切换为走本机的 SSH 专属通道（不受 GitHub CLI 切号影响）。在项目根目录执行：
+```bash
+git remote set-url origin git@github.com:你原来的老账号名/viral-shorts-engine.git
+```
+这样你就可以边跑代理脚本，边用老账号正常提交代码，互不干扰！

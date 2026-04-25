@@ -11,7 +11,7 @@ const AI_GATEWAY_URL = process.env.AI_GATEWAY_URL || 'http://localhost:4100';
 
 export async function POST(req: Request) {
   try {
-    const { aiProvider, taskType, theme, characterDetails, actionHint, dialogue, artStyle, fullScriptContext, characterName, allCharactersContext, creativeMode, userDirection, sceneIndex, totalScenes, previousImagePrompt, previousVideoPrompt, sheetElements, sceneComposition, sceneLocationContext, sceneLocationToken } = await req.json();
+    const { aiProvider, taskType, theme, characterDetails, actionHint, dialogue, artStyle, fullScriptContext, characterName, allCharactersContext, creativeMode, userDirection, sceneIndex, totalScenes, previousImagePrompt, previousVideoPrompt, sheetElements, sceneComposition, sceneLocationContext, sceneLocationToken, startLayoutToken, endLayoutToken } = await req.json();
 
     // MiniMax 客户端仅在手动关闭 AI Gateway 模式时需要（目前永远走 Gateway）
     const apiKey = process.env.MINIMAX_API_KEY || 'not-needed-when-using-gateway';
@@ -64,6 +64,9 @@ export async function POST(req: Request) {
         sceneComposition: sceneComposition || '无特殊要求，AI 自由发挥',
         sceneLocationContext: sceneLocationContext || '',
         sceneLocationToken: sceneLocationToken || '场景',
+        startLayoutToken: startLayoutToken || '',
+        endLayoutToken: endLayoutToken || '',
+        anchorInstruction: `- **【极度致命：场景皮肉与站位骨架锚点约束】**\n   - 对于首帧(startImagePrompt)，你必须一字不差地以这句开头：\`${startLayoutToken ? `根据 {@${startLayoutToken}} 的人物站位比例，在 {@${sceneLocationToken || '场景'}} 中，...` : `在 {@${sceneLocationToken || '场景'}} 中，...`}\`\n   - 对于尾帧(imagePrompt)，你必须一字不差地以这句开头：\`${endLayoutToken ? `根据 {@${endLayoutToken}} 的人物站位比例，在 {@${sceneLocationToken || '场景'}} 中，...` : `在 {@${sceneLocationToken || '场景'}} 中，...`}\`\n   - 绝对不准自己发明背景词汇！少一个字或多一个标签都不行！`,
         sceneIndexPlusOne: (sceneIndex !== undefined ? sceneIndex + 1 : 1).toString(),
         totalScenes: (totalScenes || 1).toString(),
         speakerName: (actionHint === '字卡画面描述' || dialogue === '字卡上的文字') ? '字卡' : 'Character',

@@ -36,8 +36,21 @@ export async function generateTTS(
          await page.goto(AISTUDIO_URL, { waitUntil: 'domcontentloaded' });
       }
     }
-    
-    // 1. Wait for page to be ready
+    // 0. Check if we are on the Intro screen and need to click a template
+    console.log(`[AIStudio Automator] Checking for intro screen...`);
+    try {
+      // The user might be on the "Turn text into natural-sounding speech..." screen
+      // The huge title text is actually a button with class "text-input-container"
+      const introBtn = page.locator('button.text-input-container', { hasText: 'Turn text' }).first();
+      await introBtn.waitFor({ state: 'visible', timeout: 3000 });
+      console.log(`[AIStudio Automator] Found intro screen, clicking the huge text button...`);
+      await introBtn.click();
+      await page.waitForTimeout(1000); // Wait for playground to render
+    } catch (e) {
+      console.log(`[AIStudio Automator] No intro screen found, assuming already in playground.`);
+    }
+
+    // 1. Wait for page to be ready (Playground Textarea)
     console.log(`[AIStudio Automator] Wait for text area...`);
     await page.waitForSelector('ms-autosize-textarea textarea', { timeout: 30000 });
     const editor = page.locator('ms-autosize-textarea textarea').last();

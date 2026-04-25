@@ -4,6 +4,7 @@
 // =====================================================================
 
 const { app, dialog, shell, ipcMain } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
 
@@ -41,8 +42,41 @@ app.whenReady().then(async () => {
   // 注册 IPC Handlers
   ipcMain.handle('get-version', () => app.getVersion());
   ipcMain.handle('open-folder', (_event, folderPath) => shell.openPath(folderPath));
-  ipcMain.handle('launch-chrome', () => launchDebugChrome());
+  ipcMain.handle('launch-chrome', () => launchDebugChrome({ silent: true }));
   ipcMain.handle('get-workspace-path', () => store.get('workspacePath'));
+
+  // --- 从托盘菜单迁移到 Web UI 的高级工具 ---
+  ipcMain.handle('change-chrome-data-dir', async () => {
+    const mainWindow = getMainWindow();
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow || {}, {
+      title: '选择 Chrome 独立用户数据存放目录',
+      properties: ['openDirectory', 'createDirectory'],
+      defaultPath: store.get('chromeUserDataDir') || path.join(app.getPath('userData'), 'chrome-debug-profile'),
+    });
+    if (!canceled && filePaths.length > 0) {
+      store.set('chromeUserDataDir', filePaths[0]);
+      return filePaths[0];
+    }
+    return null;
+  });
+
+  ipcMain.handle('open-extension-folder', () => {
+    const extPath = isDev
+      ? path.join(__dirname, '..', 'web', 'viral-shorts-extension')
+      : path.join(process.resourcesPath, 'viral-shorts-extension');
+    return shell.openPath(extPath);
+  });
+
+  ipcMain.handle('open-workspace-folder', () => {
+    const ws = store.get('workspacePath');
+    if (ws) return shell.openPath(ws);
+  });
+
+  ipcMain.handle('check-for-updates', () => {
+    autoUpdater.checkForUpdatesAndNotify();
+  });
+
+  ipcMain.handle('get-app-version', () => app.getVersion());
 
   ipcMain.handle('change-workspace-path', async () => {
     const mainWindow = getMainWindow();

@@ -69,9 +69,9 @@ gh cs ssh -c "$CS_NAME" -- "
   sudo apt-get install cloudflare-warp -y && \
   sudo warp-svc --accept-tos > /dev/null 2>&1 & \
   sleep 3 && \
-  warp-cli --accept-tos register && \
-  warp-cli --accept-tos set-mode proxy && \
-  warp-cli --accept-tos set-proxy-port 40000 && \
+  warp-cli --accept-tos registration new && \
+  warp-cli --accept-tos mode proxy && \
+  warp-cli --accept-tos proxy port 40000 && \
   warp-cli --accept-tos connect
 "
 

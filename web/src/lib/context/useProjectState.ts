@@ -98,6 +98,8 @@ export function useProjectState(projectId: string) {
         if (data.activeSceneIndex !== undefined) setActiveSceneIndex(data.activeSceneIndex);
         if (data.sceneLocationPrompts) setSceneLocationPrompts(data.sceneLocationPrompts);
         if (data.sceneLocationImages) setSceneLocationImages(bustUrlCacheMap(data.sceneLocationImages));
+        if (data.startLayoutPrompts) setStartLayoutPrompts(data.startLayoutPrompts);
+        if (data.endLayoutPrompts) setEndLayoutPrompts(data.endLayoutPrompts);
         if (data.sceneImagePrompts) setSceneImagePrompts(data.sceneImagePrompts);
         if (data.sceneVideoPrompts) setSceneVideoPrompts(data.sceneVideoPrompts);
         if (data.sceneStartImagePrompts) setSceneStartImagePrompts(data.sceneStartImagePrompts);
@@ -133,7 +135,7 @@ export function useProjectState(projectId: string) {
       publishInfo,
       writerStep, inspirations, creativeMode, rawScript, scriptReview, scriptIteration, userDirection,
       locationPrompt, locationImage, characterPrompts, characterImages, activeSceneIndex,
-      sceneLocationPrompts, sceneLocationImages,
+      sceneLocationPrompts, sceneLocationImages, startLayoutPrompts, endLayoutPrompts,
       sceneImagePrompts, sceneVideoPrompts, sceneStartImagePrompts, sceneCharacters,
       sceneDurations, sceneVideoTrimStart, sceneVideoTrimEnd, sceneImages, sceneStartImages, sceneImageRefs, sceneVideos, sceneAudio, sceneAudioDelays,
       coverPrompts, coverImages
@@ -168,7 +170,7 @@ export function useProjectState(projectId: string) {
     publishInfo, coverPrompts, coverImages,
     writerStep, inspirations, creativeMode, rawScript, scriptReview, scriptIteration, userDirection,
     locationPrompt, locationImage, characterPrompts, characterImages, activeSceneIndex,
-    sceneLocationPrompts, sceneLocationImages,
+    sceneLocationPrompts, sceneLocationImages, startLayoutPrompts, endLayoutPrompts,
     sceneImagePrompts, sceneVideoPrompts, sceneStartImagePrompts, sceneCharacters,
     sceneDurations, sceneVideoTrimStart, sceneVideoTrimEnd, sceneImages, sceneStartImages, sceneImageRefs, sceneVideos, sceneAudio, sceneAudioDelays]);
 

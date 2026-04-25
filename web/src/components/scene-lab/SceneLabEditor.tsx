@@ -258,12 +258,30 @@ export default function SceneLabEditor({ returnUrl, initialPresetId, initialObje
     try {
       ctx.gl.render(ctx.scene, ctx.camera);
       const src = ctx.gl.domElement;
-      const maxW = 1280;
-      const s = Math.min(1, maxW / src.width);
+      
+      // 强制裁剪成 16:9，防止 Flow 因为垫图比例不对而生出方图
+      const targetAspect = 16 / 9;
+      const srcAspect = src.width / src.height;
+      
+      let sx = 0, sy = 0, sWidth = src.width, sHeight = src.height;
+      
+      if (srcAspect > targetAspect) {
+          // 原图比 16:9 宽，裁掉两边
+          sWidth = src.height * targetAspect;
+          sx = (src.width - sWidth) / 2;
+      } else {
+          // 原图比 16:9 高，裁掉上下
+          sHeight = src.width / targetAspect;
+          sy = (src.height - sHeight) / 2;
+      }
+      
+      const targetW = 1280;
+      const targetH = 720;
+      
       const off = document.createElement('canvas');
-      off.width = Math.round(src.width * s);
-      off.height = Math.round(src.height * s);
-      off.getContext('2d')!.drawImage(src, 0, 0, off.width, off.height);
+      off.width = targetW;
+      off.height = targetH;
+      off.getContext('2d')!.drawImage(src, sx, sy, sWidth, sHeight, 0, 0, targetW, targetH);
       const imageData = off.toDataURL('image/png');
 
       // 同时保存到 localStorage（Scene Lab 页面兼容）

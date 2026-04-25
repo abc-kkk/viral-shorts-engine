@@ -66,7 +66,8 @@ model Scene {
   actionHint        String?
   
   locationPrompt    String?
-  actionLayoutPrompt String?
+  startLayoutPrompt String?
+  endLayoutPrompt   String?
   imagePrompt       String?
   videoPrompt       String?
   startImagePrompt  String?
@@ -76,6 +77,9 @@ model Scene {
   startImageAsset   String?
   videoAsset        String?
   audioAsset        String?
+  
+  imageRef          String?
+  startImageRef     String?
   
   charactersInScene String? 
   duration          Float?

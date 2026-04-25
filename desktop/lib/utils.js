@@ -49,7 +49,7 @@ function waitForServer(port, timeout = 30000) {
   });
 }
 
-async function launchDebugChrome() {
+async function launchDebugChrome(options = {}) {
   const chromePaths = {
     darwin: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
     win32: [
@@ -124,12 +124,18 @@ async function launchDebugChrome() {
 
   chromeProcess.unref();
 
+  // 从 Web UI 调用时静默返回，不弹原生对话框
+  if (options?.silent) {
+    return { success: true };
+  }
+
   dialog.showMessageBox({
     type: 'info',
     title: 'Chrome 已启动',
     message: '调试模式 Chrome 已启动！',
     detail: '请在此 Chrome 窗口中：\n1. 加载 Viral Shorts Extension 扩展\n2. 登录 Google 账号\n3. 打开 Google Flow 页面\n\n这些设置会被自动保存，下次启动无需重复配置。',
   });
+  return { success: true };
 }
 
 module.exports = {

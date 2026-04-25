@@ -1,4 +1,4 @@
-const { BrowserWindow, app } = require('electron');
+const { BrowserWindow, app, shell } = require('electron');
 const path = require('path');
 const { store, NEXT_PORT } = require('./config');
 
@@ -33,6 +33,12 @@ function createMainWindow() {
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
     mainWindow.focus();
+  });
+
+  // 拦截所有弹窗（如 target="_blank" 的链接），改用系统默认浏览器打开
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: 'deny' };
   });
 
   // macOS 行为：关闭窗口不退出应用

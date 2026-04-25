@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Film, Clock, Layers, Trash2, FolderOpen, Settings, BookOpen, Coffee } from 'lucide-react';
+import { Plus, Film, Clock, Layers, Trash2, FolderOpen, Settings, BookOpen, Coffee, Globe, Package, HardDrive, RefreshCw, MonitorCog, X } from 'lucide-react';
 
 interface ProjectInfo {
   projectId: string;
@@ -26,6 +26,13 @@ export default function ProjectList() {
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
   const [showDonate, setShowDonate] = useState(false);
+  const [showDesktopTools, setShowDesktopTools] = useState(false);
+  const [appVersion, setAppVersion] = useState('');
+  const [chromeLaunching, setChromeLaunching] = useState(false);
+  const [chromeDataDirFeedback, setChromeDataDirFeedback] = useState('');
+  const [updateChecking, setUpdateChecking] = useState(false);
+
+  const electronAPI = typeof window !== 'undefined' && (window as any).electronAPI?.isElectron ? (window as any).electronAPI : null;
 
   const fetchProjects = async () => {
     try {
@@ -122,20 +129,17 @@ export default function ProjectList() {
         
         {/* Settings Area at Bottom */}
         <div className="p-4 border-t border-neutral-800 bg-neutral-900/50 flex flex-col gap-1.5">
-          {typeof window !== 'undefined' && (window as any).electronAPI && (
+          {electronAPI && (
             <button
-              onClick={() => (window as any).electronAPI.changeWorkspacePath()}
-              className="flex items-center gap-3 px-3 py-2.5 w-full text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 rounded-xl font-medium transition-colors"
+              onClick={() => {
+                setShowDesktopTools(true);
+                electronAPI.getAppVersion?.().then((v: string) => setAppVersion(v || ''));
+              }}
+              className="flex items-center gap-3 px-3 py-2.5 w-full text-cyan-400/80 hover:bg-cyan-500/10 hover:text-cyan-300 rounded-xl font-bold transition-colors"
             >
-              <Settings className="w-4 h-4" /> 更改工作空间
+              <Settings className="w-4 h-4" /> 系统设置
             </button>
           )}
-          <button
-            onClick={() => setShowDonate(true)}
-            className="flex items-center gap-3 px-3 py-2.5 w-full text-amber-500/80 hover:bg-amber-500/10 hover:text-amber-400 rounded-xl font-medium transition-colors"
-          >
-            <Coffee className="w-4 h-4" /> 赞赏作者
-          </button>
         </div>
       </div>
 
@@ -257,6 +261,164 @@ export default function ProjectList() {
                 className="px-6 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold rounded-xl transition-colors w-full"
               >
                 好的，下次一定
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Desktop Tools Modal */}
+      {showDesktopTools && electronAPI && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100]" onClick={() => setShowDesktopTools(false)}>
+          <div className="bg-neutral-900 border border-neutral-700 rounded-2xl p-8 w-full max-w-2xl shadow-2xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-white">💻 系统设置</h2>
+              <button onClick={() => setShowDesktopTools(false)} className="p-2 hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-sm text-neutral-500 mb-6">
+              以下功能由桌面客户端提供系统级支持，可直接操控本地浏览器、文件系统和应用更新。
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              {/* 启动调试 Chrome */}
+              <button
+                onClick={async () => {
+                  if (chromeLaunching) return;
+                  setChromeLaunching(true);
+                  try { await electronAPI.launchChrome(); } finally { setTimeout(() => setChromeLaunching(false), 2000); }
+                }}
+                disabled={chromeLaunching}
+                className="group flex flex-col items-start gap-2 p-4 rounded-xl bg-neutral-800/50 border border-neutral-700/50 hover:border-cyan-600/50 hover:bg-cyan-950/20 transition-all text-left disabled:opacity-50 disabled:cursor-wait"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-cyan-600/15 text-cyan-400 group-hover:bg-cyan-600/25 transition-colors">
+                    <Globe className="w-4 h-4" />
+                  </div>
+                  <span className="text-sm font-bold text-neutral-200 group-hover:text-cyan-300 transition-colors">
+                    {chromeLaunching ? '正在启动...' : '启动调试 Chrome'}
+                  </span>
+                </div>
+                <span className="text-[11px] text-neutral-500 leading-tight">
+                  一键拉起 Chrome 调试浏览器，用于登录 Google 账号、加载扩展并连接 AI 自动化。
+                </span>
+              </button>
+
+              {/* 更改 Chrome 数据目录 */}
+              <button
+                onClick={async () => {
+                  const result = await electronAPI.changeChromeDataDir();
+                  if (result) { setChromeDataDirFeedback(result); setTimeout(() => setChromeDataDirFeedback(''), 5000); }
+                }}
+                className="group flex flex-col items-start gap-2 p-4 rounded-xl bg-neutral-800/50 border border-neutral-700/50 hover:border-amber-600/50 hover:bg-amber-950/20 transition-all text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-amber-600/15 text-amber-400 group-hover:bg-amber-600/25 transition-colors">
+                    <MonitorCog className="w-4 h-4" />
+                  </div>
+                  <span className="text-sm font-bold text-neutral-200 group-hover:text-amber-300 transition-colors">更改 Chrome 数据目录</span>
+                </div>
+                <span className="text-[11px] text-neutral-500 leading-tight">
+                  {chromeDataDirFeedback
+                    ? <span className="text-amber-400">✅ 已更新: {chromeDataDirFeedback.split('/').pop()}</span>
+                    : '自定义 Chrome 调试实例的用户数据存放位置，隔离登录状态。'
+                  }
+                </span>
+              </button>
+
+              {/* 打开工作空间 */}
+              <button
+                onClick={() => electronAPI.openWorkspaceFolder()}
+                className="group flex flex-col items-start gap-2 p-4 rounded-xl bg-neutral-800/50 border border-neutral-700/50 hover:border-emerald-600/50 hover:bg-emerald-950/20 transition-all text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-emerald-600/15 text-emerald-400 group-hover:bg-emerald-600/25 transition-colors">
+                    <FolderOpen className="w-4 h-4" />
+                  </div>
+                  <span className="text-sm font-bold text-neutral-200 group-hover:text-emerald-300 transition-colors">打开工作空间</span>
+                </div>
+                <span className="text-[11px] text-neutral-500 leading-tight">
+                  在系统文件管理器中打开存放所有短剧项目数据的根目录。
+                </span>
+              </button>
+
+              {/* 打开扩展文件夹 */}
+              <button
+                onClick={() => electronAPI.openExtensionFolder()}
+                className="group flex flex-col items-start gap-2 p-4 rounded-xl bg-neutral-800/50 border border-neutral-700/50 hover:border-violet-600/50 hover:bg-violet-950/20 transition-all text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-violet-600/15 text-violet-400 group-hover:bg-violet-600/25 transition-colors">
+                    <Package className="w-4 h-4" />
+                  </div>
+                  <span className="text-sm font-bold text-neutral-200 group-hover:text-violet-300 transition-colors">打开扩展文件夹</span>
+                </div>
+                <span className="text-[11px] text-neutral-500 leading-tight">
+                  定位 Chrome 扩展程序目录，方便手动加载或调试 Viral Shorts Extension。
+                </span>
+              </button>
+
+              {/* 修改工作空间路径 */}
+              <button
+                onClick={() => electronAPI.changeWorkspacePath()}
+                className="group flex flex-col items-start gap-2 p-4 rounded-xl bg-neutral-800/50 border border-neutral-700/50 hover:border-orange-600/50 hover:bg-orange-950/20 transition-all text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-orange-600/15 text-orange-400 group-hover:bg-orange-600/25 transition-colors">
+                    <HardDrive className="w-4 h-4" />
+                  </div>
+                  <span className="text-sm font-bold text-neutral-200 group-hover:text-orange-300 transition-colors">修改工作空间路径</span>
+                </div>
+                <span className="text-[11px] text-neutral-500 leading-tight">
+                  迁移数据存储目录到新位置。更改后应用将自动重启。
+                </span>
+              </button>
+
+              {/* 检查更新 */}
+              <button
+                onClick={async () => {
+                  if (updateChecking) return;
+                  setUpdateChecking(true);
+                  try { await electronAPI.checkForUpdates(); } finally { setTimeout(() => setUpdateChecking(false), 3000); }
+                }}
+                disabled={updateChecking}
+                className="group flex flex-col items-start gap-2 p-4 rounded-xl bg-neutral-800/50 border border-neutral-700/50 hover:border-blue-600/50 hover:bg-blue-950/20 transition-all text-left disabled:opacity-50 disabled:cursor-wait"
+              >
+                <div className="flex items-center gap-2">
+                  <div className={`p-1.5 rounded-lg bg-blue-600/15 text-blue-400 group-hover:bg-blue-600/25 transition-colors ${updateChecking ? 'animate-spin' : ''}`}>
+                    <RefreshCw className="w-4 h-4" />
+                  </div>
+                  <span className="text-sm font-bold text-neutral-200 group-hover:text-blue-300 transition-colors">
+                    {updateChecking ? '正在检查...' : '检查更新'}
+                  </span>
+                </div>
+                <span className="text-[11px] text-neutral-500 leading-tight">
+                  立即连接 GitHub Releases 检查并下载最新版本。
+                </span>
+              </button>
+            </div>
+
+            {appVersion && (
+              <p className="text-xs text-neutral-600 text-center mt-4">
+                当前版本: <span className="text-neutral-500 font-mono">v{appVersion}</span>
+              </p>
+            )}
+
+            {/* 赞赏作者 */}
+            <div className="mt-4 pt-4 border-t border-neutral-800">
+              <button
+                onClick={() => { setShowDesktopTools(false); setShowDonate(true); }}
+                className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-amber-500/80 hover:bg-amber-500/10 hover:text-amber-400 transition-colors font-medium"
+              >
+                <Coffee className="w-4 h-4" /> 请作者喝杯咖啡 ☕️
+              </button>
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <button onClick={() => setShowDesktopTools(false)} className="px-6 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl transition-colors font-bold">
+                完成
               </button>
             </div>
           </div>

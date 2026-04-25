@@ -472,29 +472,38 @@ export async function uploadAssetToFlow(
 
     console.log(`[Flow Automator] Pasting image to editor...`);
     // Dispatch paste event with the image
-    await editor.evaluate(async (el, base64) => {
-        const res = await fetch(base64);
-        const blob = await res.blob();
-        const file = new File([blob], "asset.png", { type: blob.type });
-        const dataTransfer = new DataTransfer();
-        dataTransfer.items.add(file);
-        const event = new ClipboardEvent("paste", {
-            clipboardData: dataTransfer,
-            bubbles: true,
-            cancelable: true,
-        });
-        el.dispatchEvent(event);
-    }, imageBase64);
+    // Catch 'Execution context was destroyed' because Flow's React UI unmounts the editor immediately upon pasting!
+    try {
+        await page.evaluate(async (params) => {
+            const el = document.querySelector('div[contenteditable="true"], textarea[placeholder*="Type a prompt"], textarea[aria-label*="prompt"]');
+            if (!el) return;
+            const res = await fetch(params.base64);
+            const blob = await res.blob();
+            // CRITICAL: Name the file with the asset name so Flow registers it for @ mentions
+            const file = new File([blob], params.name + ".png", { type: blob.type });
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            const event = new ClipboardEvent("paste", {
+                clipboardData: dataTransfer,
+                bubbles: true,
+                cancelable: true,
+            });
+            el.dispatchEvent(event);
+        }, { base64: imageBase64, name: name });
+    } catch (e: any) {
+        if (e.message.includes('Execution context was destroyed') || e.message.includes('Target closed')) {
+            console.log(`[Flow Automator] Ignored expected detachment error during paste.`);
+        } else {
+            throw e;
+        }
+    }
 
-    await page.waitForTimeout(1500); // 等待图片粘贴和附件UI出现
+    await page.waitForTimeout(4000); // Wait for the attachment upload to stabilize
 
-    console.log(`[Flow Automator] Naming asset: ${name}`);
-    await page.keyboard.insertText(name);
-    await page.waitForTimeout(500);
-
-    // Send it
-    console.log(`[Flow Automator] Sending asset...`);
-    await page.keyboard.press('Enter');
+    console.log(`[Flow Automator] Asset pasted successfully. Disconnecting and leaving it in the editor.`);
+    // We intentionally DO NOT press Enter. 
+    // The user just wants the image uploaded to the Flow asset library (which happens automatically upon pasting)
+    // Sending it would trigger an unnecessary generation.
     
     // 不等待生成结果，直接返回成功，实现 fire and forget
     return { success: true };
