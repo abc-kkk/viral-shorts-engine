@@ -25,6 +25,40 @@ export function getProjectDir(projectId: string): string {
   return path.join(getWorkspacePath(), projectId);
 }
 
+function runDatabaseMigrations(dbPath: string) {
+  try {
+    const db = new Database(dbPath, { fileMustExist: true });
+    
+    const stmt = db.prepare("PRAGMA table_info(Scene)");
+    const columns = stmt.all() as { name: string }[];
+    const columnNames = columns.map(c => c.name);
+
+    const requiredColumns = [
+      { name: 'startLayoutPrompt', type: 'TEXT' },
+      { name: 'endLayoutPrompt', type: 'TEXT' },
+      { name: 'imageRef', type: 'TEXT' },
+      { name: 'startImageRef', type: 'TEXT' },
+    ];
+
+    let migrated = false;
+    for (const col of requiredColumns) {
+      if (!columnNames.includes(col.name)) {
+        console.log(`[DB Migration] Adding missing column ${col.name} to Scene table...`);
+        db.exec(`ALTER TABLE Scene ADD COLUMN ${col.name} ${col.type}`);
+        migrated = true;
+      }
+    }
+
+    if (migrated) {
+      console.log('[DB Migration] Database schema updated successfully.');
+    }
+
+    db.close();
+  } catch (e) {
+    console.error('[DB Migration] Failed to run migrations:', e);
+  }
+}
+
 let prisma: PrismaClient;
 
 export function getPrisma() {
@@ -45,6 +79,9 @@ export function getPrisma() {
         if (!row) {
           console.warn('[DB] Existing database is corrupted or incomplete. Re-initializing...');
           shouldInitialize = true;
+        } else {
+          // 检查并执行轻量级表结构迁移，补齐新版本新增的字段
+          runDatabaseMigrations(dbPath);
         }
       } catch (e) {
         console.warn('[DB] Failed to read existing database. Re-initializing...', e);
