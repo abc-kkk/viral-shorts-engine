@@ -1,8 +1,19 @@
 import { useCallback } from 'react';
 import type { Character, ScriptLine, InspirationItem, ScriptReview } from '../types';
 import { fetchApi } from './useProjectState';
+import type { ProjectStateReturn } from './useProjectState';
+import { toast } from '../toast';
 
-export function useWriterRoom(state: any) {
+type WriterRoomState = Pick<ProjectStateReturn,
+  'aiProvider' | 'theme' | 'setTheme' | 'characters' | 'setCharacters' |
+  'scriptLines' | 'setScriptLines' | 'setCurrentPhase' | 'setInspirations' |
+  'creativeMode' | 'rawScript' | 'setRawScript' | 'scriptIteration' | 'setScriptIteration' |
+  'userDirection' | 'setUserDirection' | 'setScriptReview' | 'setWriterStep' |
+  'setIsBrainstorming' | 'setIsFetchingReddit' | 'setIsGeneratingScript' |
+  'setIsIteratingScript' | 'setIsReviewingScript' | 'setIsSplittingScript'
+>;
+
+export function useWriterRoom(state: WriterRoomState) {
   const {
     aiProvider,
     theme, setTheme,
@@ -39,7 +50,7 @@ export function useWriterRoom(state: any) {
       setScriptLines(promptData.script || []);
       setCurrentPhase(1);
     } catch (err: any) {
-      alert("剧本创作失败: " + err.message);
+      toast.error('剧本创作失败: ' + err.message);
     } finally {
       setIsBrainstorming(false);
     }
@@ -61,7 +72,7 @@ export function useWriterRoom(state: any) {
         return [...newItems, ...prev];
       });
     } catch (e: any) {
-      alert('段子拉取失败: ' + e.message);
+      toast.error('段子拉取失败: ' + e.message);
     } finally {
       setIsFetchingReddit(false);
     }
@@ -88,7 +99,7 @@ export function useWriterRoom(state: any) {
 
   const handleGenerateScript = useCallback(async () => {
     if (!theme.trim()) {
-      alert('请先在灵感库中选择素材或输入创作方向！');
+      toast.warning('请先在灵感库中选择素材或输入创作方向！');
       return;
     }
     setIsGeneratingScript(true);
@@ -99,7 +110,7 @@ export function useWriterRoom(state: any) {
       setScriptIteration(0);
       setWriterStep(2);
     } catch (e: any) {
-      alert('剧本生成失败: ' + e.message);
+      toast.error('剧本生成失败: ' + e.message);
     } finally {
       setIsGeneratingScript(false);
     }
@@ -108,7 +119,7 @@ export function useWriterRoom(state: any) {
   const handleIterateScript = useCallback(async () => {
     if (!rawScript.trim()) return;
     if (!userDirection.trim()) {
-      alert('请在下方输入框告诉 AI 你想怎么改！');
+      toast.warning('请在下方输入框告诉 AI 你想怎么改！');
       return;
     }
     setIsIteratingScript(true);
@@ -117,7 +128,7 @@ export function useWriterRoom(state: any) {
       setRawScript(data.script || '');
       setScriptReview(null);
     } catch (e: any) {
-      alert('迭代剧本失败: ' + e.message);
+      toast.error('迭代剧本失败: ' + e.message);
     } finally {
       setIsIteratingScript(false);
     }
@@ -141,7 +152,7 @@ export function useWriterRoom(state: any) {
         setUserDirection((prev: string) => `${prev ? prev + '\n' : ''}[第${review.iteration}轮评审反馈] ${review.feedback}`);
       }
     } catch (e: any) {
-      alert('评审打分失败: ' + e.message);
+      toast.error('评审打分失败: ' + e.message);
     } finally {
       setIsReviewingScript(false);
     }
@@ -156,7 +167,7 @@ export function useWriterRoom(state: any) {
       setScriptLines(data.script || []);
       setWriterStep(3);
     } catch (e: any) {
-      alert('分镜拆解失败: ' + e.message);
+      toast.error('分镜拆解失败: ' + e.message);
     } finally {
       setIsSplittingScript(false);
     }

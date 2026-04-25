@@ -11,7 +11,7 @@ const fs = require('fs');
 // --- 模块化导入 ---
 const { store, isDev, NEXT_PORT, GATEWAY_PORT } = require('./lib/config');
 const { runFirstTimeSetup } = require('./lib/setup');
-const { findAvailablePort, waitForServer, launchDebugChrome } = require('./lib/utils');
+const { findAvailablePort, forceKillPortOccupier, waitForServer, launchDebugChrome } = require('./lib/utils');
 const { startNextServer, startGateway, stopProcesses } = require('./lib/processManager');
 const { createMainWindow, getMainWindow } = require('./lib/windowManager');
 const { createTray } = require('./lib/trayManager');
@@ -119,7 +119,10 @@ app.whenReady().then(async () => {
     fs.mkdirSync(ws, { recursive: true });
   }
 
-  // 检测并分配可用端口（防止端口冲突）
+  // 清理上次异常退出后可能残留的僵尸进程（根因修复：防止 Next.js 16 "Another dev server" 冲突）
+  forceKillPortOccupier(NEXT_PORT);
+  forceKillPortOccupier(GATEWAY_PORT);
+
   let actualNextPort = NEXT_PORT;
   let actualGatewayPort = GATEWAY_PORT;
   try {

@@ -201,6 +201,9 @@ export function useProjectState(projectId: string) {
   };
 }
 
+/** useProjectState 返回值的类型，供其他 hooks 用 Pick<> 精确声明依赖 */
+export type ProjectStateReturn = ReturnType<typeof useProjectState>;
+
 /** 通用 API 请求脚手架：收敛所有的 POST 请求参数与错误处理 */
 export async function fetchApi<T = any>(endpoint: string, payload: any): Promise<T> {
   const res = await fetch(endpoint, {

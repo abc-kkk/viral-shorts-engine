@@ -322,10 +322,15 @@ Scene Lab 编辑器通过 URL 参数控制行为：
 ### 2. 全局状态解耦 (ProjectContext 拆分)
 曾经高达 1000+ 行的 `ProjectContext.tsx`（上帝对象）已被拆分为多个按 Phase 分层的职责单一的 Hooks：
 - `ProjectProvider.tsx`: 顶层容器
-- `useProjectState.ts`: 基础状态和设置
-- `useWriterRoom.ts` / `useCastingRoom.ts` / `useStoryboard.ts` / `useRenderRoom.ts`: 各阶段业务逻辑
+- `useProjectState.ts`: 基础状态和设置，导出 `ProjectStateReturn` 类型
+- `useWriterRoom.ts` / `useCastingRoom.ts` / `useStoryboard.ts` / `useRenderRoom.ts`: 各阶段业务逻辑，**全部使用 `Pick<ProjectStateReturn, ...>` 精确声明依赖（严禁 `any`）**
 - `useInboxPoller.ts`: 独立的 Chrome 扩展数据轮询器
-**开发规范**：新增业务逻辑时，必须放入对应的专属 Hook 中，严禁再次将 `ProjectProvider` 搞成巨无霸。
+**开发规范**：新增业务逻辑时，必须放入对应的专属 Hook 中，严禁再次将 `ProjectProvider` 搞成巨无霸。新增使用的字段时，必须同步更新对应 Hook 的 `Pick` 类型列表。
+
+### 2.5 集成测试安全网 (Integration Test Safety Net) [v8.3]
+- `__tests__/db.integration.test.ts`: 使用内存 SQLite 验证 `saveState → loadState` 的双向对称性，覆盖项目字段、JSON 序列化字段、角色、分镜、封面、增量 patch、upsert 等场景
+- `__tests__/fieldRegistry.test.ts`: 静态检查 schema.ts 中的所有表字段是否被纳入预期清单，防止新增字段遗漏映射
+- 运行命令: `npx vitest run`
 
 ### 十二、 Chrome Extension 的 TypeScript 与安全规约 (Extension Architecture) [v6.2]
 

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { X, Pencil, Check } from 'lucide-react';
 import { useProject } from '@/lib/ProjectContext';
 import { ART_STYLE_PRESETS } from '@/lib/constants';
+import { toast } from '@/lib/toast';
 
 interface Props {
   open: boolean;
@@ -35,10 +36,10 @@ export default function SettingsModal({ open, onClose }: Props) {
         // 跳转到新 URL
         window.location.href = `/studio/${encodeURIComponent(data.newProjectId)}`;
       } else {
-        alert('重命名失败: ' + data.error);
+        toast.error('重命名失败: ' + data.error);
       }
     } catch (e: any) {
-      alert('重命名失败: ' + e.message);
+      toast.error('重命名失败: ' + e.message);
     } finally {
       setRenaming(false);
     }

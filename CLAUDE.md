@@ -15,6 +15,7 @@
 ## 🔴 3. THE STATE PERSISTENCE RULE (`src/lib/db.ts`)
 - When adding a new field to `useProjectState.ts`, you **MUST** map it inside `schema.ts` AND manually write the mapping logic inside the `loadState` and `saveState` (upsert blocks) in `db.ts`. 
 - If you only save it to React memory, the app will break upon refresh.
+- **Safety Net**: `__tests__/db.integration.test.ts` validates saveState→loadState roundtrip symmetry. `__tests__/fieldRegistry.test.ts` catches any new schema columns not yet tracked. Run `npx vitest run` to verify.
 
 ## 🔴 4. THE PROMPT TEMPLATE TRAPS (`src/lib/prompts/defaultTemplates.ts`)
 - The templates are wrapped in JS Template Literals (`` `...` ``). 
@@ -27,6 +28,7 @@
 
 ## 🔴 6. THE STRONG TYPING & TEST RULE (Zod & Vitest)
 - The project enforces strict Zod validation at the API Gateway boundaries.
+- All hooks (`useWriterRoom`, `useCastingRoom`, `useStoryboard`, `useInboxPoller`) use `Pick<ProjectStateReturn, ...>` typed parameters — **never `any`**. When adding a field to a hook, update its Pick type.
 - **AFTER any modification**, you MUST run `npx vitest run` in the `web` folder.
 - **CRITICAL**: Unit tests are not enough. Next.js enforces extremely strict TypeScript checks during `npm run build`. You MUST run `npm run build` in the `web` folder to ensure no strict type errors (e.g., Zod generic arguments) break the production deployment.
 

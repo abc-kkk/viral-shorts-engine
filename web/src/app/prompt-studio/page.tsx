@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { PromptTemplate } from '@/lib/promptTypes';
 import PromptEditor from '@/components/PromptEditor';
+import { toast } from '@/lib/toast';
 
 export default function PromptStudioPage() {
   const [templates, setTemplates] = useState<PromptTemplate[]>([]);
@@ -50,11 +51,11 @@ export default function PromptStudioPage() {
       if (data.success) {
         // Show success toast here if needed
       } else {
-        alert("保存失败: " + data.error);
+        toast.error("保存失败: " + data.error);
       }
     } catch (err) {
       console.error("Failed to save template:", err);
-      alert("保存失败");
+      toast.error("保存失败");
     } finally {
       setIsSaving(false);
     }
@@ -77,11 +78,11 @@ export default function PromptStudioPage() {
       if (data.success) {
         setTemplates(prev => prev.map(t => t.id === activeTemplate.id ? data.template : t));
       } else {
-        alert("恢复失败: " + data.error);
+        toast.error("恢复失败: " + data.error);
       }
     } catch (err) {
       console.error("Failed to reset template:", err);
-      alert("恢复失败");
+      toast.error("恢复失败");
     } finally {
       setIsSaving(false);
     }

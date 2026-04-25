@@ -4,6 +4,7 @@ import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Grid } from '@react-three/drei';
 import * as THREE from 'three';
+import { toast } from '@/lib/toast';
 
 import { SceneObject, CameraPreset } from './types';
 import { 
@@ -250,7 +251,7 @@ export default function SceneLabEditor({ returnUrl, initialPresetId, initialObje
 
   const handleSaveAndReturn = useCallback(async () => {
     const ctx = screenshotRef.current;
-    if (!ctx) { alert('截图失败，请重试'); return; }
+    if (!ctx) { toast.error('截图失败，请重试'); return; }
     
     const name = presetName.trim() || `布局_${new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`;
     
@@ -301,7 +302,7 @@ export default function SceneLabEditor({ returnUrl, initialPresetId, initialObje
       });
       const data = await res.json();
       if (!data.success) {
-        alert('保存失败: ' + (data.error || '未知错误'));
+        toast.error('保存失败: ' + (data.error || '未知错误'));
         return;
       }
 
@@ -311,7 +312,7 @@ export default function SceneLabEditor({ returnUrl, initialPresetId, initialObje
       if (savedId) target.searchParams.set('layoutPresetId', savedId);
       window.location.href = target.toString();
     } catch (e: any) {
-      alert('保存失败: ' + e.message);
+      toast.error('保存失败: ' + e.message);
     } finally {
       setSaving(false);
     }

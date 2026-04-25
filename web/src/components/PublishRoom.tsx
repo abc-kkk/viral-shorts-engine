@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useProject } from '@/lib/ProjectContext';
+import { toast } from '@/lib/toast';
 
 export default function PublishRoom() {
   const {
@@ -43,7 +44,7 @@ export default function PublishRoom() {
       }
       setPublishInfo(data);
     } catch (e: any) {
-      alert("❌ 生成发布文案失败: " + e.message);
+      toast.error("❌ 生成发布文案失败: " + e.message);
     } finally {
       setIsGeneratingPublish(false);
     }

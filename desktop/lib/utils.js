@@ -1,5 +1,5 @@
 const http = require('http');
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const { app, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -24,6 +24,32 @@ async function findAvailablePort(startPort, maxAttempts = 10) {
     console.log(`[Main] Port ${port} is in use, trying ${port + 1}...`);
   }
   throw new Error(`No available port found in range ${startPort}-${startPort + maxAttempts}`);
+}
+
+/**
+ * 强制杀掉占用指定端口的进程（仅 Windows）。
+ * 用于清理上次异常退出后残留的僵尸 Next.js / Gateway 进程。
+ */
+function forceKillPortOccupier(port) {
+  if (process.platform !== 'win32') return;
+  try {
+    const result = execSync(`netstat -aon | findstr ":${port} " | findstr "LISTENING"`, { encoding: 'utf8' });
+    const lines = result.trim().split('\n');
+    const pids = new Set();
+    for (const line of lines) {
+      const parts = line.trim().split(/\s+/);
+      const pid = parts[parts.length - 1];
+      if (pid && pid !== '0' && pid !== String(process.pid)) pids.add(pid);
+    }
+    for (const pid of pids) {
+      console.log(`[Main] Killing zombie process on port ${port} (PID ${pid})...`);
+      try {
+        execSync(`taskkill /pid ${pid} /T /F`, { stdio: 'ignore' });
+      } catch { /* already dead */ }
+    }
+  } catch {
+    // No process on that port — good
+  }
 }
 
 function waitForServer(port, timeout = 30000) {
@@ -140,6 +166,7 @@ async function launchDebugChrome(options = {}) {
 
 module.exports = {
   findAvailablePort,
+  forceKillPortOccupier,
   waitForServer,
   launchDebugChrome,
 };

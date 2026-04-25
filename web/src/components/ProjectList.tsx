@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Plus, Film, Clock, Layers, Trash2, FolderOpen, Settings, BookOpen, Coffee, Globe, Package, HardDrive, RefreshCw, MonitorCog, X } from 'lucide-react';
+import { toast } from '@/lib/toast';
 
 interface ProjectInfo {
   projectId: string;
@@ -61,10 +62,10 @@ export default function ProjectList() {
       if (data.success) {
         window.location.href = `/studio/${encodeURIComponent(data.projectId)}`;
       } else {
-        alert('立项失败: ' + data.error);
+        toast.error('立项失败: ' + data.error);
       }
     } catch (e: any) {
-      alert('立项失败: ' + e.message);
+      toast.error('立项失败: ' + e.message);
     } finally {
       setCreating(false);
     }
@@ -80,10 +81,10 @@ export default function ProjectList() {
       if (data.success) {
         setProjects(prev => prev.filter(p => p.projectId !== projectId));
       } else {
-        alert('删除失败: ' + data.error);
+        toast.error('删除失败: ' + data.error);
       }
     } catch (e: any) {
-      alert('删除失败: ' + e.message);
+      toast.error('删除失败: ' + e.message);
     }
   };
 

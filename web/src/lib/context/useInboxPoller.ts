@@ -1,7 +1,14 @@
 import { useEffect } from 'react';
 import type { InboxItem } from '../types';
+import type { ProjectStateReturn } from './useProjectState';
 
-export function useInboxPoller(state: any) {
+type InboxPollerState = Pick<ProjectStateReturn,
+  'useHitlMode' | 'setLocationImage' | 'setSceneLocationImages' |
+  'setCharacterImages' | 'setSceneImages' | 'setSceneImageRefs' |
+  'setSceneStartImages' | 'setSceneVideos' | 'setCoverImages'
+>;
+
+export function useInboxPoller(state: InboxPollerState) {
   const {
     useHitlMode,
     setLocationImage,

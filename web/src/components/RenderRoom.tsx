@@ -4,6 +4,7 @@ import React from 'react';
 import { Player } from '@remotion/player';
 import { SkitVideo } from '@/remotion/SkitVideo';
 import { useProject } from '@/lib/ProjectContext';
+import { toast } from '@/lib/toast';
 
 function SyncThumbnailPlayer({ videoSrc, audioSrc, audioDelay, trimStart, trimEnd, speaker, index }: { 
     videoSrc?: string, audioSrc?: string, audioDelay: number, trimStart: number, trimEnd: number, speaker: string, index: number 
@@ -186,13 +187,13 @@ export default function RenderRoom() {
                               const res = await fetch(`/api/export?projectId=${encodeURIComponent(projectId)}`, { method: 'POST' });
                               const data = await res.json();
                               if (res.ok) {
-                                  alert(`✅ 绝赞落幕！成片已成功导出并保存至您的项目目录:\n${data.file}\n\n您可以去文件管理器里直接双击播放，或者拉进剪映/上架抖音了！`);
+                                  toast.success(`✅ 绝赞落幕！成片已成功导出并保存至您的项目目录:\n${data.file}\n\n您可以去文件管理器里直接双击播放，或者拉进剪映/上架抖音了！`);
                                   setCurrentPhase(5); // 前往发布中心
                               } else {
-                                  alert(`❌ 渲染遭遇滑铁卢:\n${data.error}\n\n请检查控制台获取详细报错。`);
+                                  toast.error(`❌ 渲染遭遇滑铁卢:\n${data.error}\n\n请检查控制台获取详细报错。`);
                               }
                           } catch(err: any) {
-                              alert(`❌ 渲染失联 (网络/环境错误):\n${err.message}`);
+                              toast.error(`❌ 渲染失联 (网络/环境错误):\n${err.message}`);
                           } finally {
                               btn.innerHTML = originalText;
                               btn.disabled = false;

@@ -1,8 +1,22 @@
 import { useCallback } from 'react';
 import { fetchApi } from './useProjectState';
+import type { ProjectStateReturn } from './useProjectState';
 import type { Character, ScriptLine } from '../types';
+import { toast } from '../toast';
 
-export function useStoryboard(state: any, getFullScriptContext: () => string) {
+type StoryboardState = Pick<ProjectStateReturn,
+  'projectId' | 'aiProvider' | 'artStyle' | 'flowUrl' | 'useHitlMode' |
+  'characters' | 'scriptLines' | 'locationPrompt' |
+  'sceneLocationPrompts' | 'startLayoutPrompts' | 'endLayoutPrompts' |
+  'sceneImagePrompts' | 'setSceneImagePrompts' | 'sceneVideoPrompts' | 'setSceneVideoPrompts' |
+  'sceneStartImagePrompts' | 'setSceneStartImagePrompts' |
+  'sceneCharacters' | 'setSceneCharacters' |
+  'sceneImages' | 'setSceneImages' | 'sceneStartImages' | 'setSceneStartImages' |
+  'sceneImageRefs' | 'setSceneImageRefs' | 'setSceneVideos' | 'setSceneAudio' | 'setProcessingScene' |
+  'coverPrompts' | 'setCoverPrompts' | 'setCoverImages' | 'setProcessingCovers'
+>;
+
+export function useStoryboard(state: StoryboardState, getFullScriptContext: () => string) {
   const {
     projectId,
     aiProvider,
@@ -86,7 +100,7 @@ export function useStoryboard(state: any, getFullScriptContext: () => string) {
         setSceneCharacters((p: any) => ({ ...p, [i]: data.characters_in_scene }));
       }
     } catch (e: any) {
-      alert('打磨视觉指令失败: ' + e.message);
+      toast.error('打磨视觉指令失败: ' + e.message);
     } finally {
       setProcessingScene((p: any) => ({ ...p, [i]: null }));
     }
@@ -134,7 +148,7 @@ export function useStoryboard(state: any, getFullScriptContext: () => string) {
          setSceneImages((p: any) => ({ ...p, [i]: data.url }));
       }
     } catch (e: any) {
-      alert('生成尾帧失败: ' + e.message);
+      toast.error('生成尾帧失败: ' + e.message);
     } finally {
       setProcessingScene((p: any) => ({ ...p, [i]: null }));
     }
@@ -156,7 +170,7 @@ export function useStoryboard(state: any, getFullScriptContext: () => string) {
          setSceneStartImages((p: any) => ({ ...p, [i]: data.url }));
       }
     } catch (e: any) {
-      alert('生成首帧失败: ' + e.message);
+      toast.error('生成首帧失败: ' + e.message);
     } finally {
       setProcessingScene((p: any) => ({ ...p, [i]: null }));
     }
@@ -193,7 +207,7 @@ export function useStoryboard(state: any, getFullScriptContext: () => string) {
           setSceneVideos((p: any) => ({ ...p, [i]: data.url }));
       }
     } catch (e: any) {
-      alert('渲染视频失败: ' + e.message);
+      toast.error('渲染视频失败: ' + e.message);
     } finally {
       setProcessingScene((p: any) => ({ ...p, [i]: null }));
     }
@@ -211,7 +225,7 @@ export function useStoryboard(state: any, getFullScriptContext: () => string) {
       const data = await fetchApi('/api/generate-voice', { dialogue: line.dialogue, voiceName, projectId });
       setSceneAudio((p: any) => ({ ...p, [i]: data.audioUrl }));
     } catch (e: any) {
-      alert('配置音频失败: ' + e.message);
+      toast.error('配置音频失败: ' + e.message);
     } finally {
       setProcessingScene((p: any) => ({ ...p, [i]: null }));
     }
@@ -235,7 +249,7 @@ export function useStoryboard(state: any, getFullScriptContext: () => string) {
       });
       setCoverPrompts((p: any) => ({ ...p, [ratio]: data.prompt }));
     } catch (e: any) {
-      alert(`生成[${ratio}]封面指令失败: ` + e.message);
+      toast.error(`生成[${ratio}]封面指令失败: ` + e.message);
     } finally {
       setProcessingCovers((p: any) => ({ ...p, [ratio]: null }));
     }
@@ -258,7 +272,7 @@ export function useStoryboard(state: any, getFullScriptContext: () => string) {
          setCoverImages((p: any) => ({ ...p, [ratio]: data.url }));
       }
     } catch (e: any) {
-      alert(`生成[${ratio}]生图失败: ` + e.message);
+      toast.error(`生成[${ratio}]生图失败: ` + e.message);
     } finally {
       setProcessingCovers((p: any) => ({ ...p, [ratio]: null }));
     }
