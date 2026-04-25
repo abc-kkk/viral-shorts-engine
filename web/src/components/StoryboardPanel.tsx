@@ -8,13 +8,17 @@ import StoryboardPromptTab from './storyboard/StoryboardPromptTab';
 import StoryboardFramesTab from './storyboard/StoryboardFramesTab';
 import StoryboardMediaTab from './storyboard/StoryboardMediaTab';
 
+import { useProjectStore } from '@/lib/store/useProjectStore';
+
 export default function StoryboardPanel() {
   const {
     currentPhase, setCurrentPhase,
-    scriptLines,
-    activeSceneIndex, setActiveSceneIndex,
-    sceneVideos,
   } = useProject();
+
+  const scriptLines = useProjectStore(s => s.scriptLines);
+  const activeSceneIndex = useProjectStore(s => s.activeSceneIndex);
+  const setActiveSceneIndex = useProjectStore(s => s.setActiveSceneIndex);
+  const sceneVideos = useProjectStore(s => s.sceneVideos);
 
   if (currentPhase !== 3) return null;
 

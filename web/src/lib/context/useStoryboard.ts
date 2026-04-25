@@ -1,54 +1,23 @@
 import { useCallback } from 'react';
 import { fetchApi } from './useProjectState';
-import type { ProjectStateReturn } from './useProjectState';
-import type { Character, ScriptLine } from '../types';
+import type { Character } from '../types';
 import { toast } from '../toast';
+import { useProjectStore } from '../store/useProjectStore';
 
-type StoryboardState = Pick<ProjectStateReturn,
-  'projectId' | 'aiProvider' | 'artStyle' | 'flowUrl' | 'useHitlMode' |
-  'characters' | 'scriptLines' | 'locationPrompt' |
-  'sceneLocationPrompts' | 'startLayoutPrompts' | 'endLayoutPrompts' |
-  'sceneImagePrompts' | 'setSceneImagePrompts' | 'sceneVideoPrompts' | 'setSceneVideoPrompts' |
-  'sceneStartImagePrompts' | 'setSceneStartImagePrompts' |
-  'sceneCharacters' | 'setSceneCharacters' |
-  'sceneImages' | 'setSceneImages' | 'sceneStartImages' | 'setSceneStartImages' |
-  'sceneImageRefs' | 'setSceneImageRefs' | 'setSceneVideos' | 'setSceneAudio' | 'setProcessingScene' |
-  'coverPrompts' | 'setCoverPrompts' | 'setCoverImages' | 'setProcessingCovers'
->;
-
-export function useStoryboard(state: StoryboardState, getFullScriptContext: () => string) {
-  const {
-    projectId,
-    aiProvider,
-    artStyle,
-    flowUrl,
-    useHitlMode,
-    characters,
-    scriptLines,
-    locationPrompt,
-    sceneLocationPrompts,
-    startLayoutPrompts,
-    endLayoutPrompts,
-    sceneImagePrompts, setSceneImagePrompts,
-    sceneVideoPrompts, setSceneVideoPrompts,
-    sceneStartImagePrompts, setSceneStartImagePrompts,
-    sceneCharacters, setSceneCharacters,
-    sceneImages, setSceneImages,
-    sceneStartImages, setSceneStartImages,
-    sceneImageRefs, setSceneImageRefs,
-    setSceneVideos,
-    setSceneAudio,
-    setProcessingScene,
-    coverPrompts, setCoverPrompts,
-    setCoverImages,
-    setProcessingCovers,
-  } = state;
-
+export function useStoryboard(getFullScriptContext: () => string) {
   const handleGenerateActionPrompt = useCallback(async (i: number) => {
+    const { 
+      aiProvider, artStyle, scriptLines, characters, sceneCharacters, sceneLocationPrompts, locationPrompt,
+      startLayoutPrompts, endLayoutPrompts, sceneImagePrompts, sceneVideoPrompts,
+      setProcessingScene, setSceneImagePrompts, setSceneVideoPrompts, setSceneStartImagePrompts, setSceneCharacters 
+    } = useProjectStore.getState();
+
     setProcessingScene((p: any) => ({ ...p, [i]: 'action' }));
+    
     try {
       const line = scriptLines[i];
-      const allCharactersContext = characters.map((c: Character) => `${c.name}: ${c.persona}${c.voiceName ? ` | voice: ${c.voiceName}` : ''}`).join('\n');
+      const selectedChars = sceneCharacters[i] || [];
+      const allCharactersContext = characters.filter((c: Character) => selectedChars.includes(c.name)).map((c: Character) => `${c.name}: ${c.persona}${c.voiceName ? ` | voice: ${c.voiceName}` : ''}`).join('\n');
       const previousImagePrompt = i > 0 ? sceneImagePrompts[i - 1] : "";
       const previousVideoPrompt = i > 0 ? sceneVideoPrompts[i - 1] : "";
       const activeLocationPrompt = sceneLocationPrompts[i] || locationPrompt || '';
@@ -56,12 +25,6 @@ export function useStoryboard(state: StoryboardState, getFullScriptContext: () =
       let cleanLocationContext = activeLocationPrompt;
       let sceneLocationToken = sceneLocationPrompts[i] ? `场景_S${i}` : '场景';
       
-      // 绝对禁止提取所谓的自定义场景标签！
-      // 因为 Chrome 扩展端的 Flow 自动化脚本是写死的：
-      // 全局场景固定命名为 "场景"，各幕自定义场景固定命名为 "场景_S[x]"。
-      // 如果任由 AI 或正则把名字改成 {@高档写字楼办公室}，会导致 Flow 生图时找不到资产！
-      
-      // 提取真正的"站位骨架"标签：从分镜面板的专属输入框里取
       let startLayoutToken = '';
       const startTagMatch = (startLayoutPrompts[i] || '').match(/\{@(Layout_[^{}]+)\}/);
       if (startTagMatch) startLayoutToken = startTagMatch[1];
@@ -70,7 +33,6 @@ export function useStoryboard(state: StoryboardState, getFullScriptContext: () =
       const endTagMatch = (endLayoutPrompts[i] || '').match(/\{@(Layout_[^{}]+)\}/);
       if (endTagMatch) endLayoutToken = endTagMatch[1];
       
-      // 将场景提示词中的所有 {@标签} 剔除，防止 AI 看到多重指令导致幻觉
       cleanLocationContext = activeLocationPrompt.replace(/\{@([^{}]+)\}/g, '').trim();
 
       const data = await fetchApi('/api/generate-prompts', {
@@ -100,13 +62,14 @@ export function useStoryboard(state: StoryboardState, getFullScriptContext: () =
         setSceneCharacters((p: any) => ({ ...p, [i]: data.characters_in_scene }));
       }
     } catch (e: any) {
-      toast.error('打磨视觉指令失败: ' + e.message);
+      toast.error('动作提示词生成失败: ' + e.message);
     } finally {
       setProcessingScene((p: any) => ({ ...p, [i]: null }));
     }
-  }, [aiProvider, scriptLines, characters, artStyle, getFullScriptContext, sceneImagePrompts, sceneVideoPrompts, sceneLocationPrompts, locationPrompt, startLayoutPrompts, endLayoutPrompts, setProcessingScene, setSceneImagePrompts, setSceneVideoPrompts, setSceneStartImagePrompts, setSceneCharacters]);
+  }, [getFullScriptContext]);
 
   const getRefKeywords = useCallback((i: number, prompt: string) => {
+    const { characters, scriptLines, sceneCharacters } = useProjectStore.getState();
     const charsInScene = sceneCharacters[i] || [];
     let refKeywords: string[] = [];
     for (const cName of charsInScene) {
@@ -130,78 +93,60 @@ export function useStoryboard(state: StoryboardState, getFullScriptContext: () =
       }
     }
     return refKeywords;
-  }, [sceneCharacters, characters, scriptLines]);
+  }, []);
 
-  const handleGenerateEndFrame = useCallback(async (i: number) => {
-    setProcessingScene((p: any) => ({ ...p, [i]: 'image' }));
+  const generateSceneImageCore = useCallback(async (i: number, type: 'startImage' | 'image', promptObj: Record<number, string>, setObj: any) => {
+    const promptText = promptObj[i];
+    if (!promptText) return toast.warning("请先生成或填写视觉提示词");
+    const { flowUrl, useHitlMode, startLayoutPrompts, endLayoutPrompts, projectId, setProcessingScene } = useProjectStore.getState();
+    setProcessingScene((p: any) => ({ ...p, [i]: type }));
+    
     try {
-      const basePrompt = sceneImagePrompts[i];
-      if (!basePrompt) throw new Error("请先生成视觉提示词");
-      const layoutTag = endLayoutPrompts[i] ? ` ${endLayoutPrompts[i]}` : '';
-      const prompt = basePrompt + layoutTag;
+      const layoutTag = (type === 'startImage' ? startLayoutPrompts[i] : endLayoutPrompts[i]) || '';
+      const prompt = promptText + (layoutTag ? ` ${layoutTag}` : '');
       const refKeywords = getRefKeywords(i, prompt);
 
-      await fetch('/api/extension/active-context', { method: 'POST', body: JSON.stringify({ projectId, targetType: 'sceneImage', index: i }) });
-      const data = await fetchApi('/api/generate-assets', { prompt, model: 'Nano Banana Pro', referenceKeywords: refKeywords, flowUrl, projectId, fireAndForget: useHitlMode, targetType: 'sceneImage', index: i });
+      await fetch('/api/extension/active-context', { method: 'POST', body: JSON.stringify({ projectId, targetType: type === 'startImage' ? 'sceneStartImage' : 'sceneImage', index: i }) });
+      const data = await fetchApi('/api/generate-assets', { prompt, model: 'Nano Banana Pro', referenceKeywords: refKeywords, flowUrl, projectId, fireAndForget: useHitlMode, targetType: type === 'startImage' ? 'sceneStartImage' : 'sceneImage', index: i });
       
       if (!data.fireAndForget) {
-         setSceneImages((p: any) => ({ ...p, [i]: data.url }));
+         setObj((p: any) => ({ ...p, [i]: data.url }));
       }
     } catch (e: any) {
-      toast.error('生成尾帧失败: ' + e.message);
+      toast.error(`生成${type === 'startImage' ? '首' : '尾'}帧失败: ` + e.message);
     } finally {
-      setProcessingScene((p: any) => ({ ...p, [i]: null }));
+      useProjectStore.getState().setProcessingScene((p: any) => ({ ...p, [i]: null }));
     }
-  }, [sceneImagePrompts, getRefKeywords, flowUrl, projectId, useHitlMode, setProcessingScene, setSceneImages]);
+  }, [getRefKeywords]);
 
-  const handleGenerateStartFrame = useCallback(async (i: number) => {
-    setProcessingScene((p: any) => ({ ...p, [i]: 'image' }));
-    try {
-      const basePrompt = sceneStartImagePrompts[i];
-      if (!basePrompt) throw new Error("该镜头没有首帧提示词（仅第1镜需要生成首帧）");
-      const layoutTag = startLayoutPrompts[i] ? ` ${startLayoutPrompts[i]}` : '';
-      const prompt = basePrompt + layoutTag;
-      const refKeywords = getRefKeywords(i, prompt);
+  const handleGenerateEndFrame = useCallback((i: number) => {
+    const { sceneImagePrompts, setSceneImages } = useProjectStore.getState();
+    return generateSceneImageCore(i, 'image', sceneImagePrompts, setSceneImages);
+  }, [generateSceneImageCore]);
 
-      await fetch('/api/extension/active-context', { method: 'POST', body: JSON.stringify({ projectId, targetType: 'sceneStartImage', index: i }) });
-      const data = await fetchApi('/api/generate-assets', { prompt, model: 'Nano Banana Pro', referenceKeywords: refKeywords, flowUrl, projectId, fireAndForget: useHitlMode, targetType: 'sceneStartImage', index: i });
-      
-      if (!data.fireAndForget) {
-         setSceneStartImages((p: any) => ({ ...p, [i]: data.url }));
-      }
-    } catch (e: any) {
-      toast.error('生成首帧失败: ' + e.message);
-    } finally {
-      setProcessingScene((p: any) => ({ ...p, [i]: null }));
-    }
-  }, [sceneStartImagePrompts, getRefKeywords, flowUrl, projectId, useHitlMode, setProcessingScene, setSceneStartImages]);
+  const handleGenerateStartFrame = useCallback((i: number) => {
+    const { sceneStartImagePrompts, setSceneStartImages } = useProjectStore.getState();
+    return generateSceneImageCore(i, 'startImage', sceneStartImagePrompts, setSceneStartImages);
+  }, [generateSceneImageCore]);
 
   const handleGenerateVideo = useCallback(async (i: number) => {
-    setProcessingScene((p: any) => ({ ...p, [i]: 'video' }));
-    try {
-      const videoPrompt = sceneVideoPrompts[i];
-      const endImage = sceneImages[i];
-      const startImage = i === 0 ? sceneStartImages[0] : sceneImages[i - 1];
-      
-      if (!videoPrompt) throw new Error("请确保有视频提示词！");
-      if (!endImage) throw new Error("请确保有尾帧图！");
-      if (!startImage) throw new Error(i === 0 ? "请生成第1镜的首帧图！" : "请确保上一镜已有尾帧图！");
+    const { flowUrl, useHitlMode, scriptLines, sceneVideoPrompts, sceneImageRefs, projectId, setProcessingScene, setSceneVideos } = useProjectStore.getState();
 
-      let prompt = videoPrompt.trim();
+    if (!sceneVideoPrompts[i]) return toast.warning("请先生成或填写视频运动提示词");
+    
+    setProcessingScene((p: any) => ({ ...p, [i]: 'video' }));
+
+    try {
+      const line = scriptLines[i];
+      let charRefImage = '';
       
+      let prompt = sceneVideoPrompts[i].trim();
       const safeProjectId = (projectId || 'Proj').replace(/[^\w\u4e00-\u9fa5]/g, '');
-      let startRef = (sceneImageRefs as Record<string, string>)[`start_${i}`];
-      if (!startRef) {
-          if (i === 0) {
-              startRef = `${safeProjectId}_S0_StartImg`;
-          } else {
-              startRef = sceneImageRefs[i - 1] || `${safeProjectId}_S${i - 1}_Img`;
-          }
-      }
+      const startRef = sceneImageRefs[i - 1] || `${safeProjectId}_S${i - 1}_Img`;
       const endRef = sceneImageRefs[i] || `${safeProjectId}_S${i}_Img`;
 
       await fetch('/api/extension/active-context', { method: 'POST', body: JSON.stringify({ projectId, targetType: 'sceneVideo', index: i }) });
-      const data = await fetchApi('/api/generate-assets', { prompt, model: 'Veo 3.1', referenceKeywords: [startRef, endRef], flowUrl, projectId, fireAndForget: useHitlMode, veoMode: 'frame', targetType: 'sceneVideo', index: i });
+      const data = await fetchApi('/api/generate-assets', { prompt, model: 'Veo 3.1', referenceKeywords: [startRef, endRef], flowUrl, projectId, fireAndForget: useHitlMode, veoMode: 'frame', targetType: 'sceneVideo', index: i, charRefImage });
       
       if (!data.fireAndForget) {
           setSceneVideos((p: any) => ({ ...p, [i]: data.url }));
@@ -209,11 +154,12 @@ export function useStoryboard(state: StoryboardState, getFullScriptContext: () =
     } catch (e: any) {
       toast.error('渲染视频失败: ' + e.message);
     } finally {
-      setProcessingScene((p: any) => ({ ...p, [i]: null }));
+      useProjectStore.getState().setProcessingScene((p: any) => ({ ...p, [i]: null }));
     }
-  }, [sceneVideoPrompts, sceneImages, sceneStartImages, sceneImageRefs, sceneStartImagePrompts, sceneImagePrompts, getRefKeywords, flowUrl, projectId, useHitlMode, setProcessingScene, setSceneVideos]);
+  }, []);
 
   const handleGenerateVoice = useCallback(async (i: number) => {
+    const { scriptLines, characters, projectId, setProcessingScene, setSceneAudio } = useProjectStore.getState();
     setProcessingScene((p: any) => ({ ...p, [i]: 'voice' }));
     try {
       const line = scriptLines[i];
@@ -227,35 +173,31 @@ export function useStoryboard(state: StoryboardState, getFullScriptContext: () =
     } catch (e: any) {
       toast.error('配置音频失败: ' + e.message);
     } finally {
-      setProcessingScene((p: any) => ({ ...p, [i]: null }));
+      useProjectStore.getState().setProcessingScene((p: any) => ({ ...p, [i]: null }));
     }
-  }, [scriptLines, characters, projectId, setProcessingScene, setSceneAudio]);
+  }, []);
 
   const handleGenerateCoverPrompt = useCallback(async (ratio: string) => {
+    const { aiProvider, artStyle, characters, setProcessingCovers, setCoverPrompts } = useProjectStore.getState();
     setProcessingCovers((p: any) => ({ ...p, [ratio]: 'prompt' }));
     try {
-      const allCharactersContext = characters
-          .filter((c: Character) => !['旁白', '字卡', '标题', '画外音', '系统'].some(sys => c.name.includes(sys)))
-          .map((c: Character) => c.name)
-          .join(', ');
-
       const data = await fetchApi('/api/generate-prompts', {
-          aiProvider,
-          taskType: 'cover_prompt',
-          theme: '', 
-          artStyle,
-          fullScriptContext: getFullScriptContext(),
-          allCharactersContext
+        aiProvider,
+        taskType: 'cover_prompt',
+        artStyle,
+        fullScriptContext: getFullScriptContext(),
+        characterDetails: characters.map((c: Character) => `${c.name}: ${c.persona}`).join('\n'),
       });
       setCoverPrompts((p: any) => ({ ...p, [ratio]: data.prompt }));
     } catch (e: any) {
-      toast.error(`生成[${ratio}]封面指令失败: ` + e.message);
+      toast.error('封面提示词生成失败: ' + e.message);
     } finally {
-      setProcessingCovers((p: any) => ({ ...p, [ratio]: null }));
+      useProjectStore.getState().setProcessingCovers((p: any) => ({ ...p, [ratio]: null }));
     }
-  }, [aiProvider, characters, artStyle, getFullScriptContext, setProcessingCovers, setCoverPrompts]);
+  }, [getFullScriptContext]);
 
   const handleGenerateCoverAsset = useCallback(async (ratio: string) => {
+    const { flowUrl, useHitlMode, characters, coverPrompts, projectId, setProcessingCovers, setCoverImages } = useProjectStore.getState();
     setProcessingCovers((p: any) => ({ ...p, [ratio]: 'image' }));
     try {
       const prompt = coverPrompts[ratio];
@@ -274,9 +216,9 @@ export function useStoryboard(state: StoryboardState, getFullScriptContext: () =
     } catch (e: any) {
       toast.error(`生成[${ratio}]生图失败: ` + e.message);
     } finally {
-      setProcessingCovers((p: any) => ({ ...p, [ratio]: null }));
+      useProjectStore.getState().setProcessingCovers((p: any) => ({ ...p, [ratio]: null }));
     }
-  }, [coverPrompts, characters, flowUrl, projectId, useHitlMode, setProcessingCovers, setCoverImages]);
+  }, []);
 
   return {
     handleGenerateActionPrompt,

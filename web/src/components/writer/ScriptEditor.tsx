@@ -3,16 +3,24 @@
 import React from 'react';
 import { BookOpen, ArrowLeft, RefreshCw, Trash2, PenTool, Sparkles, Activity, ArrowRight } from 'lucide-react';
 import { useProject } from '@/lib/ProjectContext';
+import { useProjectStore } from '@/lib/store/useProjectStore';
 
 export default function ScriptEditor() {
   const {
-    scriptIteration, rawScript, setRawScript,
-    userDirection, setUserDirection,
-    scriptReview,
-    isGeneratingScript, isIteratingScript, isReviewingScript, isSplittingScript,
     handleGenerateScript, handleIterateScript, handleReviewScript, handleScriptToScenes,
-    setWriterStep
   } = useProject();
+
+  const scriptIteration = useProjectStore(s => s.scriptIteration);
+  const rawScript = useProjectStore(s => s.rawScript);
+  const setRawScript = useProjectStore(s => s.setRawScript);
+  const userDirection = useProjectStore(s => s.userDirection);
+  const setUserDirection = useProjectStore(s => s.setUserDirection);
+  const scriptReview = useProjectStore(s => s.scriptReview);
+  const isGeneratingScript = useProjectStore(s => s.isGeneratingScript);
+  const isIteratingScript = useProjectStore(s => s.isIteratingScript);
+  const isReviewingScript = useProjectStore(s => s.isReviewingScript);
+  const isSplittingScript = useProjectStore(s => s.isSplittingScript);
+  const setWriterStep = useProjectStore(s => s.setWriterStep);
 
   const getScoreColor = (score: number) => {
     if (score >= 8) return 'text-emerald-400';

@@ -5,6 +5,7 @@ import { Users, RotateCcw, ArrowRight, ChevronDown, ChevronRight } from 'lucide-
 import { useProject } from '@/lib/ProjectContext';
 import { VOICE_OPTIONS } from '@/lib/constants';
 import LocationPanel from './LocationPanel';
+import { useProjectStore } from '@/lib/store/useProjectStore';
 
 // ========================================
 // 角色设定图内容选项（借鉴 Moyin Creator 的 SHEET_ELEMENTS）
@@ -22,17 +23,22 @@ type SheetElementId = typeof SHEET_ELEMENTS[number]['id'];
 export default function CastingRoom() {
   const {
     currentPhase, setCurrentPhase,
-    characters, updateCharacter,
-    characterPrompts, setCharacterPrompts,
-    characterImages,
-    processingChars,
+    updateCharacter,
     handleGenerateCharacterPrompt, generateCastingImage,
-    locationPrompt, setLocationPrompt,
-    locationImage,
-    isProcessingLocation,
     handleGenerateLocationPrompt, generateLocationImage,
     projectId,
   } = useProject();
+
+  const characters = useProjectStore(s => s.characters);
+  const locationPrompt = useProjectStore(s => s.locationPrompt);
+  const setLocationPrompt = useProjectStore(s => s.setLocationPrompt);
+  const locationImage = useProjectStore(s => s.locationImage);
+  const isProcessingLocation = useProjectStore(s => s.isProcessingLocation);
+  
+  const characterPrompts = useProjectStore(s => s.characterPrompts);
+  const setCharacterPrompts = useProjectStore(s => s.setCharacterPrompts);
+  const characterImages = useProjectStore(s => s.characterImages);
+  const processingChars = useProjectStore(s => s.processingChars);
 
   // 每个角色独立的设定图选项状态
   const [charSheetElements, setCharSheetElements] = useState<Record<number, SheetElementId[]>>({});

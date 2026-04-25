@@ -319,13 +319,12 @@ Scene Lab 编辑器通过 URL 参数控制行为：
 - **`lib/types.ts`**：`TargetType` 联合类型是资源目标的**唯一真相源**。新增目标类型必须在这里和 `TARGET_TYPE_CONFIG` 中注册。
 - **`lib/assetUrl.ts`**：所有确定性文件名的生成 (`generateAssetFilename`) 和防缓存 (`getAssetUrlWithCacheBust`) 逻辑全部在此模块。**绝对禁止**在 API 路由中硬编码 `Math.random()` 或拼接文件名。
 
-### 2. 全局状态解耦 (ProjectContext 拆分)
-曾经高达 1000+ 行的 `ProjectContext.tsx`（上帝对象）已被拆分为多个按 Phase 分层的职责单一的 Hooks：
-- `ProjectProvider.tsx`: 顶层容器
-- `useProjectState.ts`: 基础状态和设置，导出 `ProjectStateReturn` 类型
-- `useWriterRoom.ts` / `useCastingRoom.ts` / `useStoryboard.ts` / `useRenderRoom.ts`: 各阶段业务逻辑，**全部使用 `Pick<ProjectStateReturn, ...>` 精确声明依赖（严禁 `any`）**
-- `useInboxPoller.ts`: 独立的 Chrome 扩展数据轮询器
-**开发规范**：新增业务逻辑时，必须放入对应的专属 Hook 中，严禁再次将 `ProjectProvider` 搞成巨无霸。新增使用的字段时，必须同步更新对应 Hook 的 `Pick` 类型列表。
+### 2. 全局状态解耦 (ProjectContext 拆分与 Zustand 迁移)
+曾经高达 1000+ 行的 `ProjectContext.tsx`（上帝对象）已被彻底瘦身。我们将所有多媒体相关的重量级状态（如 `sceneVideos`, `sceneImages`, `characters` 等）迁移到了 Zustand (`useProjectStore.ts`) 中，实现了：
+- **`ProjectProvider.tsx`**: 仅负责轻量级的阶段控制 (`currentPhase`)、API 初始化等核心元状态。
+- **Zustand (`useProjectStore.ts`)**: 负责所有重量级数据，并接管了所有数据的防抖本地落盘 (`fieldsToWatch` 和 `saveState`)。
+- **业务 Hooks (`useWriterRoom`, `useCastingRoom`, `useStoryboard`, `useRenderRoom`)**: 各阶段业务逻辑已彻底从 Context 解耦，内部直接通过 `useProjectStore.getState()` 进行精准细粒度更新，完美消除了高频生图/视频时的全局 React 渲染重排抖动！
+**开发规范**：新增媒体状态或大数据时，必须放入 `useProjectStore.ts`，不要再塞入 `ProjectContext.tsx` 造成性能灾难。
 
 ### 2.5 集成测试安全网 (Integration Test Safety Net) [v8.3]
 - `__tests__/db.integration.test.ts`: 使用内存 SQLite 验证 `saveState → loadState` 的双向对称性，覆盖项目字段、JSON 序列化字段、角色、分镜、封面、增量 patch、upsert 等场景

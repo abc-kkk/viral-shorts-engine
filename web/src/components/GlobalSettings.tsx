@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { X, Pencil, Check } from 'lucide-react';
 import { useProject } from '@/lib/ProjectContext';
+import { useProjectStore } from '@/lib/store/useProjectStore';
 import { ART_STYLE_PRESETS } from '@/lib/constants';
 import { toast } from '@/lib/toast';
 
@@ -12,7 +13,13 @@ interface Props {
 }
 
 export default function SettingsModal({ open, onClose }: Props) {
-  const { projectId, flowUrl, setFlowUrl, artStyle, setArtStyle, aiProvider, setAiProvider } = useProject();
+  const { projectId } = useProject();
+  const flowUrl = useProjectStore(s => s.flowUrl);
+  const setFlowUrl = useProjectStore(s => s.setFlowUrl);
+  const artStyle = useProjectStore(s => s.artStyle);
+  const setArtStyle = useProjectStore(s => s.setArtStyle);
+  const aiProvider = useProjectStore(s => s.aiProvider);
+  const setAiProvider = useProjectStore(s => s.setAiProvider);
   const [isRenaming, setIsRenaming] = useState(false);
   const [newName, setNewName] = useState(projectId);
   const [renaming, setRenaming] = useState(false);

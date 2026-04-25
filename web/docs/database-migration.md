@@ -23,7 +23,7 @@
 ### 2. React 状态与数据库持久化脱节陷阱 (The State Persistence Trap)
 在新增任何 UI 功能时，极容易犯下“只管前端内存，不管后端落盘”的低级错误。
 - **灾难后果**：这只是把数据存到了内存！只要用户刷新页面或者重启软件，这些内存状态瞬间灰飞烟灭！
-- **正确做法**：当你向 `useProjectState.ts` 增加任何跨越刷新留存的业务字段时，**严格遵循这三步**：
+- **正确做法**：当你向 Zustand (`useProjectStore.ts`) 或全局 Context 增加任何跨越刷新留存的业务字段时，**严格遵循这三步**：
   1. 在 `web/src/lib/schema.ts` 的对应模型中显式增加列；
   2. 运行 `npx drizzle-kit generate` 生成迁移 SQL；
   3. **最容易漏的一步**：在 `src/lib/db.ts` 的 `loadState` 和 `saveState` 里，**亲手**将新字段双向映射绑定进去！目前项目已经加入了 `stateMapping.test.ts` 来自动进行断言。

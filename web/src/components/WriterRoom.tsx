@@ -2,13 +2,14 @@
 
 import React from 'react';
 import { Search, Sparkles, PlaySquare, Check, ArrowRight } from 'lucide-react';
-import { useProject } from '@/lib/ProjectContext';
+import { useProjectStore } from '@/lib/store/useProjectStore';
 import InspirationLibrary from './writer/InspirationLibrary';
 import ScriptEditor from './writer/ScriptEditor';
 import SceneSplitter from './writer/SceneSplitter';
 
 export default function WriterRoom() {
-  const { writerStep, setWriterStep } = useProject();
+  const writerStep = useProjectStore(s => s.writerStep);
+  const setWriterStep = useProjectStore(s => s.setWriterStep);
 
   // ========================================
   // Step 指示器

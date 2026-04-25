@@ -3,16 +3,19 @@
 import React from 'react';
 import { useProject } from '@/lib/ProjectContext';
 import LocationPanel from '../LocationPanel';
+import { useProjectStore } from '@/lib/store/useProjectStore';
 
 export default function StoryboardLayoutTab() {
   const {
-    activeSceneIndex,
     projectId,
-    sceneLocationPrompts, setSceneLocationPrompts,
-    sceneLocationImages,
-    processingScene,
     handleGenerateSceneLocationPrompt, generateSceneLocationImage,
   } = useProject();
+
+  const activeSceneIndex = useProjectStore(s => s.activeSceneIndex);
+  const sceneLocationPrompts = useProjectStore(s => s.sceneLocationPrompts);
+  const setSceneLocationPrompts = useProjectStore(s => s.setSceneLocationPrompts);
+  const sceneLocationImages = useProjectStore(s => s.sceneLocationImages);
+  const processingScene = useProjectStore(s => s.processingScene);
 
   return (
     <div className="flex flex-col gap-4 animate-in fade-in duration-300">

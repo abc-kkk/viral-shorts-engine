@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronDown, ChevronRight, RotateCcw } from 'lucide-react';
 import { useProject } from '@/lib/ProjectContext';
+import { useProjectStore } from '@/lib/store/useProjectStore';
 
 interface LayoutPreset {
   id: string;
@@ -45,7 +46,7 @@ export default function LocationPanel({
   const [loadingPresets, setLoadingPresets] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(isCollapsible);
 
-  const { flowUrl } = useProject();
+  const flowUrl = useProjectStore(s => s.flowUrl);
 
   const getFlowTag = (preset: LayoutPreset) => {
     const numPart = preset.id.replace('layout_', '');

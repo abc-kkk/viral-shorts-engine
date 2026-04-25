@@ -28,7 +28,7 @@
 
 ## 🔴 6. THE STRONG TYPING & TEST RULE (Zod & Vitest)
 - The project enforces strict Zod validation at the API Gateway boundaries.
-- All hooks (`useWriterRoom`, `useCastingRoom`, `useStoryboard`, `useInboxPoller`) use `Pick<ProjectStateReturn, ...>` typed parameters — **never `any`**. When adding a field to a hook, update its Pick type.
+- We have migrated heavy multimedia states from React Context to Zustand (`useProjectStore.ts`). Core hooks (`useCastingRoom`, `useStoryboard`, `useInboxPoller`) directly pull states from `useProjectStore(s => s.xxx)` and update via `useProjectStore.getState()`. Do not re-introduce heavy `useState` hooks to `ProjectContext`.
 - **AFTER any modification**, you MUST run `npx vitest run` in the `web` folder.
 - **CRITICAL**: Unit tests are not enough. Next.js enforces extremely strict TypeScript checks during `npm run build`. You MUST run `npm run build` in the `web` folder to ensure no strict type errors (e.g., Zod generic arguments) break the production deployment.
 

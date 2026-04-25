@@ -1,26 +1,10 @@
 import { useEffect } from 'react';
 import type { InboxItem } from '../types';
-import type { ProjectStateReturn } from './useProjectState';
+import { useProjectStore } from '../store/useProjectStore';
 
-type InboxPollerState = Pick<ProjectStateReturn,
-  'useHitlMode' | 'setLocationImage' | 'setSceneLocationImages' |
-  'setCharacterImages' | 'setSceneImages' | 'setSceneImageRefs' |
-  'setSceneStartImages' | 'setSceneVideos' | 'setCoverImages'
->;
-
-export function useInboxPoller(state: InboxPollerState) {
-  const {
-    useHitlMode,
-    setLocationImage,
-    setSceneLocationImages,
-    setCharacterImages,
-    setSceneImages,
-    setSceneImageRefs,
-    setSceneStartImages,
-    setSceneVideos,
-    setCoverImages
-  } = state;
-
+export function useInboxPoller() {
+  const useHitlMode = useProjectStore(s => s.useHitlMode);
+  
   useEffect(() => {
     if (!useHitlMode) return;
     const eventSource = new EventSource('/api/sse');
@@ -29,6 +13,12 @@ export function useInboxPoller(state: InboxPollerState) {
       try {
         const item = JSON.parse(event.data) as InboxItem;
         const idx = item.index;
+        const {
+          setLocationImage, setSceneLocationImages, setCharacterImages,
+          setSceneImages, setSceneImageRefs, setSceneStartImages,
+          setSceneVideos, setCoverImages
+        } = useProjectStore.getState();
+
         if (item.targetType === 'locationImage') {
           setLocationImage(item.url);
         } else if (item.targetType === 'sceneLocationImage' && idx !== undefined) {
@@ -56,22 +46,11 @@ export function useInboxPoller(state: InboxPollerState) {
     };
 
     eventSource.onerror = (e) => {
-      // It will auto-reconnect, but we can log it
       console.log('[SSE] Connection error/reconnecting...', e);
     };
 
     return () => {
       eventSource.close();
     };
-  }, [
-    useHitlMode,
-    setLocationImage,
-    setSceneLocationImages,
-    setCharacterImages,
-    setSceneImages,
-    setSceneImageRefs,
-    setSceneStartImages,
-    setSceneVideos,
-    setCoverImages
-  ]);
+  }, [useHitlMode]);
 }

@@ -2,17 +2,21 @@
 
 import React from 'react';
 import { Users, PlaySquare, Trash2, Mic, Activity, ArrowLeft, Save } from 'lucide-react';
+import { useProjectStore } from '@/lib/store/useProjectStore';
 import { useProject } from '@/lib/ProjectContext';
 import { VOICE_OPTIONS } from '@/lib/constants';
 
 export default function SceneSplitter() {
   const {
-    characters, scriptLines,
     updateCharacter, updateScriptLine,
     addCharacter, removeCharacter,
     addScriptLine, removeScriptLine, moveScriptLine,
-    setWriterStep, setCurrentPhase
+    setCurrentPhase
   } = useProject();
+
+  const characters = useProjectStore(s => s.characters);
+  const scriptLines = useProjectStore(s => s.scriptLines);
+  const setWriterStep = useProjectStore(s => s.setWriterStep);
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">

@@ -120,18 +120,24 @@ function SyncThumbnailPlayer({ videoSrc, audioSrc, audioDelay, trimStart, trimEn
     );
 }
 
+import { useProjectStore } from '@/lib/store/useProjectStore';
+
 export default function RenderRoom() {
   const {
     projectId,
-    scriptLines,
-    sceneVideos,
-    sceneDurations,
-    sceneVideoTrimStart, setSceneVideoTrimStart,
-    sceneVideoTrimEnd, setSceneVideoTrimEnd,
-    sceneAudio,
-    sceneAudioDelays, setSceneAudioDelays,
     setCurrentPhase
   } = useProject();
+
+  const scriptLines = useProjectStore(s => s.scriptLines);
+  const sceneVideos = useProjectStore(s => s.sceneVideos);
+  const sceneDurations = useProjectStore(s => s.sceneDurations);
+  const sceneVideoTrimStart = useProjectStore(s => s.sceneVideoTrimStart);
+  const setSceneVideoTrimStart = useProjectStore(s => s.setSceneVideoTrimStart);
+  const sceneVideoTrimEnd = useProjectStore(s => s.sceneVideoTrimEnd);
+  const setSceneVideoTrimEnd = useProjectStore(s => s.setSceneVideoTrimEnd);
+  const sceneAudio = useProjectStore(s => s.sceneAudio);
+  const sceneAudioDelays = useProjectStore(s => s.sceneAudioDelays);
+  const setSceneAudioDelays = useProjectStore(s => s.setSceneAudioDelays);
 
   return (
     <div className="animate-in slide-in-from-right-8 duration-500 w-full flex flex-col items-center pb-24">

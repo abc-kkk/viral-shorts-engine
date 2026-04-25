@@ -281,9 +281,8 @@ JSON 结构：
 
 【布局参考图机制（极其重要！）】
 如果自定义构图指令中提到了"布局参考图"或物品摆放信息，说明用户已在 3D 编辑器中摆好了家具和角色站位。
-此时你生成的 prompt 【开头】必须包含 {@REF_LAYOUT}（花括号+@+REF_LAYOUT）标记！这个标记会让系统自动将用户的 3D 布局截图作为图生图的参考注入。
-格式："{@REF_LAYOUT} 根据此布局参考图中家具的位置和比例关系，一个极简的..."
-如果自定义构图指令为空或没提到布局参考图，则【不要】添加此标记。
+此时你生成的 prompt 【开头】必须包含自定义构图指令中要求的标记（例如 {@Layout_xxxxxx}）！这个标记会让系统自动将用户的 3D 布局截图作为图生图的参考注入。
+如果自定义构图指令为空或没提到布局参考图，则【不要】添加任何标记。
 
 【核心规范】
 1. **画风深度融合**：你必须仔细阅读下方的【全局美术风格】，并将其核心描述完美融合进你的提示词中。
@@ -296,15 +295,16 @@ JSON 结构：
 严格输出 JSON，只包含一个 "prompt" 字段。不要带有任何 Markdown 标记。
 
 范例（有布局参考图）：
-{ "prompt": "{@REF_LAYOUT} 根据此布局参考图中家具的位置和比例关系，一个极简的真实白天银行柜台空间，空镜，画面中绝对没有人物和动物。中央是一个厚实的防弹玻璃隔断。原生写实主义，极简风格，留白充足。" }
+{ "prompt": "{@Layout_123456} 根据此布局参考图中家具的位置和比例关系，一个极简的真实白天银行柜台空间，空镜，画面中绝对没有人物和动物。中央是一个厚实的防弹玻璃隔断。原生写实主义，极简风格，留白充足。" }
 
 范例（无布局参考图）：
 { "prompt": "一个极简的真实夜晚居家空间，空镜，画面中绝对没有人物和动物。中央只有一张干净的原木色方桌和两把简单的椅子。原生写实主义，极简生活风格，留白充足。" }`,
-    userPrompt: `全局美术风格: {{artStyle}}\n完整剧本上下文: {{scriptContext}}\n自定义构图指令: {{sceneComposition}}\n\n请严格遵守上述规范，生成该空镜场景的中文提示词。切记：画面中绝对不能有任何人或动物！如果自定义构图指令不为空，你的输出 prompt 必须以 {@REF_LAYOUT} 开头！`,
+    userPrompt: `全局美术风格: {{artStyle}}\n完整剧本上下文: {{scriptContext}}\n自定义构图指令: {{sceneComposition}}\n\n请严格遵守上述规范，生成该空镜场景的中文提示词。切记：画面中绝对不能有任何人或动物！如果自定义构图指令不为空，你的输出 prompt 必须包含指令中要求的 {@资产名} 标记！`,
     variables: [
       { key: 'artStyle', label: '美术风格', description: '全局项目美术风格', required: true, source: 'auto_inject' },
       { key: 'scriptContext', label: '完整剧本', description: '帮助AI理解主场景', required: true, source: 'auto_inject' },
-      { key: 'sceneComposition', label: '场景构图', description: '来自3D布局编辑器的构图信息。有值时AI会输出{@REF_LAYOUT}标记用于图生图', required: false, source: 'auto_inject' }
+      { key: 'sceneComposition', label: '场景构图', description: '来自3D布局编辑器的构图信息。有值时AI会输出{@REF_LAYOUT}标记用于图生图', required: false, source: 'auto_inject' },
+      { key: 'promptVersion', label: '模板版本', description: '触发模板自动升级', required: false, source: 'auto_inject' }
     ],
     outputFormat: 'json',
     isBuiltin: true,

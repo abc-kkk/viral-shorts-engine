@@ -4,21 +4,25 @@ import React from 'react';
 import { ImageIcon } from 'lucide-react';
 import { useProject } from '@/lib/ProjectContext';
 import LocationPanel from '../LocationPanel';
+import { useProjectStore } from '@/lib/store/useProjectStore';
 
 export default function StoryboardFramesTab() {
   const {
     projectId,
-    activeSceneIndex,
-    sceneStartImages,
-    sceneImages,
-    sceneStartImagePrompts,
-    sceneImagePrompts,
-    processingScene,
     handleGenerateStartFrame,
     handleGenerateEndFrame,
-    startLayoutPrompts, setStartLayoutPrompts,
-    endLayoutPrompts, setEndLayoutPrompts,
   } = useProject();
+
+  const activeSceneIndex = useProjectStore(s => s.activeSceneIndex);
+  const sceneStartImages = useProjectStore(s => s.sceneStartImages);
+  const sceneImages = useProjectStore(s => s.sceneImages);
+  const sceneStartImagePrompts = useProjectStore(s => s.sceneStartImagePrompts);
+  const sceneImagePrompts = useProjectStore(s => s.sceneImagePrompts);
+  const processingScene = useProjectStore(s => s.processingScene);
+  const startLayoutPrompts = useProjectStore(s => s.startLayoutPrompts);
+  const setStartLayoutPrompts = useProjectStore(s => s.setStartLayoutPrompts);
+  const endLayoutPrompts = useProjectStore(s => s.endLayoutPrompts);
+  const setEndLayoutPrompts = useProjectStore(s => s.setEndLayoutPrompts);
 
   const isFirstScene = activeSceneIndex === 0;
   const inheritedStartImage = !isFirstScene ? sceneImages[activeSceneIndex - 1] : undefined;

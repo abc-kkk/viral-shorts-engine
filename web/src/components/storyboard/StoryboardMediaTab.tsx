@@ -4,23 +4,31 @@ import React from 'react';
 import { Video, Mic } from 'lucide-react';
 import { useProject } from '@/lib/ProjectContext';
 import { VOICE_OPTIONS } from '@/lib/constants';
+import { useProjectStore } from '@/lib/store/useProjectStore';
 
 export default function StoryboardMediaTab() {
   const {
-    activeSceneIndex,
-    characters, updateCharacter,
-    scriptLines,
-    sceneDurations, setSceneDurations,
-    sceneImages,
-    sceneStartImages,
-    sceneVideos, setSceneVideos,
-    sceneAudio,
-    sceneAudioDelays, setSceneAudioDelays,
-    currentVideoTimes, setCurrentVideoTimes,
-    processingScene,
     handleGenerateVideo,
     handleGenerateVoice,
+    updateCharacter,
   } = useProject();
+
+  const characters = useProjectStore(s => s.characters);
+  const scriptLines = useProjectStore(s => s.scriptLines);
+  const activeSceneIndex = useProjectStore(s => s.activeSceneIndex);
+  
+  const sceneDurations = useProjectStore(s => s.sceneDurations);
+  const setSceneDurations = useProjectStore(s => s.setSceneDurations);
+  const sceneImages = useProjectStore(s => s.sceneImages);
+  const sceneStartImages = useProjectStore(s => s.sceneStartImages);
+  const sceneVideos = useProjectStore(s => s.sceneVideos);
+  const setSceneVideos = useProjectStore(s => s.setSceneVideos);
+  const sceneAudio = useProjectStore(s => s.sceneAudio);
+  const sceneAudioDelays = useProjectStore(s => s.sceneAudioDelays);
+  const setSceneAudioDelays = useProjectStore(s => s.setSceneAudioDelays);
+  const currentVideoTimes = useProjectStore(s => s.currentVideoTimes);
+  const setCurrentVideoTimes = useProjectStore(s => s.setCurrentVideoTimes);
+  const processingScene = useProjectStore(s => s.processingScene);
 
   const isFirstScene = activeSceneIndex === 0;
 
@@ -100,7 +108,7 @@ export default function StoryboardMediaTab() {
             <div className="font-bold text-lg text-cyan-400 flex items-center justify-between border-b border-neutral-800/50 pb-2">
                 <span>4. AI Studio TTS 配音</span>
                 {(() => {
-                    const speakerIdx = characters.findIndex(c => c.name === scriptLines[activeSceneIndex]?.speaker);
+                    const speakerIdx = characters.findIndex((c: any) => c.name === scriptLines[activeSceneIndex]?.speaker);
                     if(speakerIdx >= 0) {
                         const charConfig = characters[speakerIdx];
                         return (

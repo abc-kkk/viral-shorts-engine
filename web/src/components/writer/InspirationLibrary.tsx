@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Zap, Star, RefreshCw, X, Clipboard, PenTool, ChevronDown, ChevronUp } from 'lucide-react';
 import { useProject } from '@/lib/ProjectContext';
+import { useProjectStore } from '@/lib/store/useProjectStore';
 
 const CATEGORY_OPTIONS = [
   { value: 'all', label: '全部分类', emoji: '✨' },
@@ -21,15 +22,19 @@ const CREATIVE_MODES = [
 
 export default function InspirationLibrary() {
   const {
-    theme, setTheme,
-    creativeMode, setCreativeMode,
-    inspirations,
-    isFetchingReddit,
-    userDirection, setUserDirection,
     handleFetchRedditJokes, handleGenerateScript,
     handleAddManualInspiration, handleRemoveInspiration, handleSelectInspiration,
-    isGeneratingScript
   } = useProject();
+
+  const theme = useProjectStore(s => s.theme);
+  const setTheme = useProjectStore(s => s.setTheme);
+  const creativeMode = useProjectStore(s => s.creativeMode);
+  const setCreativeMode = useProjectStore(s => s.setCreativeMode);
+  const inspirations = useProjectStore(s => s.inspirations);
+  const isFetchingReddit = useProjectStore(s => s.isFetchingReddit);
+  const userDirection = useProjectStore(s => s.userDirection);
+  const setUserDirection = useProjectStore(s => s.setUserDirection);
+  const isGeneratingScript = useProjectStore(s => s.isGeneratingScript);
 
   const [manualTitle, setManualTitle] = useState('');
   const [manualContent, setManualContent] = useState('');

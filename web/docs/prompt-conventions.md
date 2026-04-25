@@ -66,17 +66,17 @@ Chrome 扩展（`content.js`）及后端自动生成文件时，必须严格遵�
 - **背景**：早期版本中正则提取错误，导致分镜提示词只拿到了 `{@Layout_XXXXXX}` 而丢了已渲染的场景图 `{@场景}`，导致首尾帧生图失去了风格锚定。
 - **最新双轨架构**：为了让分镜首尾帧**既能受到 3D 布局的位置约束，又能保持已生成场景的风格一致性**，引擎现在采用**双 Token 组合注入**。
 - **核心逻辑**：
-  在 `handleGenerateActionPrompt` 中，程序会主动从 `activeLocationPrompt` 中提取 `{@Layout_XXXXXX}`（如果用户搭建了 3D 布局），并与场景图 Token (`场景_S{i}` 或 `场景`) 组合。
+  在 `useStoryboard.ts` (`handleGenerateActionPrompt`) 中，程序会主动从 `activeLocationPrompt` 中提取 `{@Layout_XXXXXX}`（如果用户搭建了 3D 布局），并与场景图 Token (`场景_S{i}` 或 `场景`) 组合。
   - 最终 AI 收到的强制占位符变为：`{@Layout_123456} 布局和 {@场景_S{i}}`
   - 这样 Flow 在生成首尾帧时，会同时加载这两张图作为图生图参考！
   - **铁律**：`sceneLocationToken` 必须通过代码逻辑主动拼装，**绝对不能**再用正则去傻傻提取用户提示词里第一个出现的 `{@...}` 标签。
-- **涉及文件**：`ProjectContext.tsx` → `handleGenerateActionPrompt`
+- **涉及文件**：`useStoryboard.ts` → `handleGenerateActionPrompt`
 
 ### 踩坑 2：新增 targetType 时必须同步修改四个位置
 - **现象**：新增了 `sceneLocationImage` 这一资产类型，但 Chrome 扩展显示名为 `VS_Generic_Asset_786`，且"提取落盘"后图片无法回显到前端。
-- **根因**：新 `targetType` 只在 `ProjectContext` 的 `active-context` 设置处加了，但遗漏了其他三个消费端。
+- **根因**：新 `targetType` 只在后端设置了，但遗漏了其他三个消费端。
 - **铁律**：每次新增一个 `targetType`，必须同步修改以下**全部四个文件**：
-  1. `web/src/lib/ProjectContext.tsx` → `active-context` POST 设置 + inbox poller 接收
+  1. `web/src/lib/context/useStoryboard.ts` / `useCastingRoom.ts` → `active-context` POST 设置 + `useInboxPoller.ts` 接收
   2. `web/src/app/api/generate-assets/route.ts` → 文件命名规则
   3. `web/src/app/api/extension/push-asset/route.ts` → 文件命名规则
   4. `web/viral-shorts-extension/content.js` → `fetchTargetId()` 显示名映射
@@ -114,11 +114,11 @@ Chrome 扩展（`content.js`）及后端自动生成文件时，必须严格遵�
 - **修复**：
   1. `push-asset/route.ts`：返回的 URL 追加 `?v=${Date.now()}` 缓存破坏参数。
   2. `serve/[...path]/route.ts`：缓存策略从 `immutable` 改为 `must-revalidate` + ETag。
-  3. `ProjectContext.tsx`：加载已保存 URL 时自动追加新的缓存破坏时间戳。
+  3. `useProjectStore.ts`：加载已保存 URL 时自动调用 `getAssetUrlWithCacheBust` 追加新的缓存破坏时间戳。
 - **铁律**：
   - **可覆盖的文件绝对不能用 `immutable` 缓存**！`immutable` 只适用于内容哈希作为文件名的场景（如 `file.abc123.js`）。
   - 如果文件名是确定性的（同名覆盖），必须使用 `?v=timestamp` 或内容哈希来绕过缓存。
-  - **涉及文件**：`push-asset/route.ts`、`serve/[...path]/route.ts`、`ProjectContext.tsx`
+  - **涉及文件**：`push-asset/route.ts`、`serve/[...path]/route.ts`、`useProjectStore.ts`
 
 ### 踩坑 8：Chrome 扩展 scroll capture 事件导致提取按钮静默失效（2026-04-24 修复）
 - **现象**：在 Flow 页面悬停图片时按钮正常出现，点击"提取落盘"后**没有任何反应**——不报错、不弹窗、不显示任何状态变化，完全静默失败。

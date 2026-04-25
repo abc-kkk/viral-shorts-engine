@@ -1,35 +1,11 @@
 import { useCallback } from 'react';
 import { fetchApi } from './useProjectState';
-import type { ProjectStateReturn } from './useProjectState';
 import { toast } from '../toast';
+import { useProjectStore } from '../store/useProjectStore';
 
-type CastingRoomState = Pick<ProjectStateReturn,
-  'projectId' | 'aiProvider' | 'artStyle' | 'flowUrl' | 'useHitlMode' |
-  'locationPrompt' | 'setLocationPrompt' | 'setLocationImage' | 'setIsProcessingLocation' |
-  'characters' | 'characterPrompts' | 'setCharacterPrompts' | 'setCharacterImages' | 'setProcessingChars' |
-  'sceneLocationPrompts' | 'setSceneLocationPrompts' | 'setSceneLocationImages' | 'setProcessingScene'
->;
-
-export function useCastingRoom(state: CastingRoomState, getFullScriptContext: () => string) {
-  const {
-    projectId,
-    aiProvider,
-    artStyle,
-    flowUrl,
-    useHitlMode,
-    locationPrompt, setLocationPrompt,
-    setLocationImage,
-    setIsProcessingLocation,
-    characters,
-    characterPrompts, setCharacterPrompts,
-    setCharacterImages,
-    setProcessingChars,
-    sceneLocationPrompts, setSceneLocationPrompts,
-    setSceneLocationImages,
-    setProcessingScene,
-  } = state;
-
+export function useCastingRoom(getFullScriptContext: () => string) {
   const handleGenerateLocationPrompt = useCallback(async (sceneComposition?: string) => {
+    const { aiProvider, artStyle, setLocationPrompt, setIsProcessingLocation } = useProjectStore.getState();
     setIsProcessingLocation('prompt');
     try {
       const data = await fetchApi('/api/generate-prompts', {
@@ -45,9 +21,10 @@ export function useCastingRoom(state: CastingRoomState, getFullScriptContext: ()
     } finally {
       setIsProcessingLocation(null);
     }
-  }, [aiProvider, artStyle, getFullScriptContext, setLocationPrompt, setIsProcessingLocation]);
+  }, [getFullScriptContext]);
 
   const generateLocationImage = useCallback(async (referenceKeywords?: string[]) => {
+    const { locationPrompt, projectId, flowUrl, useHitlMode, setLocationImage, setIsProcessingLocation } = useProjectStore.getState();
     if (!locationPrompt) return toast.warning("请先生成场景视觉提示词");
     setIsProcessingLocation('image');
     try {
@@ -69,9 +46,10 @@ export function useCastingRoom(state: CastingRoomState, getFullScriptContext: ()
     } finally {
       setIsProcessingLocation(null);
     }
-  }, [locationPrompt, flowUrl, projectId, useHitlMode, setLocationImage, setIsProcessingLocation]);
+  }, []);
 
   const handleGenerateSceneLocationPrompt = useCallback(async (sceneIndex: number, sceneComposition?: string) => {
+    const { aiProvider, artStyle, setProcessingScene, setSceneLocationPrompts } = useProjectStore.getState();
     setProcessingScene((p: any) => ({ ...p, [sceneIndex]: 'action' }));
     try {
       const data = await fetchApi('/api/generate-prompts', {
@@ -87,9 +65,10 @@ export function useCastingRoom(state: CastingRoomState, getFullScriptContext: ()
     } finally {
       setProcessingScene((p: any) => ({ ...p, [sceneIndex]: null }));
     }
-  }, [aiProvider, artStyle, getFullScriptContext, setProcessingScene, setSceneLocationPrompts]);
+  }, [getFullScriptContext]);
 
   const generateSceneLocationImage = useCallback(async (sceneIndex: number, referenceKeywords?: string[]) => {
+    const { sceneLocationPrompts, projectId, flowUrl, useHitlMode, setProcessingScene, setSceneLocationImages } = useProjectStore.getState();
     const prompt = sceneLocationPrompts[sceneIndex];
     if (!prompt) return toast.warning("请先生成该幕场景视觉提示词");
     setProcessingScene((p: any) => ({ ...p, [sceneIndex]: 'action' }));
@@ -113,9 +92,10 @@ export function useCastingRoom(state: CastingRoomState, getFullScriptContext: ()
     } finally {
       setProcessingScene((p: any) => ({ ...p, [sceneIndex]: null }));
     }
-  }, [sceneLocationPrompts, flowUrl, projectId, useHitlMode, setProcessingScene, setSceneLocationImages]);
+  }, []);
 
   const handleGenerateCharacterPrompt = useCallback(async (index: number, sheetElements?: string) => {
+    const { aiProvider, artStyle, characters, setProcessingChars, setCharacterPrompts } = useProjectStore.getState();
     setProcessingChars((p: any) => ({ ...p, [index]: 'prompt' }));
     try {
       const char = characters[index];
@@ -134,9 +114,10 @@ export function useCastingRoom(state: CastingRoomState, getFullScriptContext: ()
     } finally {
       setProcessingChars((p: any) => ({ ...p, [index]: null }));
     }
-  }, [aiProvider, characters, artStyle, getFullScriptContext, setProcessingChars, setCharacterPrompts]);
+  }, [getFullScriptContext]);
 
   const generateCastingImage = useCallback(async (index: number) => {
+    const { characterPrompts, projectId, flowUrl, useHitlMode, characters, setProcessingChars, setCharacterImages } = useProjectStore.getState();
     if (!characterPrompts[index]) return toast.warning("请先生成或填写视觉提示词");
     setProcessingChars((p: any) => ({ ...p, [index]: 'image' }));
     try {
@@ -150,7 +131,7 @@ export function useCastingRoom(state: CastingRoomState, getFullScriptContext: ()
     } finally {
       setProcessingChars((p: any) => ({ ...p, [index]: null }));
     }
-  }, [characters, characterPrompts, flowUrl, projectId, useHitlMode, setProcessingChars, setCharacterImages]);
+  }, []);
 
   return {
     handleGenerateLocationPrompt,

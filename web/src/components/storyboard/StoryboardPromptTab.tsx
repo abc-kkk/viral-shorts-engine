@@ -2,16 +2,19 @@
 
 import React from 'react';
 import { useProject } from '@/lib/ProjectContext';
+import { useProjectStore } from '@/lib/store/useProjectStore';
 
 export default function StoryboardPromptTab() {
-  const {
-    activeSceneIndex,
-    sceneStartImagePrompts, setSceneStartImagePrompts,
-    sceneImagePrompts, setSceneImagePrompts,
-    sceneVideoPrompts, setSceneVideoPrompts,
-    processingScene,
-    handleGenerateActionPrompt,
-  } = useProject();
+  const { handleGenerateActionPrompt } = useProject();
+
+  const activeSceneIndex = useProjectStore(s => s.activeSceneIndex);
+  const sceneStartImagePrompts = useProjectStore(s => s.sceneStartImagePrompts);
+  const setSceneStartImagePrompts = useProjectStore(s => s.setSceneStartImagePrompts);
+  const sceneImagePrompts = useProjectStore(s => s.sceneImagePrompts);
+  const setSceneImagePrompts = useProjectStore(s => s.setSceneImagePrompts);
+  const sceneVideoPrompts = useProjectStore(s => s.sceneVideoPrompts);
+  const setSceneVideoPrompts = useProjectStore(s => s.setSceneVideoPrompts);
+  const processingScene = useProjectStore(s => s.processingScene);
 
   const isFirstScene = activeSceneIndex === 0;
 

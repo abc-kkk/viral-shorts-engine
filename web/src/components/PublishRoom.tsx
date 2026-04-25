@@ -3,13 +3,17 @@
 import React, { useState } from 'react';
 import { useProject } from '@/lib/ProjectContext';
 import { toast } from '@/lib/toast';
+import { useProjectStore } from '@/lib/store/useProjectStore';
 
 export default function PublishRoom() {
   const {
     publishInfo, setPublishInfo, getFullScriptContext,
-    coverPrompts, coverImages, processingCovers,
     handleGenerateCoverPrompt, handleGenerateCoverAsset
   } = useProject();
+
+  const coverPrompts = useProjectStore(s => s.coverPrompts);
+  const coverImages = useProjectStore(s => s.coverImages);
+  const processingCovers = useProjectStore(s => s.processingCovers);
 
   const [isGeneratingPublish, setIsGeneratingPublish] = useState(false);
 

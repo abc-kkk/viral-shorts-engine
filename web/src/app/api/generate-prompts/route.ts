@@ -66,7 +66,7 @@ export async function POST(req: Request) {
         sceneLocationToken: sceneLocationToken || '场景',
         startLayoutToken: startLayoutToken || '',
         endLayoutToken: endLayoutToken || '',
-        anchorInstruction: `- **【极度致命：场景皮肉与站位骨架锚点约束】**\n   - 对于首帧(startImagePrompt)，你必须一字不差地以这句开头：\`${startLayoutToken ? `根据 {@${startLayoutToken}} 的人物站位比例，在 {@${sceneLocationToken || '场景'}} 中，...` : `在 {@${sceneLocationToken || '场景'}} 中，...`}\`\n   - 对于尾帧(imagePrompt)，你必须一字不差地以这句开头：\`${endLayoutToken ? `根据 {@${endLayoutToken}} 的人物站位比例，在 {@${sceneLocationToken || '场景'}} 中，...` : `在 {@${sceneLocationToken || '场景'}} 中，...`}\`\n   - 绝对不准自己发明背景词汇！少一个字或多一个标签都不行！`,
+        anchorInstruction: `- **【极度致命：场景皮肉与站位骨架锚点约束】**\n   - 对于首帧(startImagePrompt)，你必须一字不差地以这句开头：\`${startLayoutToken ? `根据 {@${startLayoutToken}} 的人物站位比例，在 {@${sceneLocationToken || '场景'}} 中，...` : `在 {@${sceneLocationToken || '场景'}} 中，...`}\`\n   - 对于尾帧(imagePrompt)，你必须一字不差地以这句开头：\`${endLayoutToken ? `根据 {@${endLayoutToken}} 的人物站位比例，在 {@${sceneLocationToken || '场景'}} 中，...` : `在 {@${sceneLocationToken || '场景'}} 中，...`}\`\n   - 绝对不准自己发明背景词汇！即使上一镜使用了其他的场景标签（如 {@场景_S4}），本镜也必须严格使用本镜专属的 {@${sceneLocationToken || '场景'}}！`,
         sceneIndexPlusOne: (sceneIndex !== undefined ? sceneIndex + 1 : 1).toString(),
         totalScenes: (totalScenes || 1).toString(),
         speakerName: (actionHint === '字卡画面描述' || dialogue === '字卡上的文字') ? '字卡' : 'Character',
@@ -103,7 +103,7 @@ export async function POST(req: Request) {
             : '- "imagePrompt": 该场景的【尾帧】静态图提示词（中文）——描述视频结束时的画面状态\n  （首帧会自动使用上一个场景的尾帧，你不需要生成）';
             
         variables.continuationRequirement = !isFirstScene
-            ? `【场景连贯性（极其重要！）】\n这是第 ${sceneIndex + 1} 个镜头（共 ${totalScenes} 个）。你的首帧会自动使用上一个镜头的尾帧。\n因此你的 "imagePrompt"（本镜尾帧）和 "videoPrompt" 必须与上一个镜头的状态保持严格连贯！\n上一个镜头的提示词如下，请仔细阅读并确保人物状态、场景细节、道具位置的延续性：\n---\n上一镜尾帧提示词：${previousImagePrompt || '（无）'}\n上一镜视频提示词：${previousVideoPrompt || '（无）'}\n---\n你必须在 videoPrompt 开头明确声明"延续上一段视频的人物、空间与时间线"，并逐条复述关键场景元素（家具位置、人物穿着、发型状态、道具位置等），确保 AI 不遗忘任何细节。`
+            ? `【场景连贯性（极其重要！）】\n这是第 ${sceneIndex + 1} 个镜头（共 ${totalScenes} 个）。你的首帧会自动使用上一个镜头的尾帧。\n因此你的 "imagePrompt"（本镜尾帧）和 "videoPrompt" 必须与上一个镜头的状态保持严格连贯！\n上一个镜头的提示词如下，请仔细阅读并确保人物状态、场景细节、道具位置的延续性：\n---\n上一镜尾帧提示词：${previousImagePrompt || '（无）'}\n上一镜视频提示词：${previousVideoPrompt || '（无）'}\n---\n你必须在 videoPrompt 开头明确声明"延续上一段视频的人物、空间与时间线"，并逐条复述关键场景元素（家具位置、人物穿着、发型状态、道具位置等），确保 AI 不遗忘任何细节。注意：如果上一镜使用了类似 {@场景_S4} 的标签，**请不要盲目复制**，本镜的开头必须严格遵守【场景皮肉与站位骨架锚点约束】中的标签要求！`
             : '';
             
         variables.titleCardStartPrompt = isFirstScene ? '"startImagePrompt": "纯黑色背景，画面中央无任何内容，静默等待文字出现。",' : '';
