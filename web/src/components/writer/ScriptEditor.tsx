@@ -77,32 +77,43 @@ export default function ScriptEditor() {
             />
           </div>
 
-          <div className="mt-4 flex gap-3">
+          <div className="mt-4 grid grid-cols-2 gap-3">
             <button
               onClick={handleGenerateScript}
               disabled={isGeneratingScript || isIteratingScript}
-              className="px-4 py-3 bg-neutral-800/50 text-neutral-400 border border-neutral-700 rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-neutral-800 hover:text-neutral-300 transition-all cursor-pointer disabled:opacity-40"
+              className="py-3 bg-neutral-800/50 text-neutral-400 border border-neutral-700 rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-neutral-800 hover:text-neutral-300 transition-all cursor-pointer disabled:opacity-40"
               title="推翻当前剧本，从头重新生成"
             >
               {isGeneratingScript ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-              推翻
+              推翻重写
             </button>
             <button
               onClick={handleIterateScript}
               disabled={isGeneratingScript || isIteratingScript || !rawScript.trim()}
-              className="flex-1 py-3 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-blue-600/30 transition-all cursor-pointer disabled:opacity-40"
+              className="py-3 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-blue-600/30 transition-all cursor-pointer disabled:opacity-40"
               title="保留核心结构，仅根据指令和反馈进行重写修改"
             >
               {isIteratingScript ? <RefreshCw className="w-4 h-4 animate-spin" /> : <PenTool className="w-4 h-4" />}
-              AI 修改
+              局部 AI 修改
             </button>
+          </div>
+
+          <div className="mt-3 flex gap-3">
             <button
               onClick={handleReviewScript}
               disabled={isReviewingScript || !rawScript.trim()}
               className="flex-1 py-3 bg-amber-600/20 text-amber-400 border border-amber-500/30 rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-amber-600/30 transition-all cursor-pointer disabled:opacity-40"
             >
-              {isReviewingScript ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {isReviewingScript ? '评审中...' : '提交评审'}
+              {isReviewingScript ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
+              {isReviewingScript ? '评审中...' : '提交毒舌评审'}
+            </button>
+            <button
+              onClick={handleScriptToScenes}
+              disabled={isSplittingScript || !rawScript.trim()}
+              className="flex-[1.5] py-3 bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-emerald-600/30 transition-all cursor-pointer disabled:opacity-40 shadow-lg shadow-emerald-500/10"
+            >
+              {isSplittingScript ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+              直接拆解分镜 ⏩
             </button>
           </div>
         </div>

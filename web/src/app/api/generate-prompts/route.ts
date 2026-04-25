@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import OpenAI from 'openai';
 
 import { getTemplate } from '@/lib/prompts/promptStore';
 import { renderTemplate } from '@/lib/prompts/templateEngine';
@@ -12,14 +11,6 @@ const AI_GATEWAY_URL = process.env.AI_GATEWAY_URL || 'http://localhost:4100';
 export async function POST(req: Request) {
   try {
     const { aiProvider, taskType, theme, characterDetails, actionHint, dialogue, artStyle, fullScriptContext, characterName, allCharactersContext, creativeMode, userDirection, sceneIndex, totalScenes, previousImagePrompt, previousVideoPrompt, sheetElements, sceneComposition, sceneLocationContext, sceneLocationToken, startLayoutToken, endLayoutToken } = await req.json();
-
-    // MiniMax 客户端仅在手动关闭 AI Gateway 模式时需要（目前永远走 Gateway）
-    const apiKey = process.env.MINIMAX_API_KEY || 'not-needed-when-using-gateway';
-
-    const openai = new OpenAI({
-      apiKey: apiKey,
-      baseURL: "https://api.minimax.chat/v1",
-    });
 
     let systemPrompt = "";
     let userPrompt = "";
@@ -121,56 +112,30 @@ export async function POST(req: Request) {
     // 根据项目级别设置决定大模型提供商（默认 gemini）
     const provider = aiProvider || 'gemini';
 
-    if (true) {
-        console.log("\n======================================");
-        console.log(`🚀 [AI Gateway] 开始通过 AI Gateway 跑腿中... 任务类型: ${taskType}, 模型: ${provider}`);
-        console.log("======================================");
+    console.log("\n======================================");
+    console.log(`🚀 [AI Gateway] 开始通过 AI Gateway 跑腿中... 任务类型: ${taskType}, 模型: ${provider}`);
+    console.log("======================================");
 
-        const requiresJson = taskType !== 'script_v2' && taskType !== 'script_iterate' && taskType !== 'cover_prompt';
-        
-        // 通过 HTTP 调用 ai-gateway 的文本生成端点
-        const gatewayRes = await fetch(`${AI_GATEWAY_URL}/api/text/generate`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ systemPrompt, userPrompt, forceJson: requiresJson, provider }),
-        });
-        
-        if (!gatewayRes.ok) {
-          const errBody = await gatewayRes.json().catch(() => ({ error: `Gateway returned ${gatewayRes.status}` }));
-          throw new Error(`AI Gateway Error: ${errBody.error}`);
-        }
-        
-        const gatewayData = await gatewayRes.json();
-        resultText = gatewayData.text;
-
-        console.log("\n======================================");
-        console.log(`✨ [AI Gateway] 网关返回完毕，正在解析...`);
-        console.log("======================================");
-    } else {
-        console.log("\n======================================");
-        console.log(`🎬 [MiniMax] 正在处理其他任务 (${taskType})...`);
-        console.log("======================================");
-
-        const stream = await openai.chat.completions.create({
-          model: 'MiniMax-M2.7', 
-          messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt }
-          ],
-          temperature: 0.8,
-          stream: true
-        });
-
-        for await (const chunk of stream) {
-          const content = chunk.choices[0]?.delta?.content || "";
-          process.stdout.write(content);
-          resultText += content;
-        }
-
-        console.log("\n======================================");
-        console.log(`✨ [MiniMax] 任务 (${taskType}) 输出完毕，正在解析...`);
-        console.log("======================================");
+    const requiresJson = taskType !== 'script_v2' && taskType !== 'script_iterate' && taskType !== 'cover_prompt';
+    
+    // 通过 HTTP 调用 ai-gateway 的文本生成端点
+    const gatewayRes = await fetch(`${AI_GATEWAY_URL}/api/text/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ systemPrompt, userPrompt, forceJson: requiresJson, provider }),
+    });
+    
+    if (!gatewayRes.ok) {
+      const errBody = await gatewayRes.json().catch(() => ({ error: `Gateway returned ${gatewayRes.status}` }));
+      throw new Error(`AI Gateway Error: ${errBody.error}`);
     }
+    
+    const gatewayData = await gatewayRes.json();
+    resultText = gatewayData.text;
+
+    console.log("\n======================================");
+    console.log(`✨ [AI Gateway] 网关返回完毕，正在解析...`);
+    console.log("======================================");
     
     // script_v2 和 script_iterate 返回纯文本叙事体剧本，不需要 JSON 解析
     if (taskType === 'script_v2' || taskType === 'script_iterate') {

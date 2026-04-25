@@ -71,7 +71,7 @@
 - **实时通信**：纯内存级 `SSE (Server-Sent Events)` 桥接机制，实现 Chrome 插件与 Web 端零延迟数据同步
 - **视频渲染**：`Remotion 4.0` (纯代码驱动视频合成，零卡顿回放)
 - **3D 引擎**：`Three.js` + `React Three Fiber` (构建 Scene Lab 可视化布局编辑器)
-- **AI 大脑接入**：`Vercel AI SDK` (集成 MiniMax、Gemini 等顶级模型)
+- **AI 大脑接入**：`Vercel AI SDK` (集成 Gemini 等顶级模型)
 - **极客级自动化**：`Playwright CDP` (Chrome DevTools Protocol)
   - *独创的“劫持网页流”技术，搭配 Exact-Text 精确文本匹配算法，绕过高昂的 API 费用，直接控制宿主浏览器免密且精准地调用 Nano Banana Pro、Veo 3.1 等顶级生图/视频模型。*
 - **客户端封装**：`Electron` + `electron-builder` (独创 C++ N-API 跨平台穿透算法，支持一键 DMG 部署，以及 GitHub Actions 云端打包 Windows EXE)

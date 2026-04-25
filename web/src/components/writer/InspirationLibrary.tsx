@@ -35,6 +35,7 @@ export default function InspirationLibrary() {
   const userDirection = useProjectStore(s => s.userDirection);
   const setUserDirection = useProjectStore(s => s.setUserDirection);
   const isGeneratingScript = useProjectStore(s => s.isGeneratingScript);
+  const setWriterStep = useProjectStore(s => s.setWriterStep);
 
   const [manualTitle, setManualTitle] = useState('');
   const [manualContent, setManualContent] = useState('');
@@ -252,17 +253,28 @@ export default function InspirationLibrary() {
       </div>
 
       {/* 底部操作栏 */}
-      <button
-        onClick={handleGenerateScript}
-        disabled={isGeneratingScript || isFetchingReddit || !theme.trim()}
-        className="w-full py-4 bg-gradient-to-r from-orange-600/30 to-amber-600/30 text-orange-300 border border-orange-500/30 rounded-xl font-bold text-lg flex justify-center items-center gap-3 hover:from-orange-600/40 hover:to-amber-600/40 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-orange-500/5"
-      >
-        {isGeneratingScript ? (
-          <><RefreshCw className="w-5 h-5 animate-spin" /> AI 疯狂赶稿中...</>
-        ) : (
-          <><Zap className="w-5 h-5" /> 基于灵感生成剧本初稿</>
-        )}
-      </button>
+      <div className="flex gap-4">
+        <button
+          onClick={() => {
+            setTheme('');
+            setWriterStep(2);
+          }}
+          className="px-6 py-4 bg-neutral-800/50 text-neutral-400 border border-neutral-700 rounded-xl font-bold text-lg flex justify-center items-center gap-3 hover:bg-neutral-800 hover:text-neutral-300 transition-all cursor-pointer whitespace-nowrap"
+        >
+          <Clipboard className="w-5 h-5" /> 我有完整剧本
+        </button>
+        <button
+          onClick={handleGenerateScript}
+          disabled={isGeneratingScript || isFetchingReddit || !theme.trim()}
+          className="flex-1 py-4 bg-gradient-to-r from-orange-600/30 to-amber-600/30 text-orange-300 border border-orange-500/30 rounded-xl font-bold text-lg flex justify-center items-center gap-3 hover:from-orange-600/40 hover:to-amber-600/40 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-orange-500/5"
+        >
+          {isGeneratingScript ? (
+            <><RefreshCw className="w-5 h-5 animate-spin" /> AI 疯狂赶稿中...</>
+          ) : (
+            <><Zap className="w-5 h-5" /> 基于灵感生成剧本初稿</>
+          )}
+        </button>
+      </div>
     </div>
   );
 }
