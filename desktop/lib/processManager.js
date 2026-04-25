@@ -13,7 +13,8 @@ function startNextServer(port, gatewayPort) {
 
   const serverEntry = isDev ? null : path.join(serverDir, 'server.js');
   const workspacePath = store.get('workspacePath');
-  const dbPath = path.join(workspacePath, 'viral-shorts.db');
+  console.log('[Main] Resolved Workspace Path:', workspacePath);
+  const dbPath = path.join(workspacePath || '', 'viral-shorts.db');
 
   const env = {
     ...process.env,
@@ -26,9 +27,6 @@ function startNextServer(port, gatewayPort) {
     MINIMAX_API_KEY: store.get('minimaxApiKey') || '',
     MINIMAX_BASE_URL: store.get('minimaxBaseUrl'),
     ELECTRON_RUN_AS_NODE: '1',
-    PRISMA_TEMPLATE_PATH: isDev 
-      ? path.join(__dirname, '../..', 'web', 'prisma', 'template.db')
-      : path.join(process.resourcesPath, 'prisma', 'template.db'),
   };
 
   if (isDev) {
@@ -42,19 +40,8 @@ function startNextServer(port, gatewayPort) {
   } else {
     console.log('[Main] Starting Next.js standalone server...');
 
-    // 首次运行时需要初始化数据库
     if (!fs.existsSync(dbPath)) {
-      console.log('[Main] Initializing SQLite database from template...');
-      try {
-        if (fs.existsSync(env.PRISMA_TEMPLATE_PATH)) {
-          fs.copyFileSync(env.PRISMA_TEMPLATE_PATH, dbPath);
-          console.log('[Main] Database template copied successfully.');
-        } else {
-          console.error('[Main] Template database not found at:', env.PRISMA_TEMPLATE_PATH);
-        }
-      } catch (e) {
-        console.error('[Main] Failed to copy database template:', e);
-      }
+      console.log('[Main] Database not found. Drizzle will initialize it via migrations.');
     }
 
     nextProcess = spawn(process.execPath, [serverEntry], {

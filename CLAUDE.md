@@ -2,26 +2,20 @@
 
 > [!CRITICAL]
 > **DATABASE SCHEMA MIGRATION RULES - READ CAREFULLY**
-> This is an Electron desktop app with an embedded Next.js server. The user's machine will likely NOT have a global Node.js or `npm`/`npx` installed.
+> This project has fully transitioned from Prisma to **Drizzle ORM** with `better-sqlite3`.
 
-## 🚨 ALWAYS REMEMBER WHEN MODIFYING Prisma Schema (`schema.prisma`) 🚨
+## 🚨 ALWAYS REMEMBER WHEN MODIFYING Drizzle Schema (`src/lib/schema.ts`) 🚨
 
-If you ever add, remove, or modify columns in `web/prisma/schema.prisma`, you **MUST** also update the hot-migration script to prevent breaking older databases on the user's local machine.
-
-**Why?**
-The application does **NOT** run `npx prisma db push` or `prisma migrate` automatically on existing databases because it cannot rely on `npx` being available on the host machine. If you change the schema without updating the migration script, Prisma Client will crash with a `no such column` SQL error when it queries the user's existing SQLite database.
+If you add, remove, or modify columns/tables in `web/src/lib/schema.ts`, you **MUST** follow these steps to ensure the changes are applied safely to user databases:
 
 **How to migrate data correctly:**
-1. Open `web/src/lib/db.ts`.
-2. Locate the `runDatabaseMigrations` function.
-3. If you added a new field (e.g. to the `Scene` table), you **MUST** add that field to the `requiredColumns` array (or write a new `db.exec("ALTER TABLE...")` statement).
-4. Example:
-   ```typescript
-   const requiredColumns = [
-     { name: 'yourNewFieldName', type: 'TEXT' } // Add your new column here!
-   ];
-   ```
-5. NEVER rely on Prisma CLI commands for schema migration on the client's end in this project. All schema evolutions on the user side MUST be done natively using `better-sqlite3` `ALTER TABLE` commands inside `db.ts`.
+1. Open and modify `web/src/lib/schema.ts` using Drizzle ORM syntax.
+2. Run `npx drizzle-kit generate` inside the `web` directory. This will automatically generate the corresponding SQL migration files in the `web/drizzle` folder.
+3. **DO NOT** run `npx drizzle-kit push` manually for local user migrations unless you are testing locally. The desktop application automatically handles this at startup.
 
-Failure to follow this rule will cause the user's projects to instantly disappear (render as blank) upon application update due to 500 errors from `/api/state` crashing. 
-DO NOT FORGET THIS!
+**Automatic Migration & Upgrades:**
+- Inside `web/src/lib/db.ts` (`getDb` function), the application automatically executes `migrate(dbInstance, { migrationsFolder })` on startup.
+- There is also a robust legacy upgrade hook in `getDb()` that automatically detects old Prisma databases lacking `__drizzle_migrations`, renames them to `.bak.db`, rebuilds the schema using Drizzle, and seamlessly copies the legacy data over.
+- You **do not** need to write raw `db.exec("ALTER TABLE...")` scripts anymore. Rely on Drizzle's `generate` command and the automated runtime migration logic.
+
+Failure to follow these rules (e.g. modifying `schema.ts` without running `drizzle-kit generate`) will cause Next.js backend errors (like 500s on `/api/state`) when querying fields that don't yet exist in the local SQLite file.

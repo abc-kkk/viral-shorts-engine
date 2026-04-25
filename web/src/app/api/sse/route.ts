@@ -1,9 +1,11 @@
-import { getPrisma } from '@/lib/db';
+import { getDb } from '@/lib/db';
+import * as schema from '@/lib/schema';
+import { asc, inArray } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
-  const p = getPrisma();
+  const db = getDb();
   
   const stream = new ReadableStream({
     start(controller) {
@@ -13,23 +15,19 @@ export async function GET(req: Request) {
         if (isFetching) return;
         isFetching = true;
         try {
-          const data = await p.$transaction(async (tx: any) => {
-              const messages = await tx.inboxMessage.findMany({
-                  orderBy: { timestamp: 'asc' }
-              });
+          let messages: any[] = [];
+          db.transaction((tx) => {
+              messages = tx.select().from(schema.inboxMessages).orderBy(asc(schema.inboxMessages.timestamp)).all();
               
               if (messages.length > 0) {
-                  await tx.inboxMessage.deleteMany({
-                      where: {
-                          id: { in: messages.map((m: any) => m.id) }
-                      }
-                  });
+                  tx.delete(schema.inboxMessages).where(
+                      inArray(schema.inboxMessages.id, messages.map((m: any) => m.id))
+                  ).run();
               }
-              return messages;
           });
 
-          if (data && data.length > 0) {
-            data.forEach((msg: any) => {
+          if (messages && messages.length > 0) {
+            messages.forEach((msg: any) => {
               const item = {
                   ...msg,
                   meta: msg.meta ? JSON.parse(msg.meta) : undefined

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getPrisma } from '@/lib/db';
+import { getDb } from '@/lib/db';
+import * as schema from '@/lib/schema';
+import { eq } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,8 +17,8 @@ export async function OPTIONS() {
 
 export async function GET() {
   try {
-    const p = getPrisma();
-    const state = await p.systemState.findUnique({ where: { key: 'active-context' } });
+    const db = getDb();
+    const state = db.select().from(schema.systemStates).where(eq(schema.systemStates.key, 'active-context')).get();
     if (!state) {
       return NextResponse.json({ success: true, data: null }, { headers: corsHeaders });
     }
@@ -30,12 +32,14 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const p = getPrisma();
-    await p.systemState.upsert({
-      where: { key: 'active-context' },
-      create: { key: 'active-context', value: JSON.stringify(body) },
-      update: { value: JSON.stringify(body) },
-    });
+    const db = getDb();
+    db.insert(schema.systemStates).values({
+      key: 'active-context',
+      value: JSON.stringify(body)
+    }).onConflictDoUpdate({
+      target: schema.systemStates.key,
+      set: { value: JSON.stringify(body) }
+    }).run();
     return NextResponse.json({ success: true }, { headers: corsHeaders });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500, headers: corsHeaders });

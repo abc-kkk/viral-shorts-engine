@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1777106914159,
+      "tag": "0000_military_sunspot",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1777107998785,
+      "tag": "0001_tiny_ultragirl",
+      "breakpoints": true
+    }
+  ]
+}

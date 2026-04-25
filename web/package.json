@@ -5,15 +5,12 @@
   "scripts": {
     "dev": "next dev",
     "build:ext": "tsc -p viral-shorts-extension/tsconfig.json && esbuild viral-shorts-extension/src/content.ts --bundle --outfile=viral-shorts-extension/dist/content.js",
-    "build:db-template": "cross-env DATABASE_URL=\"file:./prisma/template.db\" npx prisma db push --accept-data-loss",
-    "build": "npx prisma generate && npm run build:ext && next build",
+    "build": "npx drizzle-kit generate && npm run build:ext && next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "cross-env DATABASE_URL=\"file:./dev.db\" npx prisma db push"
+    "postinstall": "npx drizzle-kit generate"
   },
   "dependencies": {
-    "@prisma/adapter-better-sqlite3": "^7.8.0",
-    "@prisma/client": "^7.8.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.0",
     "@remotion/cli": "4.0.448",
@@ -21,12 +18,12 @@
     "@types/three": "^0.184.0",
     "ai": "^6.0.168",
     "better-sqlite3": "^11.8.1",
+    "drizzle-orm": "^0.45.2",
     "ffmpeg-static": "^5.3.0",
     "lodash": "^4.18.1",
     "lucide-react": "1.8.0",
     "next": "16.2.4",
     "openai": "^6.34.0",
-    "prisma": "^7.8.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "remotion": "4.0.448",
@@ -42,10 +39,12 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "cross-env": "^10.1.0",
+    "drizzle-kit": "^0.31.10",
     "esbuild": "^0.28.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }

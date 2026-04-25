@@ -9,7 +9,7 @@
     "start": "electron .",
     "build:server": "cd ../web && npm run build",
     "build:gateway": "cd ../ai-gateway && npm install && npx tsc && npm prune --production",
-    "prebuild": "cd ../web && npm run build:db-template && cd ../desktop && npm run build:server && npm run build:gateway",
+    "prebuild": "cd ../web && npm run build && cd ../desktop && npm run build:gateway",
     "pack": "electron-builder --dir",
     "dist:mac": "electron-builder --mac",
     "dist:win": "electron-builder --win",
@@ -56,8 +56,8 @@
         "to": "server/public"
       },
       {
-        "from": "../web/prisma",
-        "to": "prisma"
+        "from": "../web/drizzle",
+        "to": "drizzle"
       },
       {
         "from": "../ai-gateway",
@@ -115,8 +115,7 @@
       "createStartMenuShortcut": true
     },
     "asarUnpack": [
-      "node_modules/better-sqlite3/**",
-      "node_modules/@prisma/**"
+      "node_modules/better-sqlite3/**"
     ]
   }
 }

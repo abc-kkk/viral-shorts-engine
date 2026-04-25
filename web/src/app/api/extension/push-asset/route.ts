@@ -4,7 +4,9 @@ import { generateAssetFilename, getAssetTypeForTarget, getAssetUrlWithCacheBust 
 import type { TargetType, InboxItem } from '@/lib/types';
 import fs from 'fs';
 import path from 'path';
-import { getPrisma } from '@/lib/db';
+import * as schema from '@/lib/schema';
+import { eq } from 'drizzle-orm';
+import { getDb } from '@/lib/db';
 
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
@@ -28,8 +30,8 @@ export async function POST(req: Request) {
     if (!mediaUrl && !base64Data) return NextResponse.json({ error: 'Missing media source' }, { status: 400, headers: corsHeaders });
 
     // Read active context to know where to save
-    const p = getPrisma();
-    const state = await p.systemState.findUnique({ where: { key: 'active-context' } });
+    const db = getDb();
+    const state = db.select().from(schema.systemStates).where(eq(schema.systemStates.key, 'active-context')).get();
     if (!state) {
         throw new Error('No active project context found. Please click something in Studio first.');
     }
@@ -86,16 +88,14 @@ export async function POST(req: Request) {
     console.log(`[Extension] Saved: ${filepath}`);
 
     // Push to inbox array (Database-based IPC)
-    await p.inboxMessage.create({
-        data: {
-            url: localUrl,
-            mediaType,
-            targetType,
-            index,
-            referenceKeyword,
-            meta: meta ? JSON.stringify(meta) : null
-        }
-    });
+    db.insert(schema.inboxMessages).values({
+        url: localUrl,
+        mediaType,
+        targetType,
+        index,
+        referenceKeyword,
+        meta: meta ? JSON.stringify(meta) : null
+    }).run();
 
     return NextResponse.json({ success: true, url: localUrl }, { headers: corsHeaders });
 

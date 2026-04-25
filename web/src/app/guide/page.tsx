@@ -125,6 +125,22 @@ export default function GuidePage() {
           </p>
         </div>
 
+        {/* Video Tutorial */}
+        <div className="bg-[#fb7299]/10 border border-[#fb7299]/30 rounded-2xl p-6 flex flex-col sm:flex-row items-center gap-6 justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-[#fb7299]/20 flex items-center justify-center shrink-0">
+              <Monitor className="w-6 h-6 text-[#fb7299]" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white mb-1">作者亲自录制的保姆级视频教程</h3>
+              <p className="text-sm text-neutral-400">如果您是第一次使用，强烈建议先花几分钟看完视频，比看文字说明直观 100 倍！</p>
+            </div>
+          </div>
+          <a href="https://www.bilibili.com/video/BV1waoDBXEwv" target="_blank" rel="noopener noreferrer" className="shrink-0 flex items-center gap-2 px-6 py-3 bg-[#fb7299] hover:bg-[#fb7299]/90 text-white font-bold rounded-xl transition-colors shadow-lg shadow-[#fb7299]/20">
+            <ExternalLink className="w-4 h-4" /> 去 B 站观看
+          </a>
+        </div>
+
         <Tip>
           <strong>桌面版更新提示：</strong>Windows 客户端用户，请在屏幕右下角任务栏的引擎小图标上<strong>右键点击</strong>，选择<strong>「检测更新」</strong>，以确保您使用的是最新版本。
         </Tip>

@@ -1,13 +1,15 @@
 import fs from 'fs';
 import path from 'path';
 import { exec, execSync } from 'child_process';
-import { PrismaClient } from '@prisma/client';
-import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import Database from 'better-sqlite3';
 import { merge } from 'lodash';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import { eq, asc, inArray } from 'drizzle-orm';
+import * as schema from './schema';
 
 // ========================================
-// 工作空间路径 & Prisma 初始化
+// 工作空间路径 & Drizzle 初始化
 // ========================================
 
 export function getWorkspacePath(): string {
@@ -25,102 +27,111 @@ export function getProjectDir(projectId: string): string {
   return path.join(getWorkspacePath(), projectId);
 }
 
-function runDatabaseMigrations(dbPath: string) {
-  try {
-    const db = new Database(dbPath, { fileMustExist: true });
-    
-    const stmt = db.prepare("PRAGMA table_info(Scene)");
-    const columns = stmt.all() as { name: string }[];
-    const columnNames = columns.map(c => c.name);
+let dbInstance: ReturnType<typeof drizzle> | null = null;
 
-    const requiredColumns = [
-      { name: 'startLayoutPrompt', type: 'TEXT' },
-      { name: 'endLayoutPrompt', type: 'TEXT' },
-      { name: 'imageRef', type: 'TEXT' },
-      { name: 'startImageRef', type: 'TEXT' },
-    ];
-
-    let migrated = false;
-    for (const col of requiredColumns) {
-      if (!columnNames.includes(col.name)) {
-        console.log(`[DB Migration] Adding missing column ${col.name} to Scene table...`);
-        db.exec(`ALTER TABLE Scene ADD COLUMN ${col.name} ${col.type}`);
-        migrated = true;
-      }
-    }
-
-    if (migrated) {
-      console.log('[DB Migration] Database schema updated successfully.');
-    }
-
-    db.close();
-  } catch (e) {
-    console.error('[DB Migration] Failed to run migrations:', e);
-  }
-}
-
-let prisma: PrismaClient;
-
-export function getPrisma() {
-  if (!prisma) {
+export function getDb() {
+  if (!dbInstance) {
     ensureWorkspace();
     const dbPath = path.join(getWorkspacePath(), 'viral-shorts.db');
     
-    let shouldInitialize = false;
-    if (!fs.existsSync(dbPath) || fs.statSync(dbPath).size === 0) {
-      shouldInitialize = true;
-    } else {
-      // 检查表结构是否完整（针对旧版本残留的半成品数据库）
-      try {
-        const db = new Database(dbPath, { fileMustExist: true });
-        const stmt = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='Project'");
-        const row = stmt.get();
-        db.close();
-        if (!row) {
-          console.warn('[DB] Existing database is corrupted or incomplete. Re-initializing...');
-          shouldInitialize = true;
-        } else {
-          // 检查并执行轻量级表结构迁移，补齐新版本新增的字段
-          runDatabaseMigrations(dbPath);
-        }
-      } catch (e) {
-        console.warn('[DB] Failed to read existing database. Re-initializing...', e);
-        shouldInitialize = true;
-      }
-    }
+    // 打开 SQLite
+    let sqlite = new Database(dbPath);
+    
+    // ==========================================
+    // 自动热迁移：检测旧的 Prisma 数据库并安全升级
+    // ==========================================
+    try {
+      const hasDrizzleMigrations = sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='__drizzle_migrations'").get();
+      const hasProjectTable = sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='Project'").get();
 
-    if (shouldInitialize) {
-      console.log('[DB] Initializing new SQLite database with schema...');
-      
+      if (!hasDrizzleMigrations && hasProjectTable) {
+        console.log('[DB] 发现旧版本 Prisma 数据库！正在执行无损自动化结构升级...');
+        sqlite.close();
+        
+        const bakPath = dbPath.replace('.db', '.bak.db');
+        if (fs.existsSync(bakPath)) fs.unlinkSync(bakPath);
+        fs.renameSync(dbPath, bakPath);
+
+        sqlite = new Database(dbPath); // 重新建立一个全新的空 DB
+        dbInstance = drizzle(sqlite, { schema });
+        
+        // 让 Drizzle 按照最新 schema 创建完整的表
+        const isProd = process.env.NODE_ENV === 'production';
+        const migrationsFolder = isProd ? path.join(process.cwd(), 'drizzle') : path.join(process.cwd(), 'drizzle');
+        migrate(dbInstance, { migrationsFolder });
+
+        // 将旧数据按字段对应关系拷贝过来
+        sqlite.prepare(`ATTACH DATABASE '${bakPath}' AS old_db`).run();
+        
+        const copyTable = (tableName: string, cols: string[], oldCols?: string[]) => {
+          try {
+            const colStr = cols.map(c => `"${c}"`).join(', ');
+            const oldColStr = (oldCols || cols).map(c => `"${c}"`).join(', ');
+            sqlite.prepare(`INSERT INTO "${tableName}" (${colStr}) SELECT ${oldColStr} FROM old_db."${tableName}"`).run();
+            console.log(`[DB] 成功迁移表数据: ${tableName}`);
+          } catch(e: any) {
+            console.error(`[DB] 迁移表数据失败 ${tableName}:`, e.message);
+          }
+        };
+
+        copyTable('Project', [
+          'id', 'projectName', 'createdAt', 'updatedAt', 'currentPhase', 'artStyle', 'flowUrl', 'theme', 'aiProvider',
+          'useHitlMode', 'writerStep', 'creativeMode', 'rawScript', 'scriptIteration', 'userDirection', 'publishInfo',
+          'inspirations', 'scriptReview', 'locationPrompt', 'locationImage', 'activeSceneIndex'
+        ]);
+        
+        copyTable('Character', ['id', 'projectId', 'name', 'persona', 'voiceName', 'prompt', 'imageUrl']);
+        copyTable('Cover', ['id', 'projectId', 'ratio', 'prompt', 'imageUrl']);
+        copyTable('InboxMessage', ['id', 'url', 'mediaType', 'targetType', 'referenceKeyword', 'index', 'meta', 'timestamp']);
+        
+        copyTable('Scene', [
+          'id', 'projectId', 'sceneIndex', 'speaker', 'dialogue', 'actionHint', 'locationPrompt', 
+          'startLayoutPrompt', 'imagePrompt', 'videoPrompt', 'startImagePrompt', 'locationImage', 
+          'imageAsset', 'startImageAsset', 'videoAsset', 'audioAsset', 'charactersInScene', 
+          'duration', 'videoTrimStart', 'videoTrimEnd', 'audioDelay'
+        ], [
+          'id', 'projectId', 'sceneIndex', 'speaker', 'dialogue', 'actionHint', 'locationPrompt', 
+          'actionLayoutPrompt', 'imagePrompt', 'videoPrompt', 'startImagePrompt', 'locationImage', 
+          'imageAsset', 'startImageAsset', 'videoAsset', 'audioAsset', 'charactersInScene', 
+          'duration', 'videoTrimStart', 'videoTrimEnd', 'audioDelay'
+        ]);
+
+        sqlite.prepare(`DETACH DATABASE old_db`).run();
+        console.log('[DB] 旧版本数据库升级圆满完成！');
+        
+        return dbInstance;
+      }
+    } catch (e) {
+      console.error('[DB] 旧版本数据库检测/升级失败:', e);
+    }
+    
+    // 初始化 Drizzle (常规情况)
+    dbInstance = drizzle(sqlite, { schema });
+
+    console.log('[DB] Running Drizzle migrations...');
+    try {
+      // 在 Next.js 运行目录寻找 drizzle 文件夹
       const isProd = process.env.NODE_ENV === 'production';
-      let templatePath = '';
-      
-      if (isProd) {
-        templatePath = process.env.PRISMA_TEMPLATE_PATH || '';
+      const migrationsFolder = isProd 
+        ? path.join(process.cwd(), 'drizzle') 
+        : path.join(process.cwd(), 'drizzle');
+        
+      if (fs.existsSync(migrationsFolder)) {
+        migrate(dbInstance, { migrationsFolder });
+        console.log('[DB] Migrations applied successfully.');
       } else {
-        templatePath = path.join(process.cwd(), 'prisma', 'template.db');
+        console.warn(`[DB] Migrations folder not found at ${migrationsFolder}. Run drizzle-kit generate.`);
       }
-
-      if (templatePath && fs.existsSync(templatePath)) {
-        console.log(`[DB] Copying template database from ${templatePath}`);
-        fs.copyFileSync(templatePath, dbPath);
-      } else {
-        if (isProd) {
-          throw new Error(`[DB] FATAL ERROR: Template database not found at ${templatePath}. Cannot initialize database in production!`);
-        }
-        console.log(`[DB] Template not found. Executing prisma db push (dev mode only)...`);
-        fs.writeFileSync(dbPath, ''); // Ensure the file is at least created before pushing
-        execSync(`npx prisma db push --accept-data-loss`, { 
-          env: { ...process.env, DATABASE_URL: `file:${dbPath}` },
-          stdio: 'inherit'
-        });
-      }
+    } catch (e) {
+      console.error('[DB] Failed to run migrations:', e);
     }
-
-    const adapter = new PrismaBetterSqlite3({ url: `file:${dbPath}` });
-    prisma = new PrismaClient({ adapter });
   }
-  return prisma;
+  return dbInstance;
+}
+
+// 兼容老代码的桩函数，平滑过渡期间可能有用
+export function getPrisma() {
+  throw new Error('getPrisma() has been replaced by getDb() and Drizzle ORM.');
 }
 
 // ========================================
@@ -131,8 +142,8 @@ export async function migrateIfNeeded(projectId: string) {
   const jsonPath = path.join(getProjectDir(projectId), 'project.json');
   if (!fs.existsSync(jsonPath)) return; // No legacy JSON to migrate
   
-  const p = getPrisma();
-  const existing = await p.project.findUnique({ where: { id: projectId } });
+  const db = getDb();
+  const existing = db.select().from(schema.projects).where(eq(schema.projects.id, projectId)).get();
   if (existing) return; // Already in SQLite
   
   console.log(`[DB Migration] Migrating legacy project.json to SQLite for project: ${projectId}`);
@@ -158,39 +169,37 @@ export async function listProjects() {
   const ws = getWorkspacePath();
   const entries = fs.readdirSync(ws, { withFileTypes: true });
   
-  const p = getPrisma();
-  const projects = [];
+  const db = getDb();
+  const resultProjects = [];
 
   for (const entry of entries) {
     if (!entry.isDirectory() || entry.name.startsWith('_')) continue;
     
-    // Auto trigger migration if legacy json exists
     await migrateIfNeeded(entry.name);
     
-    const proj = await p.project.findUnique({ 
-      where: { id: entry.name },
-      include: { characters: true }
-    });
+    const proj = db.select().from(schema.projects).where(eq(schema.projects.id, entry.name)).get();
     
     if (proj) {
+      const chars = db.select().from(schema.characters).where(eq(schema.characters.projectId, proj.id)).all();
+      
       let coverUrl = '';
-      if (proj.characters.length > 0 && proj.characters[0].imageUrl) {
-        coverUrl = proj.characters[0].imageUrl;
+      if (chars.length > 0 && chars[0].imageUrl) {
+        coverUrl = chars[0].imageUrl;
       }
       
-      projects.push({
+      resultProjects.push({
         projectId: proj.id,
         projectName: proj.projectName,
-        createdAt: proj.createdAt.toISOString(),
-        updatedAt: proj.updatedAt.toISOString(),
+        createdAt: new Date(proj.createdAt).toISOString(),
+        updatedAt: new Date(proj.updatedAt).toISOString(),
         currentPhase: proj.currentPhase,
         coverUrl,
       });
     }
   }
 
-  projects.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
-  return projects;
+  resultProjects.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+  return resultProjects;
 }
 
 export async function createProject(projectName: string) {
@@ -207,21 +216,21 @@ export async function createProject(projectName: string) {
     fs.mkdirSync(path.join(projectDir, dir), { recursive: true });
   }
 
-  const p = getPrisma();
-  await p.project.upsert({
-    where: { id: projectId },
-    update: {
-      projectName,
-      currentPhase: 1,
-      artStyle: 'Pixar 3D animated movie, highly detailed, vibrant colors',
-    },
-    create: {
-      id: projectId,
+  const db = getDb();
+  
+  db.insert(schema.projects).values({
+    id: projectId,
+    projectName,
+    currentPhase: 1,
+    artStyle: 'Pixar 3D animated movie, highly detailed, vibrant colors',
+  }).onConflictDoUpdate({
+    target: schema.projects.id,
+    set: {
       projectName,
       currentPhase: 1,
       artStyle: 'Pixar 3D animated movie, highly detailed, vibrant colors',
     }
-  });
+  }).run();
 
   console.log(`[DB] Created/Updated project in SQLite: ${projectId}`);
   return { projectId, projectDir };
@@ -229,10 +238,10 @@ export async function createProject(projectName: string) {
 
 export async function deleteProject(projectId: string): Promise<boolean> {
   const projectDir = getProjectDir(projectId);
-  const p = getPrisma();
+  const db = getDb();
   
   try {
-    await p.project.delete({ where: { id: projectId } });
+    db.delete(schema.projects).where(eq(schema.projects.id, projectId)).run();
   } catch (e) {
     // Ignore if not in DB
   }
@@ -240,7 +249,9 @@ export async function deleteProject(projectId: string): Promise<boolean> {
   if (!fs.existsSync(projectDir)) return true;
 
   return new Promise((resolve) => {
-    const script = `osascript -e 'tell application "Finder" to delete POSIX file "${projectDir}"'`;
+    const script = process.platform === 'darwin' 
+      ? `osascript -e 'tell application "Finder" to delete POSIX file "${projectDir}"'`
+      : `rmdir /s /q "${projectDir}"`;
     exec(script, (err) => {
       if (err) {
         console.error(`[DB] Failed to trash project folder: ${err.message}`);
@@ -264,11 +275,11 @@ export async function renameProject(oldId: string, newName: string): Promise<str
 
   fs.renameSync(oldDir, newDir);
 
-  const p = getPrisma();
-  await p.project.update({
-    where: { id: oldId },
-    data: { id: newId, projectName: newName }
-  });
+  const db = getDb();
+  db.update(schema.projects).set({
+    id: newId,
+    projectName: newName
+  }).where(eq(schema.projects.id, oldId)).run();
 
   return newId;
 }
@@ -278,13 +289,14 @@ export async function renameProject(oldId: string, newName: string): Promise<str
 // ========================================
 
 export async function loadState(projectId: string) {
-  const p = getPrisma();
-  const proj = await p.project.findUnique({
-    where: { id: projectId },
-    include: { characters: { orderBy: { name: 'asc' } }, scenes: { orderBy: { sceneIndex: 'asc' } }, covers: true }
-  });
+  const db = getDb();
+  const proj = db.select().from(schema.projects).where(eq(schema.projects.id, projectId)).get();
 
   if (!proj) return null;
+
+  const projCharacters = db.select().from(schema.characters).where(eq(schema.characters.projectId, projectId)).orderBy(asc(schema.characters.name)).all();
+  const projScenes = db.select().from(schema.scenes).where(eq(schema.scenes.projectId, projectId)).orderBy(asc(schema.scenes.sceneIndex)).all();
+  const projCovers = db.select().from(schema.covers).where(eq(schema.covers.projectId, projectId)).all();
 
   // Reconstruct giant JSON for frontend compatibility
   const state: any = {
@@ -318,13 +330,13 @@ export async function loadState(projectId: string) {
     coverPrompts: {}, coverImages: {}
   };
 
-  proj.characters.forEach((c, i) => {
+  projCharacters.forEach((c, i) => {
     state.characters.push({ name: c.name, persona: c.persona, voiceName: c.voiceName });
     if (c.prompt) state.characterPrompts[i] = c.prompt;
     if (c.imageUrl) state.characterImages[i] = c.imageUrl;
   });
 
-  proj.scenes.forEach(s => {
+  projScenes.forEach(s => {
     const idx = s.sceneIndex;
     state.scriptLines[idx] = { speaker: s.speaker, dialogue: s.dialogue, actionHint: s.actionHint };
     if (s.locationPrompt) state.sceneLocationPrompts[idx] = s.locationPrompt;
@@ -347,7 +359,7 @@ export async function loadState(projectId: string) {
     if (s.startImageRef) state.sceneImageRefs[`start_${idx}`] = s.startImageRef;
   });
 
-  proj.covers.forEach(c => {
+  projCovers.forEach(c => {
     if (c.prompt) state.coverPrompts[c.ratio] = c.prompt;
     if (c.imageUrl) state.coverImages[c.ratio] = c.imageUrl;
   });
@@ -356,18 +368,14 @@ export async function loadState(projectId: string) {
 }
 
 export async function saveState(patch: any, projectId: string) {
-  const p = getPrisma();
+  const db = getDb();
   
   // Create if not exists (for initial migration)
-  const existing = await p.project.findUnique({ where: { id: projectId } });
+  const existing = db.select().from(schema.projects).where(eq(schema.projects.id, projectId)).get();
   if (!existing) {
-    await p.project.create({ data: { id: projectId, projectName: patch.projectName || projectId } });
+    db.insert(schema.projects).values({ id: projectId, projectName: patch.projectName || projectId }).run();
   }
 
-  // To properly handle partial PATCH updates that come as nested objects (e.g. { sceneImages: { "0": "url" } }),
-  // we first load the existing full state, deep merge the patch, and then map back to relational models.
-  // This is the easiest and safest way to handle arbitrary partial updates without a complex schema translator.
-  
   const currentFullState = (await loadState(projectId)) || { characters: [], scriptLines: [] };
   const mergedState = merge({}, currentFullState, patch);
 
@@ -380,10 +388,12 @@ export async function saveState(patch: any, projectId: string) {
   if (mergedState.inspirations !== undefined) projectData.inspirations = JSON.stringify(mergedState.inspirations);
   if (mergedState.scriptReview !== undefined) projectData.scriptReview = JSON.stringify(mergedState.scriptReview);
 
+  projectData.updatedAt = new Date().toISOString();
+
   // Use a transaction for atomic relational updates
-  await p.$transaction(async (tx: any) => {
+  db.transaction((tx) => {
     if (Object.keys(projectData).length > 0) {
-      await tx.project.update({ where: { id: projectId }, data: projectData });
+      tx.update(schema.projects).set(projectData).where(eq(schema.projects.id, projectId)).run();
     }
 
     // Characters
@@ -391,23 +401,23 @@ export async function saveState(patch: any, projectId: string) {
       for (let i = 0; i < mergedState.characters.length; i++) {
         const char = mergedState.characters[i];
         if (!char || !char.name) continue;
-        await tx.character.upsert({
-          where: { projectId_name: { projectId, name: char.name } },
-          create: {
-            projectId,
-            name: char.name,
-            persona: char.persona,
-            voiceName: char.voiceName,
-            prompt: mergedState.characterPrompts?.[i],
-            imageUrl: mergedState.characterImages?.[i],
-          },
-          update: {
+        
+        tx.insert(schema.characters).values({
+          projectId,
+          name: char.name,
+          persona: char.persona,
+          voiceName: char.voiceName,
+          prompt: mergedState.characterPrompts?.[i],
+          imageUrl: mergedState.characterImages?.[i],
+        }).onConflictDoUpdate({
+          target: [schema.characters.projectId, schema.characters.name],
+          set: {
             persona: char.persona,
             voiceName: char.voiceName,
             prompt: mergedState.characterPrompts?.[i],
             imageUrl: mergedState.characterImages?.[i],
           }
-        });
+        }).run();
       }
     }
 
@@ -417,34 +427,33 @@ export async function saveState(patch: any, projectId: string) {
         const line = mergedState.scriptLines[idx];
         if (!line) continue;
         
-        await tx.scene.upsert({
-          where: { projectId_sceneIndex: { projectId, sceneIndex: idx } },
-          create: {
-            projectId,
-            sceneIndex: idx,
-            speaker: line.speaker,
-            dialogue: line.dialogue,
-            actionHint: line.actionHint,
-            locationPrompt: mergedState.sceneLocationPrompts?.[idx],
-            locationImage: mergedState.sceneLocationImages?.[idx],
-            startLayoutPrompt: mergedState.startLayoutPrompts?.[idx],
-            endLayoutPrompt: mergedState.endLayoutPrompts?.[idx],
-            imagePrompt: mergedState.sceneImagePrompts?.[idx],
-            videoPrompt: mergedState.sceneVideoPrompts?.[idx],
-            startImagePrompt: mergedState.sceneStartImagePrompts?.[idx],
-            charactersInScene: mergedState.sceneCharacters?.[idx] ? JSON.stringify(mergedState.sceneCharacters[idx]) : null,
-            duration: mergedState.sceneDurations?.[idx],
-            videoTrimStart: mergedState.sceneVideoTrimStart?.[idx],
-            videoTrimEnd: mergedState.sceneVideoTrimEnd?.[idx],
-            imageAsset: mergedState.sceneImages?.[idx],
-            startImageAsset: mergedState.sceneStartImages?.[idx],
-            videoAsset: mergedState.sceneVideos?.[idx],
-            audioAsset: mergedState.sceneAudio?.[idx],
-            audioDelay: mergedState.sceneAudioDelays?.[idx],
-            imageRef: mergedState.sceneImageRefs?.[idx],
-            startImageRef: mergedState.sceneImageRefs?.[`start_${idx}`],
-          },
-          update: {
+        tx.insert(schema.scenes).values({
+          projectId,
+          sceneIndex: idx,
+          speaker: line.speaker,
+          dialogue: line.dialogue,
+          actionHint: line.actionHint,
+          locationPrompt: mergedState.sceneLocationPrompts?.[idx],
+          locationImage: mergedState.sceneLocationImages?.[idx],
+          startLayoutPrompt: mergedState.startLayoutPrompts?.[idx],
+          endLayoutPrompt: mergedState.endLayoutPrompts?.[idx],
+          imagePrompt: mergedState.sceneImagePrompts?.[idx],
+          videoPrompt: mergedState.sceneVideoPrompts?.[idx],
+          startImagePrompt: mergedState.sceneStartImagePrompts?.[idx],
+          charactersInScene: mergedState.sceneCharacters?.[idx] ? JSON.stringify(mergedState.sceneCharacters[idx]) : null,
+          duration: mergedState.sceneDurations?.[idx],
+          videoTrimStart: mergedState.sceneVideoTrimStart?.[idx],
+          videoTrimEnd: mergedState.sceneVideoTrimEnd?.[idx],
+          imageAsset: mergedState.sceneImages?.[idx],
+          startImageAsset: mergedState.sceneStartImages?.[idx],
+          videoAsset: mergedState.sceneVideos?.[idx],
+          audioAsset: mergedState.sceneAudio?.[idx],
+          audioDelay: mergedState.sceneAudioDelays?.[idx],
+          imageRef: mergedState.sceneImageRefs?.[idx],
+          startImageRef: mergedState.sceneImageRefs?.[`start_${idx}`],
+        }).onConflictDoUpdate({
+          target: [schema.scenes.projectId, schema.scenes.sceneIndex],
+          set: {
             speaker: line.speaker,
             dialogue: line.dialogue,
             actionHint: line.actionHint,
@@ -467,25 +476,24 @@ export async function saveState(patch: any, projectId: string) {
             imageRef: mergedState.sceneImageRefs?.[idx],
             startImageRef: mergedState.sceneImageRefs?.[`start_${idx}`],
           }
-        });
+        }).run();
       }
     }
 
     // Covers
     if (mergedState.coverPrompts) {
       for (const ratio of Object.keys(mergedState.coverPrompts)) {
-        await tx.cover.upsert({
-          where: { projectId_ratio: { projectId, ratio } },
-          create: {
-            projectId, ratio,
-            prompt: mergedState.coverPrompts[ratio],
-            imageUrl: mergedState.coverImages?.[ratio]
-          },
-          update: {
+        tx.insert(schema.covers).values({
+          projectId, ratio,
+          prompt: mergedState.coverPrompts[ratio],
+          imageUrl: mergedState.coverImages?.[ratio]
+        }).onConflictDoUpdate({
+          target: [schema.covers.projectId, schema.covers.ratio],
+          set: {
             prompt: mergedState.coverPrompts[ratio],
             imageUrl: mergedState.coverImages?.[ratio]
           }
-        });
+        }).run();
       }
     }
   });

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getPrisma } from '@/lib/db';
+import { getDb } from '@/lib/db';
+import * as schema from '@/lib/schema';
+import { asc, inArray } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,26 +17,22 @@ export async function OPTIONS() {
 
 export async function GET() {
   try {
-    const p = getPrisma();
+    const db = getDb();
     
     // Use transaction to fetch and delete atomically
-    const data = await p.$transaction(async (tx: any) => {
-        const messages = await tx.inboxMessage.findMany({
-            orderBy: { timestamp: 'asc' }
-        });
+    let messages: any[] = [];
+    db.transaction((tx) => {
+        messages = tx.select().from(schema.inboxMessages).orderBy(asc(schema.inboxMessages.timestamp)).all();
         
         if (messages.length > 0) {
-            await tx.inboxMessage.deleteMany({
-                where: {
-                    id: { in: messages.map((m: any) => m.id) }
-                }
-            });
+            tx.delete(schema.inboxMessages).where(
+                inArray(schema.inboxMessages.id, messages.map((m: any) => m.id))
+            ).run();
         }
-        return messages;
     });
     
     // Parse meta JSON strings back to objects for the client
-    const formattedData = data.map((msg: any) => ({
+    const formattedData = messages.map((msg: any) => ({
         ...msg,
         meta: msg.meta ? JSON.parse(msg.meta) : undefined
     }));
