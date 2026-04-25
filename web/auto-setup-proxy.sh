@@ -27,19 +27,23 @@ fi
 # 2. 检查登录状态
 if ! gh auth status &> /dev/null; then
     echo -e "${YELLOW}⚠️ 您尚未登录 GitHub CLI，即将开始授权登录流程...${NC}"
-    gh auth login -w
+    gh auth login -w -s codespace
 fi
 
 # 3. 创建 Codespace
 echo -e "\n${GREEN}[1/4] 正在为您免费申请 GitHub 美国云服务器 (Codespace)...${NC}"
 echo -e "${YELLOW}(此过程通常需要 1-2 分钟，请耐心等待，切勿关闭窗口)${NC}"
 
-# 获取当前仓库名称，默认使用 abc-kkk/viral-shorts-engine
-REPO="abc-kkk/viral-shorts-engine"
+# 自动获取当前登录的 GitHub 用户名
+USERNAME=$(gh api user -q ".login")
+REPO="$USERNAME/proxy-tunnel"
 
+echo -e "${YELLOW}正在为您在账号 $USERNAME 下初始化隧道环境...${NC}"
+# 尝试静默创建空仓库（如果已存在则忽略报错）
+gh repo create $REPO --public --add-readme >/dev/null 2>&1 || true
 # 使用 gh api 尝试获取默认环境，或者直接用默认配置创建
 # 使用 awk 过滤掉进度条输出，提取纯粹的 codespace 名字
-CS_NAME=$(gh cs create -R $REPO --idle-timeout 120m --status | grep "Name:" | awk '{print $2}')
+CS_NAME=$(gh cs create -R $REPO --machine basicLinux32gb --idle-timeout 120m --status | grep "Name:" | awk '{print $2}')
 
 if [ -z "$CS_NAME" ]; then
     echo -e "${RED}❌ 云服务器申请失败，请检查网络或 GitHub 账户状态。${NC}"

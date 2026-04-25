@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Film, Clock, Layers, Trash2, FolderOpen, Settings, BookOpen } from 'lucide-react';
+import { Plus, Film, Clock, Layers, Trash2, FolderOpen, Settings, BookOpen, Coffee } from 'lucide-react';
 
 interface ProjectInfo {
   projectId: string;
@@ -25,6 +25,7 @@ export default function ProjectList() {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
+  const [showDonate, setShowDonate] = useState(false);
 
   const fetchProjects = async () => {
     try {
@@ -120,7 +121,7 @@ export default function ProjectList() {
         </div>
         
         {/* Settings Area at Bottom */}
-        <div className="p-4 border-t border-neutral-800 bg-neutral-900/50">
+        <div className="p-4 border-t border-neutral-800 bg-neutral-900/50 flex flex-col gap-1.5">
           {typeof window !== 'undefined' && (window as any).electronAPI && (
             <button
               onClick={() => (window as any).electronAPI.changeWorkspacePath()}
@@ -129,6 +130,12 @@ export default function ProjectList() {
               <Settings className="w-4 h-4" /> 更改工作空间
             </button>
           )}
+          <button
+            onClick={() => setShowDonate(true)}
+            className="flex items-center gap-3 px-3 py-2.5 w-full text-amber-500/80 hover:bg-amber-500/10 hover:text-amber-400 rounded-xl font-medium transition-colors"
+          >
+            <Coffee className="w-4 h-4" /> 赞赏作者
+          </button>
         </div>
       </div>
 
@@ -226,6 +233,36 @@ export default function ProjectList() {
 
       </div>
       </div>
+      
+      {/* Donate Modal */}
+      {showDonate && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100]" onClick={() => setShowDonate(false)}>
+          <div className="bg-neutral-900 border border-neutral-700 border-t-[6px] border-t-orange-500 rounded-2xl p-8 w-full max-w-sm shadow-2xl relative overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mb-4">
+                <Coffee className="w-8 h-8 text-amber-500" />
+              </div>
+              <h2 className="text-2xl font-bold mb-2 text-white">请作者喝杯咖啡 ☕️</h2>
+              <p className="text-sm text-neutral-400 mb-6 leading-relaxed">
+                本系统完全开源免费。<br/>如果你用它做出了爆款短剧，或者它为你省下了高昂的 API 费用，欢迎打赏支持！你的支持是我持续维护的动力。
+              </p>
+              
+              {/* QR Code */}
+              <div className="w-48 h-48 bg-white p-2 rounded-xl border-4 border-neutral-800 mb-6">
+                <img src="/donate-qr.jpg" alt="微信收款码" className="w-full h-full object-contain rounded-lg" />
+              </div>
+
+              <button
+                onClick={() => setShowDonate(false)}
+                className="px-6 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold rounded-xl transition-colors w-full"
+              >
+                好的，下次一定
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Create Modal */}
       {showCreate && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowCreate(false)}>
