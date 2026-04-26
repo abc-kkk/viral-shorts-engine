@@ -318,7 +318,7 @@ export default function SceneLabEditor({ returnUrl, initialPresetId, initialObje
 
   const addObject = useCallback((type: SceneObject['type']) => {
     const colorIdx = objects.filter((o) => o.type === 'character').length;
-    let label = type;
+    let label: string = type;
     if (type === 'character') label = `角色${colorIdx + 1}`;
     else if (type === 'camera') label = '摄像机位';
     else label = FURNITURE_LABELS[type as keyof typeof FURNITURE_LABELS] || type;
