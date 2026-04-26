@@ -22,6 +22,8 @@ interface LayoutPreset {
   name: string;
   objects: any[];
   image: string; // base64 PNG 截图
+  bgImage?: string; // 用户上传的 2D 底图
+  aspectRatio?: string; // 画布画幅比例
   createdAt: string;
   updatedAt: string;
 }
@@ -53,7 +55,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { name, objects, image, id } = body;
+    const { name, objects, image, id, bgImage, aspectRatio } = body;
 
     if (!name || !objects || !image) {
       return NextResponse.json({ success: false, error: '缺少必要参数 (name, objects, image)' }, { status: 400 });
@@ -71,6 +73,8 @@ export async function POST(req: Request) {
       name,
       objects,
       image,
+      bgImage,
+      aspectRatio,
       createdAt: existing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

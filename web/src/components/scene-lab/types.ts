@@ -1,6 +1,6 @@
 export interface SceneObject {
   id: string;
-  type: 'character' | 'sofa' | 'table' | 'chair' | 'bed' | 'bookshelf' | 'tv' | 'lamp' | 'cabinet' | 'counter' | 'partition' | 'rug';
+  type: 'character' | 'sofa' | 'table' | 'chair' | 'bed' | 'bookshelf' | 'tv' | 'lamp' | 'cabinet' | 'counter' | 'partition' | 'rug' | 'camera';
   position: [number, number, number];
   rotationY: number;
   color: string;

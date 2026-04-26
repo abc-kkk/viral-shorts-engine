@@ -61,6 +61,26 @@ function ScreenshotHelper({ screenshotRef }: { screenshotRef: React.MutableRefOb
   return null;
 }
 
+function SceneBackground({ url }: { url: string }) {
+  const { scene } = useThree();
+  const texture = useMemo(() => {
+    const t = new THREE.TextureLoader().load(url);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }, [url]);
+
+  useEffect(() => {
+    if (texture) {
+      scene.background = texture;
+    }
+    return () => {
+      scene.background = null;
+    };
+  }, [scene, texture]);
+
+  return null;
+}
+
 /* ================================================================
    3D Scene
    ================================================================ */
@@ -72,6 +92,8 @@ function Scene({
   onObjectMove,
   cameraPreset,
   screenshotRef,
+  bgImage,
+  lockPerspective,
 }: {
   objects: SceneObject[];
   selectedId: string | null;
@@ -79,6 +101,8 @@ function Scene({
   onObjectMove: (id: string, pos: [number, number, number]) => void;
   cameraPreset: CameraPreset | null;
   screenshotRef: React.MutableRefObject<{ gl: any; scene: any; camera: any } | null>;
+  bgImage: string | null;
+  lockPerspective: boolean;
 }) {
   const controlsRef = useRef<any>(null);
   const draggingRef = useRef<string | null>(null);
@@ -98,21 +122,24 @@ function Scene({
   return (
     <>
       <color attach="background" args={['#0d0d1a']} />
+      {bgImage && <SceneBackground url={bgImage} />}
       <ambientLight intensity={0.5} />
       <directionalLight position={[5, 8, 3]} intensity={0.9} castShadow />
       <directionalLight position={[-3, 4, -2]} intensity={0.3} />
 
-      <Grid
-        args={[20, 20]}
-        cellSize={0.5}
-        cellThickness={0.5}
-        cellColor="#2a2a3e"
-        sectionSize={2}
-        sectionThickness={1}
-        sectionColor="#3a3a5e"
-        fadeDistance={25}
-        position={[0, 0, 0]}
-      />
+      <group userData={{ isHelper: true }}>
+        <Grid
+          args={[20, 20]}
+          cellSize={0.5}
+          cellThickness={0.5}
+          cellColor="#2a2a3e"
+          sectionSize={2}
+          sectionThickness={1}
+          sectionColor="#3a3a5e"
+          fadeDistance={25}
+          position={[0, 0, 0]}
+        />
+      </group>
 
       {/* Ground / drag plane – barely visible so raycasting works */}
       <mesh
@@ -132,7 +159,11 @@ function Scene({
         }}
       >
         <planeGeometry args={[50, 50]} />
-        <meshStandardMaterial color="#0d0d1a" roughness={1} side={THREE.DoubleSide} />
+        {bgImage ? (
+          <shadowMaterial transparent opacity={0.5} />
+        ) : (
+          <meshStandardMaterial color="#0d0d1a" roughness={1} side={THREE.DoubleSide} />
+        )}
       </mesh>
 
       {/* Scene objects */}
@@ -158,6 +189,7 @@ function Scene({
         enableDamping
         dampingFactor={0.1}
         maxPolarAngle={Math.PI * 0.48}
+        enableRotate={!bgImage || !lockPerspective}
       />
       <CameraAnimator preset={cameraPreset} controlsRef={controlsRef} />
       <ScreenshotHelper screenshotRef={screenshotRef} />
@@ -204,6 +236,50 @@ export default function SceneLabEditor({ returnUrl, initialPresetId, initialObje
   const selectedObj = objects.find((o) => o.id === selectedId) ?? null;
   const [presetName, setPresetName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [bgImage, setBgImage] = useState<string | null>(null);
+  const [lockPerspective, setLockPerspective] = useState(true);
+  const [aspectRatio, setAspectRatio] = useState<string>('16/9');
+  const [imgAspect, setImgAspect] = useState<number | null>(null);
+
+  const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const url = ev.target?.result as string;
+        setBgImage(url);
+        // 读取原图比例并自动切换画幅
+        const img = new Image();
+        img.onload = () => {
+          setImgAspect(img.naturalWidth / img.naturalHeight);
+          setAspectRatio('auto');
+        };
+        img.src = url;
+      };
+      reader.readAsDataURL(file);
+    }
+  }, []);
+
+  const effectiveAspectValue = useMemo(() => {
+    if (aspectRatio === 'auto' && imgAspect) return imgAspect;
+    if (aspectRatio === 'auto') return 16 / 9;
+    const [w, h] = aspectRatio.split('/').map(Number);
+    return w / h;
+  }, [aspectRatio, imgAspect]);
+
+  const effectiveTargetSize = useMemo(() => {
+    if (aspectRatio === 'auto' && imgAspect) {
+      if (imgAspect > 1) return [1280, Math.round(1280 / imgAspect)];
+      return [Math.round(1280 * imgAspect), 1280];
+    }
+    switch (aspectRatio) {
+      case '9/16': return [720, 1280];
+      case '1/1': return [1024, 1024];
+      case '4/3': return [1024, 768];
+      case '3/4': return [768, 1024];
+      default: return [1280, 720]; // 16:9
+    }
+  }, [aspectRatio, imgAspect]);
 
   // 读取 URL 参数
   const [effectiveReturnUrl, setEffectiveReturnUrl] = useState(returnUrl || '/scene-lab');
@@ -226,6 +302,13 @@ export default function SceneLabEditor({ returnUrl, initialPresetId, initialObje
             if (preset) {
               setObjects(preset.objects);
               setPresetName(preset.name);
+              if (preset.bgImage) {
+                setBgImage(preset.bgImage);
+                const img = new Image();
+                img.onload = () => setImgAspect(img.naturalWidth / img.naturalHeight);
+                img.src = preset.bgImage;
+              }
+              if (preset.aspectRatio) setAspectRatio(preset.aspectRatio);
             }
           }
         })
@@ -235,10 +318,19 @@ export default function SceneLabEditor({ returnUrl, initialPresetId, initialObje
 
   const addObject = useCallback((type: SceneObject['type']) => {
     const colorIdx = objects.filter((o) => o.type === 'character').length;
+    let label = type;
+    if (type === 'character') label = `角色${colorIdx + 1}`;
+    else if (type === 'camera') label = '摄像机位';
+    else label = FURNITURE_LABELS[type as keyof typeof FURNITURE_LABELS] || type;
+
+    let color = FURNITURE_COLOR;
+    if (type === 'character') color = CHARACTER_COLORS[colorIdx % CHARACTER_COLORS.length];
+    if (type === 'camera') color = '#eab308'; // yellow for camera
+
     const obj: SceneObject = {
       id: newId(), type, position: [0, 0, 0], rotationY: 0,
-      color: type === 'character' ? CHARACTER_COLORS[colorIdx % CHARACTER_COLORS.length] : FURNITURE_COLOR,
-      label: type === 'character' ? `角色${colorIdx + 1}` : (FURNITURE_LABELS[type] || type),
+      color,
+      label,
       scaleX: 1, scaleZ: 1,
     };
     setObjects((prev) => [...prev, obj]);
@@ -257,27 +349,39 @@ export default function SceneLabEditor({ returnUrl, initialPresetId, initialObje
     
     setSaving(true);
     try {
+      // 截图前隐藏所有辅助线、网格和选中光环
+      const hiddenObjects: any[] = [];
+      ctx.scene.traverse((child: any) => {
+        if (child.userData && child.userData.isHelper && child.visible) {
+          child.visible = false;
+          hiddenObjects.push(child);
+        }
+      });
+
       ctx.gl.render(ctx.scene, ctx.camera);
       const src = ctx.gl.domElement;
+
+      // 截图完成后立刻恢复显示
+      hiddenObjects.forEach(obj => obj.visible = true);
       
-      // 强制裁剪成 16:9，防止 Flow 因为垫图比例不对而生出方图
-      const targetAspect = 16 / 9;
+      const targetAspect = effectiveAspectValue;
       const srcAspect = src.width / src.height;
       
       let sx = 0, sy = 0, sWidth = src.width, sHeight = src.height;
       
-      if (srcAspect > targetAspect) {
-          // 原图比 16:9 宽，裁掉两边
-          sWidth = src.height * targetAspect;
-          sx = (src.width - sWidth) / 2;
-      } else {
-          // 原图比 16:9 高，裁掉上下
-          sHeight = src.width / targetAspect;
-          sy = (src.height - sHeight) / 2;
+      if (Math.abs(srcAspect - targetAspect) > 0.01) {
+        if (srcAspect > targetAspect) {
+            // 原图偏宽，裁掉两边
+            sWidth = src.height * targetAspect;
+            sx = (src.width - sWidth) / 2;
+        } else {
+            // 原图偏高，裁掉上下
+            sHeight = src.width / targetAspect;
+            sy = (src.height - sHeight) / 2;
+        }
       }
       
-      const targetW = 1280;
-      const targetH = 720;
+      const [targetW, targetH] = effectiveTargetSize;
       
       const off = document.createElement('canvas');
       off.width = targetW;
@@ -298,6 +402,8 @@ export default function SceneLabEditor({ returnUrl, initialPresetId, initialObje
           name,
           objects,
           image: imageData,
+          bgImage,
+          aspectRatio,
         }),
       });
       const data = await res.json();
@@ -324,7 +430,33 @@ export default function SceneLabEditor({ returnUrl, initialPresetId, initialObje
       <div style={{ width: 210, borderRight: '1px solid #1e1e3a', padding: 14, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: '#a78bfa' }}>🎬 布景编辑器</div>
         <div style={{ fontSize: 10, color: '#555', lineHeight: 1.4 }}>拖拽色块摆放站位，切换视角，完成后保存返回</div>
-        <button onClick={() => addObject('character')} style={btnStyle('#22c55e')}>＋ 添加角色</button>
+        
+        <div style={{ fontSize: 10, fontWeight: 600, color: '#666', marginTop: 4 }}>画幅比例</div>
+        <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+          {(['auto', '16/9', '9/16', '1/1', '4/3', '3/4']).map(r => (
+            <button key={r} onClick={() => setAspectRatio(r)} style={{ ...btnStyle(aspectRatio === r ? '#a855f7' : '#555'), fontSize: 10, padding: '4px 7px', background: aspectRatio === r ? '#a855f733' : 'transparent', color: aspectRatio === r ? '#c084fc' : '#888' }}>
+              {r === 'auto' ? '自适应原图' : r}
+            </button>
+          ))}
+        </div>
+        
+        <label style={{ ...btnStyle('#eab308'), display: 'block', padding: '8px 12px' }}>
+          🖼️ 上传 2D 垫图
+          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
+        </label>
+        {bgImage && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+            <button onClick={() => setLockPerspective(!lockPerspective)} style={{...btnStyle(lockPerspective ? '#22c55e' : '#f59e0b'), padding: '6px', fontSize: 11}}>
+              {lockPerspective ? '🔒 透视已锁定 (点击解锁)' : '🔓 调节透视中... (左键旋转网格对齐图片)'}
+            </button>
+            <button onClick={() => setBgImage(null)} style={{...btnStyle('#dc2626'), padding: '4px'}}>🗑️ 清除垫图</button>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 5, marginTop: 4 }}>
+          <button onClick={() => addObject('character')} style={{...btnStyle('#22c55e'), flex: 1}}>＋ 添加角色</button>
+          <button onClick={() => addObject('camera')} style={{...btnStyle('#eab308'), flex: 1}}>🎥 机位</button>
+        </div>
         <div style={{ fontSize: 10, fontWeight: 600, color: '#666', marginTop: 4 }}>家具道具</div>
         <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
           {(['sofa','table','chair','bed','bookshelf','tv','lamp','cabinet','counter','partition','rug'] as const).map(t => (
@@ -341,19 +473,26 @@ export default function SceneLabEditor({ returnUrl, initialPresetId, initialObje
       </div>
 
       {/* 3D Canvas */}
-      <div style={{ flex: 1, position: 'relative' }}>
-        <Canvas shadows camera={{ position: [0, 3, 6], fov: 50 }} gl={{ preserveDrawingBuffer: true, antialias: true }} onPointerMissed={() => setSelectedId(null)}>
-          <Scene objects={objects} selectedId={selectedId} onSelect={setSelectedId} onObjectMove={moveObject} cameraPreset={activeCameraPreset} screenshotRef={screenshotRef} />
-        </Canvas>
-        <div style={{ position: 'absolute', top: 10, right: 10, display: 'flex', flexWrap: 'wrap', gap: 5, maxWidth: 280 }}>
-          {CAMERA_PRESETS.map((p) => (
-            <button key={p.name} onClick={() => setActiveCameraPreset({ ...p })} style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', background: '#1a1a2e', border: '1px solid #2a2a4a', color: '#c4b5fd' }}>{p.name}</button>
-          ))}
-        </div>
-        <div style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 10 }}>
-          <button onClick={() => { window.location.href = effectiveReturnUrl; }} style={{ padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#1e1e3a', border: '1px solid #2a2a4a', color: '#999' }}>取消返回</button>
-          <input value={presetName} onChange={e => setPresetName(e.target.value)} placeholder="输入布局名称…" style={{ padding: '10px 14px', borderRadius: 10, fontSize: 13, background: '#12121f', border: '1px solid #2a2a4a', color: '#e0e0e0', outline: 'none', width: 180 }} />
-          <button onClick={handleSaveAndReturn} disabled={saving} style={{ padding: '10px 28px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: saving ? 'wait' : 'pointer', background: saving ? '#333' : 'linear-gradient(135deg, #6366f1, #a855f7)', border: 'none', color: '#fff', boxShadow: saving ? 'none' : '0 4px 20px rgba(99,102,241,0.4)', opacity: saving ? 0.6 : 1 }}>{saving ? '⏳ 保存中...' : '💾 保存布局并返回'}</button>
+      <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#05050a', overflow: 'hidden' }}>
+        <div style={{ 
+          width: '100%', 
+          maxWidth: `calc(100vh * ${effectiveAspectValue})`, 
+          aspectRatio: `${effectiveAspectValue}`, 
+          position: 'relative' 
+        }}>
+          <Canvas shadows camera={{ position: [0, 3, 6], fov: 50 }} gl={{ preserveDrawingBuffer: true, antialias: true }} onPointerMissed={() => setSelectedId(null)}>
+            <Scene objects={objects} selectedId={selectedId} onSelect={setSelectedId} onObjectMove={moveObject} cameraPreset={activeCameraPreset} screenshotRef={screenshotRef} bgImage={bgImage} lockPerspective={lockPerspective} />
+          </Canvas>
+          <div style={{ position: 'absolute', top: 10, right: 10, display: 'flex', flexWrap: 'wrap', gap: 5, maxWidth: 280 }}>
+            {CAMERA_PRESETS.map((p) => (
+              <button key={p.name} onClick={() => setActiveCameraPreset({ ...p })} style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', background: '#1a1a2e', border: '1px solid #2a2a4a', color: '#c4b5fd' }}>{p.name}</button>
+            ))}
+          </div>
+          <div style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 10 }}>
+            <button onClick={() => { window.location.href = effectiveReturnUrl; }} style={{ padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#1e1e3a', border: '1px solid #2a2a4a', color: '#999' }}>取消返回</button>
+            <input value={presetName} onChange={e => setPresetName(e.target.value)} placeholder="输入布局名称…" style={{ padding: '10px 14px', borderRadius: 10, fontSize: 13, background: '#12121f', border: '1px solid #2a2a4a', color: '#e0e0e0', outline: 'none', width: 180 }} />
+            <button onClick={handleSaveAndReturn} disabled={saving} style={{ padding: '10px 28px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: saving ? 'wait' : 'pointer', background: saving ? '#333' : 'linear-gradient(135deg, #6366f1, #a855f7)', border: 'none', color: '#fff', boxShadow: saving ? 'none' : '0 4px 20px rgba(99,102,241,0.4)', opacity: saving ? 0.6 : 1 }}>{saving ? '⏳ 保存中...' : '💾 保存布局并返回'}</button>
+          </div>
         </div>
       </div>
 
@@ -372,10 +511,41 @@ export default function SceneLabEditor({ returnUrl, initialPresetId, initialObje
               </div>
             </label>
             <label style={labelStyle}>朝向 ({Math.round((selectedObj.rotationY * 180) / Math.PI)}°)<input type="range" min={-Math.PI} max={Math.PI} step={0.1} value={selectedObj.rotationY} onChange={(e) => updateSelected({ rotationY: parseFloat(e.target.value) })} style={{ width: '100%', accentColor: '#a855f7' }} /></label>
-            {selectedObj.type !== 'character' && (<>
+            {selectedObj.type !== 'character' && selectedObj.type !== 'camera' && (<>
               <label style={labelStyle}>宽度 ({selectedObj.scaleX.toFixed(1)}x)<input type="range" min={0.3} max={3} step={0.1} value={selectedObj.scaleX} onChange={(e) => updateSelected({ scaleX: parseFloat(e.target.value) })} style={{ width: '100%', accentColor: '#f59e0b' }} /></label>
               <label style={labelStyle}>深度 ({selectedObj.scaleZ.toFixed(1)}x)<input type="range" min={0.3} max={3} step={0.1} value={selectedObj.scaleZ} onChange={(e) => updateSelected({ scaleZ: parseFloat(e.target.value) })} style={{ width: '100%', accentColor: '#f59e0b' }} /></label>
             </>)}
+            {selectedObj.type === 'camera' && (
+              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                <button
+                  onClick={() => {
+                    const [cx, cy, cz] = selectedObj.position;
+                    const camY = cy + 0.8;
+                    const rY = selectedObj.rotationY;
+                    // View frustum points towards local -Z
+                    const tx = cx - Math.sin(rY) * 5;
+                    const ty = camY;
+                    const tz = cz - Math.cos(rY) * 5;
+
+                    setActiveCameraPreset({
+                      name: '机位视角',
+                      position: [cx, camY, cz],
+                      target: [tx, ty, tz]
+                    });
+                  }}
+                  style={{ ...btnStyle('#eab308'), flex: 1, padding: '10px 0', fontSize: 13 }}
+                >
+                  📸 预览机位视角
+                </button>
+                <button
+                  onClick={() => setActiveCameraPreset({ ...CAMERA_PRESETS[0] })}
+                  style={{ ...btnStyle('#dc2626'), flex: 1, padding: '10px 0', fontSize: 13 }}
+                  title="恢复默认视角"
+                >
+                  ❌ 取消预览
+                </button>
+              </div>
+            )}
             <button onClick={deleteSelected} style={{ ...btnStyle('#dc2626'), marginTop: 4 }}>🗑️ 删除</button>
           </div>
         ) : (
