@@ -20,7 +20,7 @@ export default function SidebarNav() {
   return (
     <>
       <div 
-        className="h-screen border-r border-neutral-800 bg-neutral-900/50 backdrop-blur-md shadow-2xl flex flex-col z-50 sticky top-0 w-64"
+        className="h-screen border-r border-neutral-800 bg-neutral-900/50 backdrop-blur-md shadow-2xl flex flex-col z-10 sticky top-0 w-64"
       >
         {/* Header / Project Info */}
         <div className="p-5 border-b border-neutral-800/50 flex flex-col gap-4">

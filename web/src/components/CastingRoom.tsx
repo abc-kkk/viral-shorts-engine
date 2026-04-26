@@ -149,10 +149,10 @@ export default function CastingRoom() {
                                         >
                                             <div className="flex items-center gap-2">
                                                 {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-neutral-400"/> : <ChevronRight className="w-3.5 h-3.5 text-neutral-400"/>}
-                                                <span className="text-xs font-bold text-neutral-300">🎨 设定图内容</span>
+                                                <span className="text-xs font-bold text-neutral-300">设定图内容</span>
                                             </div>
                                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${isAdvancedMode ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}>
-                                                {isAdvancedMode ? `🔥 高级 · ${selected.length}项` : '📷 经典单人照'}
+                                                {isAdvancedMode ? `高级 · ${selected.length}项` : '经典单人照'}
                                             </span>
                                         </button>
 
@@ -193,7 +193,7 @@ export default function CastingRoom() {
                                                     );
                                                 })}
                                                 <div className="text-[10px] text-neutral-600 pt-1 border-t border-neutral-800/50">
-                                                    💡 选择多项时将生成专业 Character Design Sheet（角色设定参考单）
+                                                选择多项时将生成专业 Character Design Sheet（角色设定参考单）
                                                 </div>
                                             </div>
                                         )}

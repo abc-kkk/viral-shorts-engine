@@ -1,3 +1,7 @@
+/**
+ * @deprecated 此组件未被任何页面引用，SidebarNav.tsx 是当前活跃的导航组件。
+ * 保留此文件仅作参考，后续版本可安全删除。
+ */
 'use client';
 
 import React, { useState } from 'react';

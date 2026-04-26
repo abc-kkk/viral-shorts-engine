@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Film, Clock, Layers, Trash2, FolderOpen, Settings, BookOpen, Coffee, Globe, Package, HardDrive, RefreshCw, MonitorCog, X } from 'lucide-react';
 import { toast } from '@/lib/toast';
+import ConfirmDialog from './ConfirmDialog';
 
 interface ProjectInfo {
   projectId: string;
@@ -32,6 +33,7 @@ export default function ProjectList() {
   const [chromeLaunching, setChromeLaunching] = useState(false);
   const [chromeDataDirFeedback, setChromeDataDirFeedback] = useState('');
   const [updateChecking, setUpdateChecking] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const electronAPI = typeof window !== 'undefined' && (window as any).electronAPI?.isElectron ? (window as any).electronAPI : null;
 
@@ -74,7 +76,13 @@ export default function ProjectList() {
   const handleDelete = async (projectId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    if (!confirm(`确定要把「${projectId}」扔进回收站吗？`)) return;
+    setDeleteTarget(projectId);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const projectId = deleteTarget;
+    setDeleteTarget(null);
     try {
       const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}`, { method: 'DELETE' });
       const data = await res.json();
@@ -97,7 +105,7 @@ export default function ProjectList() {
   return (
     <div className="fixed inset-0 flex bg-neutral-950 text-neutral-100 overflow-hidden">
       {/* Left Sidebar */}
-      <div className="w-64 bg-neutral-900 border-r border-neutral-800 flex flex-col shrink-0 relative z-20 shadow-xl">
+      <div className="w-64 bg-neutral-900 border-r border-neutral-800 flex flex-col shrink-0 relative z-10 shadow-xl">
         {/* Logo Area */}
         <div className="p-6 border-b border-neutral-800">
           <h1 className="text-xl font-extrabold tracking-tight flex items-center gap-3">
@@ -241,13 +249,13 @@ export default function ProjectList() {
       
       {/* Donate Modal */}
       {showDonate && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100]" onClick={() => setShowDonate(false)}>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowDonate(false)}>
           <div className="bg-neutral-900 border border-neutral-700 border-t-[6px] border-t-orange-500 rounded-2xl p-8 w-full max-w-sm shadow-2xl relative overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="flex flex-col items-center text-center">
               <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mb-4">
                 <Coffee className="w-8 h-8 text-amber-500" />
               </div>
-              <h2 className="text-2xl font-bold mb-2 text-white">请作者喝杯咖啡 ☕️</h2>
+              <h2 className="text-2xl font-bold mb-2 text-white">请作者喝杯咖啡</h2>
               <p className="text-sm text-neutral-400 mb-6 leading-relaxed">
                 本系统完全开源免费。<br/>如果你用它做出了爆款短剧，或者它为你省下了高昂的 API 费用，欢迎打赏支持！你的支持是我持续维护的动力。
               </p>
@@ -270,10 +278,10 @@ export default function ProjectList() {
 
       {/* Desktop Tools Modal */}
       {showDesktopTools && electronAPI && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100]" onClick={() => setShowDesktopTools(false)}>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowDesktopTools(false)}>
           <div className="bg-neutral-900 border border-neutral-700 rounded-2xl p-8 w-full max-w-2xl shadow-2xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-white">💻 系统设置</h2>
+              <h2 className="text-2xl font-bold text-white">系统设置</h2>
               <button onClick={() => setShowDesktopTools(false)} className="p-2 hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-white transition-colors">
                 <X className="w-5 h-5" />
               </button>
@@ -413,7 +421,7 @@ export default function ProjectList() {
                 onClick={() => { setShowDesktopTools(false); setShowDonate(true); }}
                 className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-amber-500/80 hover:bg-amber-500/10 hover:text-amber-400 transition-colors font-medium"
               >
-                <Coffee className="w-4 h-4" /> 请作者喝杯咖啡 ☕️
+                <Coffee className="w-4 h-4" /> 请作者喝杯咖啡
               </button>
             </div>
 
@@ -430,7 +438,7 @@ export default function ProjectList() {
       {showCreate && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowCreate(false)}>
           <div className="bg-neutral-900 border border-neutral-700 rounded-2xl p-8 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
-            <h2 className="text-2xl font-bold mb-6 text-white">🎬 新建短剧项目</h2>
+            <h2 className="text-2xl font-bold mb-6 text-white">新建短剧项目</h2>
             <div className="mb-6">
               <label className="text-sm text-neutral-400 block mb-2">项目名称（将作为文件夹名称）</label>
               <input
@@ -455,12 +463,24 @@ export default function ProjectList() {
                 disabled={creating || !newName.trim()}
                 className="px-6 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {creating ? '创建中...' : '🚀 立项开工'}
+                {creating ? '创建中...' : '立项开工'}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Delete Confirm Dialog */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="删除项目"
+        message={`确定要把「${deleteTarget || ''}」扔进回收站吗？此操作不可恢复。`}
+        confirmText="删除"
+        cancelText="再想想"
+        variant="danger"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

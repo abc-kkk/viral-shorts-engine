@@ -5,6 +5,7 @@ import { Player } from '@remotion/player';
 import { SkitVideo } from '@/remotion/SkitVideo';
 import { useProject } from '@/lib/ProjectContext';
 import { toast } from '@/lib/toast';
+import { Film, Mic, Scissors, Rocket } from 'lucide-react';
 
 function SyncThumbnailPlayer({ videoSrc, audioSrc, audioDelay, trimStart, trimEnd, speaker, index }: { 
     videoSrc?: string, audioSrc?: string, audioDelay: number, trimStart: number, trimEnd: number, speaker: string, index: number 
@@ -128,6 +129,8 @@ export default function RenderRoom() {
     setCurrentPhase
   } = useProject();
 
+  const [exporting, setExporting] = React.useState(false);
+
   const scriptLines = useProjectStore(s => s.scriptLines);
   const sceneVideos = useProjectStore(s => s.sceneVideos);
   const sceneDurations = useProjectStore(s => s.sceneDurations);
@@ -148,7 +151,7 @@ export default function RenderRoom() {
               {/* LEFT PANE: Sticky Player */}
               <div className="lg:w-1/3 flex flex-col items-center gap-6 sticky top-8 self-start z-10">
                   <div className="text-center">
-                      <h2 className="text-3xl font-extrabold text-white mb-2">🎬 非线性渲染室</h2>
+                      <h2 className="text-3xl font-extrabold text-white mb-2 flex items-center gap-2"><Film className="w-7 h-7 text-emerald-400" /> 非线性渲染室</h2>
                       <p className="text-neutral-400">细调时间轴轨道，并导出最高质量成品。</p>
                   </div>
 
@@ -183,39 +186,35 @@ export default function RenderRoom() {
                   </div>
 
                   <button 
-                      onClick={async (e) => {
-                          const btn = e.currentTarget;
-                          const originalText = btn.innerHTML;
-                          btn.innerHTML = '⏳ 正在拼装剪映工程轨道...';
-                          btn.disabled = true;
-                          btn.classList.add('opacity-50', 'cursor-not-allowed', 'animate-pulse');
+                      disabled={exporting}
+                      onClick={async () => {
+                          setExporting(true);
                           try {
                               const res = await fetch(`/api/export?projectId=${encodeURIComponent(projectId)}`, { method: 'POST' });
                               const data = await res.json();
                               if (res.ok) {
-                                  toast.success(`✅ 剪映草稿已就绪！\n草稿路径: ${data.file}\n请打开剪映桌面端查看并精修！`);
-                                  setCurrentPhase(5); // 前往发布中心
+                                  toast.success(`剪映草稿已就绪！\n草稿路径: ${data.file}\n请打开剪映桌面端查看并精修！`);
+                                  setCurrentPhase(5);
                               } else {
-                                  toast.error(`❌ 渲染遭遇滑铁卢:\n${data.error}\n\n请检查控制台获取详细报错。`);
+                                  toast.error(`渲染遭遇滑铁卢:\n${data.error}\n\n请检查控制台获取详细报错。`);
                               }
                           } catch(err: any) {
-                              toast.error(`❌ 渲染失联 (网络/环境错误):\n${err.message}`);
+                              toast.error(`渲染失联 (网络/环境错误):\n${err.message}`);
                           } finally {
-                              btn.innerHTML = originalText;
-                              btn.disabled = false;
-                              btn.classList.remove('opacity-50', 'cursor-not-allowed', 'animate-pulse');
+                              setExporting(false);
                           }
                       }}
-                      className="w-full px-4 py-4 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-bold text-lg rounded-xl shadow-lg hover:scale-105 transition-all mt-4"
+                      className={`w-full px-4 py-4 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-bold text-lg rounded-xl shadow-lg hover:scale-105 transition-all mt-4 flex items-center justify-center gap-2 ${exporting ? 'opacity-50 cursor-not-allowed animate-pulse' : ''}`}
                   >
-                      🚀 极速导出至剪映草稿箱
+                      <Rocket className="w-5 h-5" />
+                      {exporting ? '正在拼装剪映工程轨道...' : '极速导出至剪映草稿箱'}
                   </button>
               </div>
 
               {/* RIGHT PANE: Timeline Controls */}
               <div className="lg:w-2/3 flex flex-col w-full z-10">
                   <h3 className="text-xl font-bold text-neutral-200 mb-6 flex items-center gap-2">
-                       ⏱️ 多轨时间轴精调 (Timeline Editor)
+                       <Scissors className="w-5 h-5 text-amber-400" /> 多轨时间轴精调 (Timeline Editor)
                   </h3>
                   <div className="flex flex-col gap-6">
                       {scriptLines.map((line, i) => {
@@ -240,7 +239,7 @@ export default function RenderRoom() {
                                   {/* Trim Start & End Sliders */}
                                   <div className="flex flex-col gap-2 w-full bg-neutral-900/50 p-4 rounded-xl border border-neutral-800">
                                       <div className="flex justify-between items-center text-sm text-neutral-400 font-bold mb-1">
-                                          <span>🎬 视频画面区间控制</span>
+                                          <span>视频画面区间控制</span>
                                           <span className="text-emerald-400 bg-emerald-900/30 px-2 py-0.5 rounded">
                                               实际出片 {(sceneVideoTrimEnd[i] ?? maxVidDuration) - (sceneVideoTrimStart[i] ?? 0)}s
                                           </span>
@@ -272,7 +271,7 @@ export default function RenderRoom() {
                                   {/* Audio Delay Slider */}
                                   <div className="flex flex-col gap-2 w-full bg-neutral-900/50 p-4 rounded-xl border border-neutral-800">
                                       <div className="flex justify-between items-center text-sm text-neutral-400 font-bold mb-1">
-                                          <span>🎵 旁白 / 对白轨道延时</span>
+                                          <span><Mic className="w-3.5 h-3.5 inline mr-1" />旁白 / 对白轨道延时</span>
                                       </div>
                                       <div className="flex items-center gap-4">
                                           <span className="text-xs text-neutral-500 w-8 text-right shrink-0">起播</span>

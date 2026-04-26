@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Camera, CheckCircle2, LayoutTemplate, PenLine, Image as ImageIcon2, Film } from 'lucide-react';
+import { Camera, CheckCircle2, LayoutTemplate, PenLine, Image as ImageIcon2, Film, ArrowLeft } from 'lucide-react';
 import { useProject } from '@/lib/ProjectContext';
 import StoryboardLayoutTab from './storyboard/StoryboardLayoutTab';
 import StoryboardPromptTab from './storyboard/StoryboardPromptTab';
@@ -26,7 +26,7 @@ export default function StoryboardPanel() {
     <div className="flex gap-6 w-full h-[calc(100vh-120px)] animate-in slide-in-from-right-8 duration-500">
         
         {/* LEFT SIDEBAR: Scene Navigation */}
-        <div className="w-80 flex-shrink-0 flex flex-col bg-neutral-900/60 border border-neutral-800/80 rounded-2xl overflow-hidden shadow-xl h-full">
+        <div className="w-56 md:w-64 lg:w-80 flex-shrink-0 flex flex-col bg-neutral-900/60 border border-neutral-800/80 rounded-2xl overflow-hidden shadow-xl h-full">
             <div className="p-4 border-b border-neutral-800 bg-neutral-900">
                 <h3 className="text-lg font-bold text-neutral-200 flex items-center gap-2">
                     <Camera className="w-5 h-5 text-purple-400" /> 分镜导航
@@ -79,7 +79,7 @@ export default function StoryboardPanel() {
                             {scriptLines[activeSceneIndex].speaker}: &quot;{scriptLines[activeSceneIndex].dialogue}&quot;
                         </div>
                         <div className="text-neutral-400 text-sm">
-                            📌 动作提示: {scriptLines[activeSceneIndex].actionHint}
+                            动作提示: {scriptLines[activeSceneIndex].actionHint}
                         </div>
                     </div>
 
@@ -129,7 +129,7 @@ export default function StoryboardPanel() {
                                     }}
                                     className="w-1/4 py-4 text-white font-bold rounded-xl shadow-lg flex justify-center items-center gap-2 transition-all bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 cursor-pointer"
                             >
-                                    ⬅️ 上一幕
+                                    <ArrowLeft className="w-4 h-4" /> 上一幕
                             </button>
                         )}
                         <button 

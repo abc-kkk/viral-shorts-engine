@@ -22,7 +22,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans, system-ui, -apple-system, 'Segoe UI', sans-serif);
   margin-top: 38px !important; /* 为顶部红绿灯预留空间 */
 }
 
@@ -40,7 +40,7 @@ body::before {
   height: 38px;
   background-color: #0a0a0a;
   -webkit-app-region: drag;
-  z-index: 999999;
+  z-index: 9999;
 }
 
 /* 修复所有 100vh 容器的高度，防止底部超出 */
@@ -71,14 +71,22 @@ button, a, input, select, textarea,
   -webkit-app-region: no-drag;
 }
 
-/* 彻底隐藏所有滚动条 */
+/* 滚动条：空闲透明，hover 时显示 */
 ::-webkit-scrollbar {
-  width: 0px !important;
-  height: 0px !important;
-  display: none !important;
-  background: transparent !important;
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 * {
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
 }
