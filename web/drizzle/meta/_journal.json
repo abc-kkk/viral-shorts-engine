@@ -22,6 +22,20 @@
       "when": 1777123833500,
       "tag": "0002_tiny_dexter_bennett",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1777186313415,
+      "tag": "0003_talented_gideon",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1777188000000,
+      "tag": "0004_freedom_studio_script_first",
+      "breakpoints": true
     }
   ]
 }

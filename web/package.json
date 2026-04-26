@@ -8,6 +8,7 @@
     "build": "npx drizzle-kit generate && npm run build:ext && next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest",
     "postinstall": "npx drizzle-kit generate"
   },
   "dependencies": {

@@ -22,7 +22,7 @@ const EXPECTED_PROJECT_FIELDS = [
   'currentPhase', 'artStyle', 'flowUrl', 'theme', 'aiProvider', 'useHitlMode',
   'writerStep', 'creativeMode', 'rawScript', 'scriptIteration', 'userDirection',
   'publishInfo', 'inspirations', 'scriptReview',
-  'locationPrompt', 'locationImage', 'activeSceneIndex',
+  'locationPrompt', 'locationImage', 'activeSceneIndex', 'jianyingPath',
 ];
 
 /** Scene 表应包含的字段 */
