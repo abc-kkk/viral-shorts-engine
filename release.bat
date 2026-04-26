@@ -3,15 +3,15 @@ setlocal enabledelayedexpansion
 
 :: release.bat - Auto update version and trigger GitHub Actions build
 
-if "%~1"=="" (
-  echo Error: Version not specified
-  echo Usage: release.bat ^<new_version^>
-  echo Example: release.bat 1.0.9
-  echo    Or: release.bat patch  (auto upgrade patch version, e.g. 1.0.8 -^> 1.0.9)
-  echo    Or: release.bat minor  (auto upgrade minor version, e.g. 1.0.8 -^> 1.1.0)
-  exit /b 1
-)
+if not "%~1"=="" goto run_release
+echo Error: Version not specified
+echo Usage: release.bat ^<new_version^>
+echo Example: release.bat 1.0.9
+echo    Or: release.bat patch  (auto upgrade patch version, e.g. 1.0.8 -^> 1.0.9)
+echo    Or: release.bat minor  (auto upgrade minor version, e.g. 1.0.8 -^> 1.1.0)
+exit /b 1
 
+:run_release
 set VERSION=%~1
 
 echo Updating desktop version...
