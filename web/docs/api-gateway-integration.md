@@ -66,6 +66,28 @@ if (data.success || data.fireAndForget) {
 }
 ```
 
+### 2.1 Chrome 扩展端到端提取流程 (End-to-End Extension Workflow)
+这是整个生图流程的灵魂所在。为了让新模块（如 Freedom Studio）复用这套极其安全的流程，必须深刻理解以下 4 个步骤：
+
+1. **设定活跃上下文 (Set Active Context)**
+   在触发 `fireAndForget` 前，前端必须设置系统的全局 `active-context`（保存在 SQLite `systemStates` 表）。
+   ```json
+   {
+     "projectId": "你的项目ID或标识", 
+     "targetType": "characterImage", // 极其关键，必须是合法的 TargetType
+     "index": 0,
+     "meta": { "charName": "小雪", "fsAssetId": "xxx" }
+   }
+   ```
+2. **扩展读取与防伪名复制 (Extension Fetch & Copy)**
+   当用户在 Google Flow 中鼠标悬浮图片并点击扩展提供的「提取落盘」按钮时，扩展 (`content.js`) 会向后端请求 `/api/extension/active-context`。
+   扩展内部会根据 `targetType` 组装防伪名（例如 `characterImage` 强制使用 `meta.charName`），并自动复制到系统剪贴板。
+3. **推送落盘 (Push Asset to Local)**
+   扩展抓取图片的 Base64 或原始 URL 后，发送到 `POST /api/extension/push-asset`。
+   该接口会将文件保存到本地磁盘 `projects/[projectId]/assets/...`，同时在 SQLite 的 `inboxMessages` 表中插入一条消息。
+4. **前端轮询与界面更新 (Inbox Poller)**
+   系统前端会挂载一个轮询器（如 `useInboxPoller`）。它不断拉取 `inboxMessages`，如果发现有属于当前操作的素材（通过比对 targetType 和 meta），就会消费掉这条消息，更新对应的 React 状态和 Drizzle 数据库，最后在 UI 上完成回显。
+
 ---
 
 ## 3. {@资产引用} 与注入排雷指南

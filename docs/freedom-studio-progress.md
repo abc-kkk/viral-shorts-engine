@@ -60,9 +60,9 @@ Freedom Studio 是 Viral Shorts Engine 的全新创作模块，**独立于现有
 |------|------|------|
 | `/studio` | 创作室首页 | 剧本列表 + 新建按钮 |
 | `/studio/scripts/[id]` | 剧本编辑页 | 纯剧本编辑 + AI 生成/润色 + 「下一步」跳转资产管理 |
-| `/studio/scripts/[id]/assets` | 资产管理页 | 角色/场景/道具三标签页 + AI 提取 + 手动添加 + 编辑/删除 |
+| `/studio/scripts/[id]/assets` | 资产管理页 | 角色/场景/道具三标签页 + AI 提取 + 手动添加 + 编辑/删除 + **AI 生图抽卡** |
 
-#### AI 功能
+#### AI 功能 & 扩展集成
 
 1. **AI 生成剧本**（`mode: 'generate'`）
    - 用户输入故事想法 + 可选类型/集数
@@ -78,6 +78,14 @@ Freedom Studio 是 Viral Shorts Engine 的全新创作模块，**独立于现有
    - 调 AI Gateway 分析提取角色/场景/道具
    - 支持 `forceJson:true` 和 markdown 包裹的 JSON 解析
    - 提取结果自动创建为 FsAsset 记录
+
+4. **AI 资产视觉参考图生成**（**最新完成**）
+   - 深度复用旧版引擎的 Chrome 扩展“提取落盘”机制，实现零侵入打通。
+   - 前端点击生图（Nano Banana Pro），通过 `useStudioInboxPoller` 监听扩展的 SSE 推送。
+   - 扩展完成抽卡后自动入库，前端无需刷新自动展示图片缩略图。
+   - **项目隔离与独立配置**：
+     - 新剧本的素材落盘物理路径强制前置 `projects/` (如：`[Workspace]/projects/都市逆袭/images/characters/小雪.png`)，与老版项目完美物理隔离。
+     - Google Flow URL 独立绑定在每个剧本的 `metadata.flowUrl` 中，互不干扰。
 
 #### 状态管理
 
@@ -133,13 +141,12 @@ Freedom Studio 是 Viral Shorts Engine 的全新创作模块，**独立于现有
 
 ### 🟡 中优先级（体验优化）
 
-#### 4. 资产卡增强
-- **状态**：❌ 未开始
+#### 4. 资产详情与模型增强
+- **状态**：🟡 待深入
 - **说明**：
-  - 角色卡：支持上传参考图 + AI 生成角色设定图（对接 Nano Banana Pro）
-  - 场景卡：支持上传场景参考图 + AI 生成空镜（对接 Flow）
-  - 道具卡：支持上传道具参考图
-  - 资产图预览与管理
+  - 目前完成了生图与缩略图展示，但还需要大图预览。
+  - 需要支持从本地手动上传参考图覆盖 AI 生成的图。
+  - 角色数据模型可考虑扩充更多细节（用于未来的剧本连续性生成）。
 
 #### 5. 剧本编辑器增强
 - **状态**：❌ 未开始
@@ -236,6 +243,8 @@ web/src/
 | AI 分析放后端而非前端 | 避免前端传 mock，保证分析质量 | 2026-04-26 |
 | 剧本编辑和资产管理拆成独立页面 | 用户反馈"不该放一起" | 2026-04-26 |
 | AI Gateway 走 Gemini Web Automator | 项目既有方案，零成本 | 2026-04-26 |
+| 资产素材落盘目录带 `projects/` 前缀 | 强制将新项目收纳至 `projects` 子目录，保持与旧项目物理隔离，不污染根目录 | 2026-04-26 |
+| 独立剧本 Flow URL | 将 Flow URL 存在 FsScript 隐藏字段 metadata 里，完美规避 DB Migration 风险 | 2026-04-26 |
 
 ---
 

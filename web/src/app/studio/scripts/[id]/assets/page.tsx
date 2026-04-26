@@ -7,6 +7,7 @@ import type { LucideIcon } from 'lucide-react';
 import { useStudioStore } from '@/lib/studio/store/useStudioStore';
 import type { FsAsset, FsAssetType } from '@/lib/studio/types';
 import AssetCard from '@/components/studio/assets/AssetCard';
+import { useStudioInboxPoller } from '@/components/studio/assets/useStudioInboxPoller';
 
 const TYPE_TABS: { key: FsAssetType; label: string; icon: LucideIcon; color: string; bg: string }[] = [
   { key: 'character', label: '角色', icon: Users, color: 'text-blue-400', bg: 'bg-blue-500/10' },
@@ -23,6 +24,8 @@ export default function AssetManagePage() {
     selectScript, analyzeScript,
     createAsset, updateAsset, deleteAsset,
   } = useStudioStore();
+
+  useStudioInboxPoller();
 
   const [activeTab, setActiveTab] = useState<FsAssetType>('character');
   const [showAddDialog, setShowAddDialog] = useState(false);

@@ -1,9 +1,10 @@
 'use client';
 
 import React from 'react';
-import { Users, MapPin, Package, Edit3, Trash2, Sparkles, UserCircle } from 'lucide-react';
+import { Users, MapPin, Package, Edit3, Trash2, Sparkles, UserCircle, Loader2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { FsAsset, FsAssetType } from '@/lib/studio/types';
+import { useStudioStore } from '@/lib/studio/store/useStudioStore';
 
 const TYPE_CONFIG: Record<FsAssetType, { icon: LucideIcon; color: string; bg: string; label: string }> = {
   character: { icon: Users, color: 'text-blue-400', bg: 'bg-blue-500/10', label: '角色' },
@@ -21,6 +22,8 @@ export default function AssetCard({ asset, onEdit, onDelete }: AssetCardProps) {
   const config = TYPE_CONFIG[asset.type];
   const Icon = config.icon;
   const data = asset.data as unknown as Record<string, unknown>;
+  const { generatingAssets, requestAssetGeneration } = useStudioStore();
+  const isGenerating = generatingAssets[asset.id] || false;
 
   // 提取摘要信息
   const getSummary = () => {
@@ -40,7 +43,11 @@ export default function AssetCard({ asset, onEdit, onDelete }: AssetCardProps) {
     <div className="group bg-neutral-900 border border-neutral-800 rounded-xl p-4 hover:border-neutral-700 transition-all">
       <div className="flex items-start gap-3">
         {/* 缩略图 or 图标 */}
-        {asset.thumbnail ? (
+        {isGenerating ? (
+          <div className={`w-12 h-12 rounded-lg ${config.bg} flex items-center justify-center shrink-0`}>
+             <Loader2 className={`w-6 h-6 animate-spin ${config.color}`} />
+          </div>
+        ) : asset.thumbnail ? (
           <img src={asset.thumbnail} alt={asset.name} className="w-12 h-12 rounded-lg object-cover shrink-0" />
         ) : (
           <div className={`w-12 h-12 rounded-lg ${config.bg} flex items-center justify-center shrink-0`}>
@@ -70,6 +77,16 @@ export default function AssetCard({ asset, onEdit, onDelete }: AssetCardProps) {
 
         {/* 操作按钮 */}
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          {(asset.type === 'character' || asset.type === 'scene') && (
+            <button 
+              onClick={() => requestAssetGeneration(asset)} 
+              disabled={isGenerating}
+              className="p-1.5 text-neutral-500 hover:text-amber-400 hover:bg-neutral-800 rounded-lg disabled:opacity-50" 
+              title="生成参考图"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+            </button>
+          )}
           {onEdit && (
             <button onClick={onEdit} className="p-1.5 text-neutral-500 hover:text-white hover:bg-neutral-800 rounded-lg" title="编辑">
               <Edit3 className="w-3.5 h-3.5" />
