@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, BookOpen, Edit3, Save, X, Wand2, Loader2, ArrowRight } from 'lucide-react';
+import { ArrowLeft, BookOpen, Edit3, Save, X, Wand2, Loader2, ArrowRight, Upload } from 'lucide-react';
 import { useStudioStore } from '@/lib/studio/store/useStudioStore';
 
 export default function ScriptEditPage() {
@@ -15,9 +15,10 @@ export default function ScriptEditPage() {
     selectScript, updateScript, generateScript,
   } = useStudioStore();
 
-  const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
   const [editTitle, setEditTitle] = useState('');
+  const lastSavedContent = React.useRef<string | undefined>(undefined);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // AI 生成状态
   const [showAiPanel, setShowAiPanel] = useState(false);
@@ -31,27 +32,55 @@ export default function ScriptEditPage() {
   }, [scriptId, selectScript]);
 
   useEffect(() => {
-    if (currentScript && editing) {
+    if (currentScript) {
       setEditTitle(currentScript.title);
-      setEditContent(currentScript.content);
+      if (currentScript.content !== lastSavedContent.current) {
+        setEditContent(currentScript.content || '');
+        lastSavedContent.current = currentScript.content;
+      }
     }
-  }, [currentScript, editing]);
+  }, [currentScript?.title, currentScript?.content, currentScript?.id]);
 
   // 剧本内容为空时自动显示 AI 面板
   useEffect(() => {
-    if (currentScript && !currentScript.content?.trim() && !editing && !generating) {
+    if (currentScript && !currentScript.content?.trim() && !generating) {
       setShowAiPanel(true);
       setAiMode('generate');
     }
-  }, [currentScript, editing, generating]);
+  }, [currentScript, generating]);
+
+  const handleImportTxt = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const text = e.target?.result as string;
+      if (text) {
+        setEditContent(text);
+        if (currentScript) {
+          lastSavedContent.current = text;
+          await updateScript(currentScript.id, {
+            title: editTitle.trim(),
+            content: text,
+          });
+        }
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   const handleSaveScript = async () => {
     if (!currentScript) return;
+    const newTitle = editTitle.trim();
+    const newContent = editContent.trim();
+    if (newTitle === currentScript.title && newContent === currentScript.content) return;
+    
+    lastSavedContent.current = newContent;
     await updateScript(currentScript.id, {
-      title: editTitle.trim(),
-      content: editContent.trim(),
+      title: newTitle,
+      content: newContent,
     });
-    setEditing(false);
   };
 
   const handleGenerate = async () => {
@@ -64,7 +93,7 @@ export default function ScriptEditPage() {
     setAiPrompt('');
   };
 
-  const hasContent = currentScript?.content?.trim();
+  const hasContent = editContent.trim().length > 0;
 
   if (loading || !currentScript) {
     return (
@@ -75,98 +104,77 @@ export default function ScriptEditPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-neutral-100 flex flex-col">
+    <div className="h-screen bg-[#0a0a0a] text-neutral-100 flex flex-col overflow-hidden">
       {/* Header */}
       <div className="px-8 py-4 border-b border-neutral-800/50 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <a href="/studio" className="text-neutral-500 hover:text-white transition-colors p-2 hover:bg-neutral-800 rounded-lg">
             <ArrowLeft className="w-5 h-5" />
           </a>
-          {editing ? (
-            <input
-              type="text"
-              value={editTitle}
-              onChange={e => setEditTitle(e.target.value)}
-              className="text-xl font-bold bg-transparent border-b border-amber-500 focus:outline-none text-white"
-            />
-          ) : (
-            <h1 className="text-xl font-bold text-white">{currentScript.title}</h1>
-          )}
+          <input
+            type="text"
+            value={editTitle}
+            onChange={e => setEditTitle(e.target.value)}
+            onBlur={handleSaveScript}
+            className="text-xl font-bold bg-transparent border-b border-transparent hover:border-neutral-700 focus:border-amber-500 focus:outline-none text-white transition-colors px-2 py-1 -ml-2"
+          />
         </div>
         <div className="flex items-center gap-2">
-          {editing ? (
-            <>
-              <button onClick={() => setEditing(false)} className="p-2 text-neutral-400 hover:text-white rounded-lg">
-                <X className="w-4 h-4" />
-              </button>
-              <button onClick={handleSaveScript} className="flex items-center gap-1 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold rounded-lg">
-                <Save className="w-3.5 h-3.5" /> 保存
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => { setShowAiPanel(!showAiPanel); setAiMode(hasContent ? 'polish' : 'generate'); }}
-                disabled={generating}
-                className="flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-sm font-bold rounded-lg disabled:opacity-50"
-              >
-                {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
-                {generating ? 'AI 创作中...' : hasContent ? 'AI 润色' : 'AI 生成'}
-              </button>
-              <button onClick={() => setEditing(true)} className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg" title="手动编辑">
-                <Edit3 className="w-4 h-4" />
-              </button>
-              {/* 下一步按钮 */}
-              <button
-                onClick={() => router.push(`/studio/scripts/${scriptId}/assets`)}
-                disabled={!hasContent}
-                className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-lg disabled:opacity-30 disabled:cursor-not-allowed ml-2"
-              >
-                下一步 <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </>
-          )}
+          <button
+            onClick={() => { setShowAiPanel(!showAiPanel); setAiMode(hasContent ? 'polish' : 'generate'); }}
+            disabled={generating}
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-sm font-bold rounded-lg disabled:opacity-50"
+          >
+            {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+            {generating ? 'AI 创作中...' : hasContent ? 'AI 润色' : 'AI 生成'}
+          </button>
+          {/* 下一步按钮 */}
+          <button
+            onClick={() => router.push(`/studio/scripts/${scriptId}/assets`)}
+            disabled={!hasContent}
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-lg disabled:opacity-30 disabled:cursor-not-allowed ml-2"
+          >
+            下一步 <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 
       {/* 剧本内容区 - 全屏 */}
-      <div className="flex-1 flex flex-col">
-        <div className="px-6 py-3 border-b border-neutral-800/30 flex items-center gap-2">
-          <BookOpen className="w-4 h-4 text-amber-500" />
-          <span className="text-sm font-bold text-neutral-400">剧本内容</span>
-          <span className="text-[10px] text-neutral-600 ml-2">
-            {currentScript.content ? `${currentScript.content.length} 字` : ''}
-          </span>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="px-6 py-3 border-b border-neutral-800/30 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <BookOpen className="w-4 h-4 text-amber-500" />
+            <span className="text-sm font-bold text-neutral-400">剧本内容</span>
+            <span className="text-[10px] text-neutral-600 ml-2">
+              {editContent ? `${editContent.length} 字` : ''}
+            </span>
+          </div>
+          <div>
+            <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-neutral-400 hover:text-white bg-neutral-800/50 hover:bg-neutral-800 rounded-lg transition-colors">
+              <Upload className="w-3.5 h-3.5" /> 导入 TXT
+            </button>
+            <input type="file" accept=".txt" ref={fileInputRef} onChange={handleImportTxt} className="hidden" />
+          </div>
         </div>
-        <div className="flex-1 overflow-y-auto p-8 max-w-4xl mx-auto w-full">
-          {editing ? (
-            <textarea
-              value={editContent}
-              onChange={e => setEditContent(e.target.value)}
-              className="w-full h-full bg-transparent text-neutral-200 text-sm leading-relaxed focus:outline-none resize-none font-mono"
-              placeholder="在这里写下你的剧本..."
-            />
-          ) : hasContent ? (
-            <div className="text-neutral-300 text-sm leading-relaxed whitespace-pre-wrap">
-              {currentScript.content}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full gap-6">
+        <div className="flex-1 p-8 w-full relative">
+          {!editContent && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none gap-6">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600/20 to-indigo-600/20 flex items-center justify-center">
                 <Wand2 className="w-8 h-8 text-violet-400" />
               </div>
               <div className="text-center">
                 <p className="text-neutral-400 text-sm mb-1">还没有剧本内容</p>
-                <p className="text-neutral-600 text-xs">点击「AI 生成」让 AI 帮你写，或点击 ✏️ 手动编写</p>
+                <p className="text-neutral-600 text-xs">点击右上角「AI 生成」，或直接点击空白处开始输入</p>
               </div>
-              <button
-                onClick={() => { setShowAiPanel(true); setAiMode('generate'); }}
-                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-sm font-bold rounded-xl"
-              >
-                <Wand2 className="w-4 h-4" /> AI 帮我写剧本
-              </button>
             </div>
           )}
+          <textarea
+            value={editContent}
+            onChange={e => setEditContent(e.target.value)}
+            onBlur={handleSaveScript}
+            className="w-full h-full bg-transparent text-neutral-200 text-sm leading-relaxed focus:outline-none resize-none font-mono relative z-10"
+            placeholder=""
+          />
         </div>
       </div>
 

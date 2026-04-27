@@ -68,9 +68,9 @@ async function fetchTargetId(): Promise<string> {
            } else if (targetType === 'sceneVideo') {
                targetId = `${safeProjectId}_S${index}_Vid`;
            } else if (targetType === 'locationImage') {
-               targetId = '场景';
+               targetId = (ctxData.data.meta && ctxData.data.meta.charName) ? ctxData.data.meta.charName : '场景';
            } else if (targetType === 'sceneLocationImage') {
-               targetId = `场景_S${index}`;
+               targetId = (ctxData.data.meta && ctxData.data.meta.charName) ? ctxData.data.meta.charName : `场景_S${index}`;
            } else if (targetType === 'characterImage') {
                targetId = (ctxData.data.meta && ctxData.data.meta.charName) ? ctxData.data.meta.charName : `${safeProjectId}_Char${index}`;
            } else if (targetType === 'coverImage' && ctxData.data.meta) {

@@ -61,9 +61,9 @@
         } else if (targetType === "sceneVideo") {
           targetId = `${safeProjectId}_S${index}_Vid`;
         } else if (targetType === "locationImage") {
-          targetId = "\u573A\u666F";
+          targetId = ctxData.data.meta && ctxData.data.meta.charName ? ctxData.data.meta.charName : "\u573A\u666F";
         } else if (targetType === "sceneLocationImage") {
-          targetId = `\u573A\u666F_S${index}`;
+          targetId = ctxData.data.meta && ctxData.data.meta.charName ? ctxData.data.meta.charName : `\u573A\u666F_S${index}`;
         } else if (targetType === "characterImage") {
           targetId = ctxData.data.meta && ctxData.data.meta.charName ? ctxData.data.meta.charName : `${safeProjectId}_Char${index}`;
         } else if (targetType === "coverImage" && ctxData.data.meta) {

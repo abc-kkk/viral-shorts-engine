@@ -99,51 +99,6 @@ export default function SettingsModal({ open, onClose }: Props) {
 
           <div className="h-px bg-neutral-800 w-full" />
 
-          {/* AI Provider */}
-          <div>
-            <label className="text-sm font-bold text-neutral-300 block mb-2">🧠 全局文本大模型 (AI Provider)</label>
-            <select 
-              className="w-full bg-black/60 border border-neutral-700 rounded-lg p-3 text-neutral-300 font-bold text-sm focus:border-orange-500 focus:outline-none cursor-pointer"
-              value={aiProvider}
-              onChange={e => setAiProvider(e.target.value as 'gemini' | 'doubao')}
-            >
-              <option value="gemini">Gemini (默认)</option>
-              <option value="doubao">豆包 Doubao</option>
-            </select>
-            <p className="text-xs text-neutral-600 mt-1.5">此选项将决定项目中所有剧本创作、分镜拆解及提示词润色等文本工作所使用的大语言模型。</p>
-          </div>
-
-          <div className="h-px bg-neutral-800 w-full" />
-
-          {/* Flow URL */}
-          <div>
-            <label className="text-sm font-bold text-neutral-300 block mb-2">🔗 Google Flow 项目大本营网址</label>
-            <input 
-              type="text"
-              className="w-full bg-black/60 border border-neutral-700 rounded-lg p-3 text-white font-mono text-sm focus:border-orange-500 focus:outline-none"
-              value={flowUrl}
-              onChange={e => setFlowUrl(e.target.value)}
-              placeholder="留空则读取 .env 配置。格式: https://labs.google/fx/.../project/xyz..."
-            />
-            <p className="text-xs text-neutral-600 mt-1.5">把你在云端建好的 Flow 网址填这，引擎全自动认路停靠。</p>
-          </div>
-
-          <div className="h-px bg-neutral-800 w-full" />
-          
-          {/* JianYing Path */}
-          <div>
-            <label className="text-sm font-bold text-neutral-300 block mb-2">✂️ 剪映草稿箱自定义路径 (JianYing Draft Path)</label>
-            <input 
-              type="text"
-              className="w-full bg-black/60 border border-neutral-700 rounded-lg p-3 text-white font-mono text-sm focus:border-orange-500 focus:outline-none"
-              value={jianyingPath}
-              onChange={e => setJianyingPath(e.target.value)}
-              placeholder="留空则使用默认路径 (%LOCALAPPDATA%\\JianyingPro\\...)"
-            />
-            <p className="text-xs text-neutral-600 mt-1.5">如果你在剪映的“全局设置”里把“草稿位置”移到了别的盘，请在这里填入你的自定义文件夹路径。</p>
-          </div>
-
-          <div className="h-px bg-neutral-800 w-full" />
 
           {/* Art Style */}
           <div>

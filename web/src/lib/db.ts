@@ -89,13 +89,8 @@ export function getDb() {
         
         copyTable('Scene', [
           'id', 'projectId', 'sceneIndex', 'speaker', 'dialogue', 'actionHint', 'locationPrompt', 
-          'startLayoutPrompt', 'imagePrompt', 'videoPrompt', 'startImagePrompt', 'locationImage', 
-          'imageAsset', 'startImageAsset', 'videoAsset', 'audioAsset', 'charactersInScene', 
-          'duration', 'videoTrimStart', 'videoTrimEnd', 'audioDelay'
-        ], [
-          'id', 'projectId', 'sceneIndex', 'speaker', 'dialogue', 'actionHint', 'locationPrompt', 
-          'actionLayoutPrompt', 'imagePrompt', 'videoPrompt', 'startImagePrompt', 'locationImage', 
-          'imageAsset', 'startImageAsset', 'videoAsset', 'audioAsset', 'charactersInScene', 
+          'startLayoutPrompt', 'endLayoutPrompt', 'imagePrompt', 'videoPrompt', 'startImagePrompt', 'locationImage', 
+          'imageAsset', 'startImageAsset', 'videoAsset', 'audioAsset', 'imageRef', 'startImageRef', 'charactersInScene', 
           'duration', 'videoTrimStart', 'videoTrimEnd', 'audioDelay'
         ]);
 
@@ -301,16 +296,21 @@ export async function loadState(projectId: string) {
   const projScenes = db.select().from(schema.scenes).where(eq(schema.scenes.projectId, projectId)).orderBy(asc(schema.scenes.sceneIndex)).all();
   const projCovers = db.select().from(schema.covers).where(eq(schema.covers.projectId, projectId)).all();
 
+  // Fetch global settings
+  const globalAiProvider = db.select().from(schema.systemStates).where(eq(schema.systemStates.key, 'aiProvider')).get()?.value || 'gemini';
+  const globalJianyingPath = db.select().from(schema.systemStates).where(eq(schema.systemStates.key, 'jianyingPath')).get()?.value || '';
+  const globalFlowUrl = db.select().from(schema.systemStates).where(eq(schema.systemStates.key, 'flowUrl')).get()?.value || '';
+
   // Reconstruct giant JSON for frontend compatibility
   const state: any = {
     projectId: proj.id,
     projectName: proj.projectName,
     currentPhase: proj.currentPhase,
     artStyle: proj.artStyle,
-    flowUrl: proj.flowUrl,
-    jianyingPath: proj.jianyingPath,
+    flowUrl: globalFlowUrl,
+    jianyingPath: globalJianyingPath,
     theme: proj.theme,
-    aiProvider: proj.aiProvider,
+    aiProvider: globalAiProvider,
     useHitlMode: proj.useHitlMode,
     writerStep: proj.writerStep,
     creativeMode: proj.creativeMode,
@@ -393,7 +393,7 @@ export async function saveState(patch: any, projectId: string) {
 
   // Update Project table
   const projectData: any = {};
-  for (const field of ['theme', 'flowUrl', 'jianyingPath', 'artStyle', 'aiProvider', 'currentPhase', 'writerStep', 'creativeMode', 'rawScript', 'scriptIteration', 'userDirection', 'locationPrompt', 'locationImage', 'activeSceneIndex']) {
+  for (const field of ['theme', 'artStyle', 'currentPhase', 'writerStep', 'creativeMode', 'rawScript', 'scriptIteration', 'userDirection', 'locationPrompt', 'locationImage', 'activeSceneIndex']) {
     if (mergedState[field] !== undefined) projectData[field] = mergedState[field];
   }
   if (mergedState.publishInfo !== undefined) projectData.publishInfo = JSON.stringify(mergedState.publishInfo);

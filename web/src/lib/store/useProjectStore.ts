@@ -260,7 +260,7 @@ useProjectStore.subscribe((state, prevState) => {
   let hasChanges = false;
 
   const fieldsToWatch = [
-    'artStyle', 'flowUrl', 'jianyingPath', 'aiProvider', 'useHitlMode',
+    'artStyle', 'jianyingPath', 'aiProvider', 'useHitlMode',
     'theme', 'characters', 'scriptLines', 'writerStep', 'inspirations', 'creativeMode',
     'rawScript', 'scriptReview', 'scriptIteration', 'userDirection',
     // Casting Room & Scene Media

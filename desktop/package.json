@@ -57,7 +57,7 @@
       },
       {
         "from": "../web/drizzle",
-        "to": "drizzle"
+        "to": "server/drizzle"
       },
       {
         "from": "../ai-gateway",

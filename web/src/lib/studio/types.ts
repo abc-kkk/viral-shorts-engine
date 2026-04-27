@@ -107,6 +107,8 @@ export interface FsSceneData {
   timeOfDay?: string;
   /** 天气 */
   weather?: string;
+  /** 多角度场景图 { "正面": "url", "左45°": "url", ... } */
+  angles?: Record<string, string>;
   /** 默认出现在此场景的角色ID列表 */
   associatedCharacters?: string[];
 }

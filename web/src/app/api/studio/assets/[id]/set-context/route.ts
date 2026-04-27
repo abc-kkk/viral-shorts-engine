@@ -9,7 +9,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const { scriptId, scriptTitle, targetType, charName } = await request.json();
+    const { scriptId, scriptTitle, targetType, charName, angleKey } = await request.json();
 
     if (!scriptId || !targetType) {
       return NextResponse.json({ error: 'Missing scriptId or targetType' }, { status: 400 });
@@ -24,14 +24,15 @@ export async function POST(
       index: 0,
       meta: {
         fsAssetId: id,
-        charName: charName || undefined // Required for characterImage to set anti-counterfeit name
+        charName: charName || undefined, // Required for characterImage to set anti-counterfeit name
+        angleKey: angleKey || undefined  // 场景多角度：标识是哪个角度的图
       }
     };
 
     // Upsert active-context
     const existing = db.select().from(schema.systemStates).where(eq(schema.systemStates.key, 'active-context')).get();
     if (existing) {
-        db.update(schema.systemStates).set({ value: JSON.stringify(contextObj), updatedAt: new Date().toISOString() }).where(eq(schema.systemStates.key, 'active-context')).run();
+        db.update(schema.systemStates).set({ value: JSON.stringify(contextObj) }).where(eq(schema.systemStates.key, 'active-context')).run();
     } else {
         db.insert(schema.systemStates).values({ key: 'active-context', value: JSON.stringify(contextObj) }).run();
     }

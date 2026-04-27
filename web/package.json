@@ -5,11 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build:ext": "tsc -p viral-shorts-extension/tsconfig.json && esbuild viral-shorts-extension/src/content.ts --bundle --outfile=viral-shorts-extension/dist/content.js",
-    "build": "npx drizzle-kit generate && npm run build:ext && next build",
+    "build": "npm run build:ext && next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest",
-    "postinstall": "npx drizzle-kit generate"
+    "test": "vitest"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",

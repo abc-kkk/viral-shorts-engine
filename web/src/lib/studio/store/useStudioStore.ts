@@ -51,8 +51,8 @@ interface StudioStoreActions {
   updateScript: (id: string, input: FsScriptUpdateInput) => Promise<FsScript | null>;
   deleteScript: (id: string) => Promise<boolean>;
 
-  /** AI 分析 */
-  analyzeScript: (id: string) => Promise<FsAsset[] | null>;
+  /** AI 分析（可选 category 指定只提取某一类） */
+  analyzeScript: (id: string, category?: 'character' | 'scene' | 'prop') => Promise<FsAsset[] | null>;
 
   /** AI 生成/润色剧本 */
   generateScript: (id: string, mode: 'generate' | 'polish', prompt: string, options?: { genre?: string; episodeCount?: number }) => Promise<FsScript | null>;
@@ -185,10 +185,13 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
 
   // ---- AI 分析 ----
 
-  analyzeScript: async (id) => {
+  analyzeScript: async (id, category) => {
     set({ analyzing: true, error: null });
     try {
-      const res = await fetch(`/api/studio/scripts/${id}/analyze`, {
+      const url = category
+        ? `/api/studio/scripts/${id}/analyze?category=${category}`
+        : `/api/studio/scripts/${id}/analyze`;
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -291,6 +294,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   requestAssetGeneration: async (asset) => {
     set((state) => ({ generatingAssets: { ...state.generatingAssets, [asset.id]: true }, error: null }));
     try {
+      const currentScript = get().currentScript;
       // 1. 设置系统上下文 active-context
       const targetType = asset.type === 'character' ? 'characterImage' : 'locationImage';
       const ctxRes = await fetch(`/api/studio/assets/${asset.id}/set-context`, {
@@ -311,29 +315,31 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       if (asset.type === 'character') {
          const appearance = data.appearance ? `外貌：${data.appearance}。` : '';
          const personality = data.personality ? `性格/身份：${data.personality}。` : '';
-         const desc = asset.description ? `描述：${asset.description}` : '';
-         prompt = `角色【${asset.name}】设计图。${appearance}${personality}${desc}。原生写实主义，不完美之美，极高画质。`;
+         const desc = asset.description ? `描述：${asset.description}。` : '';
+         prompt = `角色【${asset.name}】多角度设定图。${appearance}${personality}${desc}要求如下：
+1. 构图：画面左侧必须是一个极大的面部高清特写（占据约三分之一画面），画面右侧为三个全身视图（正面全身、侧面全身、背面全身），整体横向排列在同一张纯白背景图上。
+2. 画风：极度写实，手机实拍感，自然光影，包含真实的皮肤纹理和微小瑕疵，拒绝3D渲染或CG塑料感(photorealistic, shot on iPhone, raw photo, ultra-detailed)。
+3. 严格禁止：画面中绝不能出现任何文字、字母、图解、箭头或水印(no text, no labels, no words, no annotations)。
+4. 一致性：保持人物五官、发型、服装细节在不同角度下100%一致。
+5. 表情：设定图必须是绝对的中性无表情（Neutral expression, emotionless, blank stare），请强制忽略描述中可能包含的任何表情词汇（如皱眉、微笑等）。`;
+      } else if (asset.type === 'prop') {
+         const imgPrompt = data.imagePrompt ? `${data.imagePrompt}. ` : '';
+         const size = data.sizeDescription ? `Size reference: ${data.sizeDescription}. ` : '';
+         const category = data.category || 'prop';
+         const desc = asset.description ? `${asset.description}. ` : '';
+         prompt = `Professional product photography turnaround sheet of a ${category}: "${asset.name}". ${imgPrompt}${size}${desc}Requirements:
+1. Layout: Show the item from 3 distinct angles arranged on a single image — large hero front view (occupying the left half), plus two smaller views (top-down and side/back) on the right. Clean pure white (#FFFFFF) seamless background.
+2. Style: Ultra-realistic commercial product photography, shot with a macro lens (100mm f/2.8), controlled studio strobe lighting with soft diffused fill, subtle contact shadows on the surface. Capture every material texture detail — metal scratches, wood grain, fabric weave, glass refraction, ceramic glaze (8K, RAW, product catalog quality).
+3. Mood: Neutral, objective, catalog-style. No dramatic color grading. True-to-life colors under 5500K daylight-balanced studio lights.
+4. Strictly forbidden: No text, no labels, no annotations, no watermarks, no human hands, no background elements. The prop must be the sole subject.`;
       } else {
          const atmosphere = data.atmosphere ? `氛围：${data.atmosphere}。` : '';
          const desc = asset.description ? `描述：${asset.description}` : '';
          prompt = `场景【${asset.name}】设计图。${atmosphere}${desc}。空镜头，无人，原生写实主义，极高画质。`;
       }
 
-      // 2.5 获取当前剧本独立的 Flow URL
+      // 2.5 Flow URL 已由后端 /api/generate-assets 自动探测（Chrome CDP → 全局设置 → 环境变量）
       const scriptId = asset.scriptId;
-      const currentScript = get().currentScript;
-      let flowUrl = currentScript?.metadata?.flowUrl;
-
-      if (!flowUrl) {
-          flowUrl = window.prompt('⚠️ 首次生图需要配置此剧本专属的 Google Flow 项目 URL:\n(例如: https://aistudio.google.com/app/flow/...)');
-          if (!flowUrl) {
-              set((state) => ({ generatingAssets: { ...state.generatingAssets, [asset.id]: false } }));
-              return false; // 取消生图
-          }
-          flowUrl = flowUrl.trim();
-          // 保存进剧本的 metadata 中，实现每个项目独立持久化
-          await get().updateScript(scriptId, { metadata: { flowUrl } });
-      }
 
       // 3. 触发 Gateway FireAndForget
       const genRes = await fetch('/api/generate-assets', {
@@ -344,8 +350,8 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
            model: 'Nano Banana Pro', // 强制图片模型
            projectId: `projects/${currentScript?.title || 'Script_' + asset.scriptId}`, // 存放在 工作空间/projects/xxx 下，与老版完全隔离
            fireAndForget: true,
-           flowUrl,
-           targetType // 透传给网关
+           targetType, // 透传给网关
+           meta: { fsAssetId: asset.id } // 把 ID 带上，保证扩展 push 时能原样带回来
          }),
       });
       
@@ -354,7 +360,13 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
          throw new Error(genData.error || '调用底层生图引擎失败');
       }
 
-      // 成功触发后，前端 loading 会一直保持 true，直到 inboxPoller 把它消灭。
+      // 成功触发后，前端 loading 显示 2 秒后自动恢复，让用户可以继续操作（如修改人设再次生成）
+      setTimeout(() => {
+        set((state) => ({ 
+          generatingAssets: { ...state.generatingAssets, [asset.id]: false }
+        }));
+      }, 2000);
+
       return true;
     } catch (e: any) {
       set((state) => ({ 

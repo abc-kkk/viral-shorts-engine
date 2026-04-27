@@ -7,6 +7,7 @@ import type { LucideIcon } from 'lucide-react';
 import { useStudioStore } from '@/lib/studio/store/useStudioStore';
 import type { FsAsset, FsAssetType } from '@/lib/studio/types';
 import AssetCard from '@/components/studio/assets/AssetCard';
+import SceneAngleModal from '@/components/studio/assets/SceneAngleModal';
 import { useStudioInboxPoller } from '@/components/studio/assets/useStudioInboxPoller';
 
 const TYPE_TABS: { key: FsAssetType; label: string; icon: LucideIcon; color: string; bg: string }[] = [
@@ -31,6 +32,7 @@ export default function AssetManagePage() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingAsset, setEditingAsset] = useState<FsAsset | null>(null);
+  const [angleModalAssetId, setAngleModalAssetId] = useState<string | null>(null);
 
   // 手动添加表单
   const [addName, setAddName] = useState('');
@@ -51,9 +53,13 @@ export default function AssetManagePage() {
     prop: propCount,
   };
 
-  const handleAiAnalyze = async () => {
+  const [analyzingCategory, setAnalyzingCategory] = useState<FsAssetType | null>(null);
+
+  const handleAiAnalyze = async (category: FsAssetType) => {
     if (!currentScript) return;
-    await analyzeScript(currentScript.id);
+    setAnalyzingCategory(category);
+    await analyzeScript(currentScript.id, category);
+    setAnalyzingCategory(null);
   };
 
   const handleAddAsset = async () => {
@@ -96,6 +102,9 @@ export default function AssetManagePage() {
     );
   }
 
+  const activeTabConfig = TYPE_TABS.find(t => t.key === activeTab)!;
+  const isCurrentTabAnalyzing = analyzingCategory === activeTab;
+
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-neutral-100 flex flex-col">
       {/* Header */}
@@ -114,16 +123,6 @@ export default function AssetManagePage() {
               </span>
             </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleAiAnalyze}
-            disabled={analyzing}
-            className="flex items-center gap-1.5 px-4 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold rounded-lg disabled:opacity-50"
-          >
-            {analyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-            {analyzing ? 'AI 分析中...' : 'AI 提取资产'}
-          </button>
         </div>
       </div>
 
@@ -156,20 +155,21 @@ export default function AssetManagePage() {
       <div className="flex-1 overflow-y-auto p-8">
         {filteredAssets.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-80 gap-5">
-            <div className={`w-14 h-14 rounded-2xl ${TYPE_TABS.find(t => t.key === activeTab)?.bg} flex items-center justify-center`}>
-              {React.createElement(TYPE_TABS.find(t => t.key === activeTab)?.icon || Users, { className: `w-7 h-7 ${TYPE_TABS.find(t => t.key === activeTab)?.color}` })}
+            <div className={`w-14 h-14 rounded-2xl ${activeTabConfig.bg} flex items-center justify-center`}>
+              {React.createElement(activeTabConfig.icon, { className: `w-7 h-7 ${activeTabConfig.color}` })}
             </div>
             <div className="text-center">
-              <p className="text-neutral-400 text-sm mb-1">暂无{TYPE_TABS.find(t => t.key === activeTab)?.label}</p>
-              <p className="text-neutral-600 text-xs">点击「AI 提取资产」自动分析剧本，或手动添加</p>
+              <p className="text-neutral-400 text-sm mb-1">暂无{activeTabConfig.label}</p>
+              <p className="text-neutral-600 text-xs">点击下方按钮从剧本中 AI 提取，或手动添加</p>
             </div>
             <div className="flex items-center gap-3">
               <button
-                onClick={handleAiAnalyze}
-                disabled={analyzing}
-                className="flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold rounded-lg disabled:opacity-50"
+                onClick={() => handleAiAnalyze(activeTab)}
+                disabled={!!analyzingCategory}
+                className={`flex items-center gap-1.5 px-4 py-2 text-white text-sm font-bold rounded-lg disabled:opacity-50 ${activeTabConfig.color.replace('text-', 'bg-').replace('-400', '-600')} hover:opacity-90`}
               >
-                <Sparkles className="w-3.5 h-3.5" /> AI 提取
+                {isCurrentTabAnalyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                {isCurrentTabAnalyzing ? `提取${activeTabConfig.label}中...` : `AI 提取${activeTabConfig.label}`}
               </button>
               <button
                 onClick={() => { setShowAddDialog(true); setAddName(''); setAddDesc(''); }}
@@ -181,13 +181,23 @@ export default function AssetManagePage() {
           </div>
         ) : (
           <div className="flex items-center justify-between mb-4">
-            <span className="text-xs text-neutral-500">{filteredAssets.length} 个{TYPE_TABS.find(t => t.key === activeTab)?.label}</span>
-            <button
-              onClick={() => { setShowAddDialog(true); setAddName(''); setAddDesc(''); }}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg"
-            >
-              <Plus className="w-3 h-3" /> 添加
-            </button>
+            <span className="text-xs text-neutral-500">{filteredAssets.length} 个{activeTabConfig.label}</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleAiAnalyze(activeTab)}
+                disabled={!!analyzingCategory}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-amber-400 hover:bg-amber-500/10 rounded-lg disabled:opacity-50 transition-colors"
+              >
+                {isCurrentTabAnalyzing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                {isCurrentTabAnalyzing ? '提取中...' : `AI 提取${activeTabConfig.label}`}
+              </button>
+              <button
+                onClick={() => { setShowAddDialog(true); setAddName(''); setAddDesc(''); }}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg"
+              >
+                <Plus className="w-3 h-3" /> 添加
+              </button>
+            </div>
           </div>
         )}
 
@@ -196,6 +206,7 @@ export default function AssetManagePage() {
             <AssetCard
               key={asset.id}
               asset={asset}
+              onOpenAngleModal={() => setAngleModalAssetId(asset.id)}
               onEdit={() => openEditDialog(asset)}
               onDelete={async () => {
                 if (confirm(`确定删除「${asset.name}」？`)) {
@@ -274,6 +285,13 @@ export default function AssetManagePage() {
           </div>
         </div>
       )}
+      {/* 场景多角度面板（页面级别，不受 AssetCard 重渲染影响） */}
+      {angleModalAssetId && (() => {
+        const angleAsset = currentAssets.find((a: FsAsset) => a.id === angleModalAssetId);
+        return angleAsset && angleAsset.type === 'scene' ? (
+          <SceneAngleModal asset={angleAsset} onClose={() => setAngleModalAssetId(null)} />
+        ) : null;
+      })()}
     </div>
   );
 }

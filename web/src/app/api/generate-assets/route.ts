@@ -3,6 +3,7 @@ import { getAssetDir } from '@/lib/db';
 import { generateAssetFilename, getAssetTypeForTarget, getAssetUrlWithCacheBust } from '@/lib/assetUrl';
 import type { TargetType } from '@/lib/types';
 import { PassthroughMetaSchema } from '@/lib/validation';
+import { resolveFlowUrl } from '@/lib/detectFlowUrl';
 import fs from 'fs';
 import path from 'path';
 
@@ -13,10 +14,17 @@ const AI_GATEWAY_URL = process.env.AI_GATEWAY_URL || 'http://localhost:4100';
 
 export async function POST(req: Request) {
   try {
-    const { prompt, model, referenceKeyword, referenceKeywords, startImageUrl, flowUrl, projectId, fireAndForget, veoMode, targetType: reqTargetType, index: reqIndex, meta: reqMeta } = await req.json();
+    const { prompt, model, referenceKeyword, referenceKeywords, startImageUrl, flowUrl: rawFlowUrl, projectId, fireAndForget, veoMode, targetType: reqTargetType, index: reqIndex, meta: reqMeta } = await req.json();
 
     if (!prompt) return NextResponse.json({ error: 'Missing prompt' }, { status: 400 });
     if (!projectId) return NextResponse.json({ error: 'Missing projectId' }, { status: 400 });
+
+    // 自动探测 Flow URL（Chrome CDP → 全局设置 → 环境变量）
+    const flowUrl = await resolveFlowUrl(rawFlowUrl);
+    if (!flowUrl) {
+      return NextResponse.json({ error: '未找到 Flow URL。请在调试 Chrome 中打开 Flow 页面，或在「系统设置」中手动配置。' }, { status: 400 });
+    }
+    console.log(`[Asset Gen] Using Flow URL: ${flowUrl.substring(0, 60)}...`);
 
     // --- Zod 强类型校验 ---
     const validationResult = PassthroughMetaSchema.safeParse({

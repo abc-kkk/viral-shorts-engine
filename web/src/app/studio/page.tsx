@@ -79,7 +79,7 @@ export default function StudioPage() {
         </button>
       </div>
 
-      <div className="max-w-6xl mx-auto px-8 py-8">
+      <div className="px-8 py-8">
         {loading ? (
           <div className="flex justify-center items-center h-64">
             <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />

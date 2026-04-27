@@ -30,8 +30,8 @@ function startNextServer(port, gatewayPort) {
   };
 
   if (isDev) {
-    console.log('[Main] Starting Next.js in dev mode...');
-    nextProcess = spawn('npm', ['run', 'dev'], {
+    console.log('[Main] Starting Next.js in dev mode (bound to 127.0.0.1)...');
+    nextProcess = spawn('npm', ['run', 'dev', '--', '-H', '127.0.0.1'], {
       cwd: serverDir,
       env,
       shell: true,
@@ -78,6 +78,9 @@ function startGateway(port) {
 
   if (isDev) {
     console.log('[Main] Starting ai-gateway in dev mode...');
+    // macOS GUI 应用的 PATH 通常被截断，需要显式注入 node_modules/.bin
+    const binDir = path.join(gatewayDir, 'node_modules', '.bin');
+    env.PATH = binDir + path.delimiter + (env.PATH || '');
     gatewayProcess = spawn('npm', ['run', 'dev'], {
       cwd: gatewayDir,
       env,

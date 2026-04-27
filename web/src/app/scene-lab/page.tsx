@@ -33,7 +33,7 @@ export default function SceneLabPage() {
   const [composedPrompt, setComposedPrompt] = useState('');
 
   // Generation
-  const [flowUrl, setFlowUrl] = useState('');
+
   const [generating, setGenerating] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
@@ -101,7 +101,7 @@ export default function SceneLabPage() {
   }, [characters, sceneLabel, sceneImageUrl, layoutLabel, layoutImage, styleTag, customText, charLabels]);
 
   const handleGenerate = useCallback(async () => {
-    if (!composedPrompt || !flowUrl) { showToast('请填写 Flow URL 和提示词'); return; }
+    if (!composedPrompt) { showToast('请填写提示词'); return; }
     setGenerating(true);
     try {
       // 1. Set active context for the Chrome extension so it knows the anti-tamper name
@@ -126,7 +126,7 @@ export default function SceneLabPage() {
           prompt: composedPrompt,
           model: 'Nano Banana Pro',
           referenceKeywords: keywords,
-          flowUrl,
+
           projectId: 'scene-lab-standalone',
           fireAndForget: true,
         }),
@@ -139,7 +139,7 @@ export default function SceneLabPage() {
       }
     } catch (e: any) { showToast('请求失败: ' + e.message); }
     finally { setGenerating(false); }
-  }, [composedPrompt, flowUrl, activeTarget, showToast]);
+  }, [composedPrompt, activeTarget, showToast]);
 
   const handleClearLayout = () => {
     localStorage.removeItem(STORAGE_KEY_IMG);
@@ -365,15 +365,7 @@ export default function SceneLabPage() {
               style={{ ...inputStyle, minHeight: 120, resize: 'vertical', fontSize: 13, lineHeight: 1.7 }}
             />
 
-            {/* Flow URL + Actions */}
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input
-                placeholder="Flow 项目 URL (https://labs.google/fx/zh/tools/flow/...)"
-                value={flowUrl}
-                onChange={e => setFlowUrl(e.target.value)}
-                style={{ ...inputStyle, flex: 1 }}
-              />
-            </div>
+            {/* Actions */}
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 onClick={() => { if (composedPrompt) { navigator.clipboard.writeText(composedPrompt); showToast('已复制到剪贴板！'); } }}

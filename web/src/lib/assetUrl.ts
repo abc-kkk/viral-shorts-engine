@@ -48,8 +48,10 @@ export function generateAssetFilename(
   
   switch (targetType) {
     case 'locationImage':
+      if (meta?.charName) return `${meta.charName}${ext}`;
       return `场景${ext}`;
     case 'sceneLocationImage':
+      if (meta?.charName) return `${meta.charName}${ext}`;
       return index !== undefined ? `场景_S${index}${ext}` : `场景_unknown${ext}`;
     case 'characterImage':
       if (meta?.charName) return `${meta.charName}${ext}`;
