@@ -3,6 +3,7 @@ import type { PublishInfo } from '../types';
 import { bustUrlCache, bustUrlCacheMap } from '../assetUrl';
 import { useProjectStore } from '../store/useProjectStore';
 import { DEFAULT_ART_STYLE } from '../constants';
+import { apiClient } from '../utils/apiClient';
 
 export function useProjectState(projectId: string) {
   // Sync projectId to Zustand
@@ -20,7 +21,7 @@ export function useProjectState(projectId: string) {
 
   // 自动加载 (从 API)
   useEffect(() => {
-    fetch(`/api/state?projectId=${encodeURIComponent(projectId)}`).then(r => r.json()).then(res => {
+    apiClient.get(`/api/state`, { params: { projectId } }).then(res => {
       if (res.success && Object.keys(res.data).length > 0) {
         const data = res.data;
         
@@ -107,11 +108,8 @@ export function useProjectState(projectId: string) {
 
     if (hasChanges) {
       const timeout = setTimeout(() => {
-        fetch(`/api/state?projectId=${encodeURIComponent(projectId)}`, { 
-            method: 'PATCH', 
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(diff) 
-        }).catch(e => console.error("Save state error:", e));
+        apiClient.patch(`/api/state`, diff, { params: { projectId }, hideErrorToast: true })
+          .catch(e => console.error("Save state error:", e));
         prevStateRef.current = data;
       }, 1000);
       return () => clearTimeout(timeout);
@@ -121,7 +119,7 @@ export function useProjectState(projectId: string) {
   // 工具函数：清除进度
   const handleClearProgress = () => {
     if (confirm("Are you sure to clear all progress? This cannot be undone.")) {
-      fetch(`/api/state?projectId=${encodeURIComponent(projectId)}`, { method: 'DELETE' }).then(() => {
+      apiClient.delete(`/api/state`, { params: { projectId } }).then(() => {
         window.location.reload();
       });
     }
@@ -139,12 +137,5 @@ export type ProjectStateReturn = ReturnType<typeof useProjectState>;
 
 /** 通用 API 请求脚手架：收敛所有的 POST 请求参数与错误处理 */
 export async function fetchApi<T = any>(endpoint: string, payload: any): Promise<T> {
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || '请求失败');
-  return data;
+  return apiClient.post<T>(endpoint, payload);
 }

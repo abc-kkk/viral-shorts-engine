@@ -201,3 +201,37 @@ export interface FsScriptAnalysis {
     heldBy?: string;
   }>;
 }
+
+// ========================================
+// 分镜类型
+// ========================================
+
+/** 分镜镜头状态 */
+export type FsShotStatus = 'pending' | 'editing' | 'done';
+
+/** 镜头 (Shot) */
+export interface FsStoryboardShot {
+  id: string;
+  visual: string;
+  speaker?: string;
+  dialogue: string;
+  characters: string[];
+  firstFramePrompt: string;
+  lastFramePrompt: string;
+  videoPrompt: string;
+  firstFrameImage?: string;
+  lastFrameImage?: string;
+  videoUrl?: string;
+  audioUrl?: string;
+  status: FsShotStatus;
+}
+
+/** 镜头组 (Camera Group / Scene) */
+export interface FsStoryboardGroup {
+  id: string;
+  title: string;
+  context: string;
+  sceneName: string;
+  shots: FsStoryboardShot[];
+}
+

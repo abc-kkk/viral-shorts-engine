@@ -45,9 +45,11 @@ export function generateAssetFilename(
   mediaType?: string
 ): string {
   const ext = mediaType === 'video' ? '.mp4' : '.png';
+  const cleanProjectId = projectId.replace('projects/', '');
   
   switch (targetType) {
     case 'locationImage':
+      if (meta?.charName && meta?.angleKey) return `${meta.charName}_${meta.angleKey}${ext}`;
       if (meta?.charName) return `${meta.charName}${ext}`;
       return `场景${ext}`;
     case 'sceneLocationImage':
@@ -55,13 +57,16 @@ export function generateAssetFilename(
       return index !== undefined ? `场景_S${index}${ext}` : `场景_unknown${ext}`;
     case 'characterImage':
       if (meta?.charName) return `${meta.charName}${ext}`;
-      return index !== undefined ? `${projectId}_Char${index}${ext}` : `char_${Date.now()}${ext}`;
+      return index !== undefined ? `${cleanProjectId}_Char${index}${ext}` : `char_${Date.now()}${ext}`;
     case 'sceneStartImage':
-      return index !== undefined ? `${projectId}_S${index}_StartImg${ext}` : `start_${Date.now()}${ext}`;
+      if (meta?.charName) return `${meta.charName}${ext}`;
+      return index !== undefined ? `${cleanProjectId}_S${index}_StartImg${ext}` : `start_${Date.now()}${ext}`;
     case 'sceneImage':
-      return index !== undefined ? `${projectId}_S${index}_Img${ext}` : `img_${Date.now()}${ext}`;
+      if (meta?.charName) return `${meta.charName}${ext}`;
+      return index !== undefined ? `${cleanProjectId}_S${index}_Img${ext}` : `img_${Date.now()}${ext}`;
     case 'sceneVideo':
-      return index !== undefined ? `${projectId}_S${index}_Vid${ext}` : `vid_${Date.now()}${ext}`;
+      if (meta?.charName) return `${meta.charName}${ext}`;
+      return index !== undefined ? `${cleanProjectId}_S${index}_Vid${ext}` : `vid_${Date.now()}${ext}`;
     case 'coverImage':
       if (meta?.ratio) return `cover_${meta.ratio.replace(':', 'x')}${ext}`;
       return `cover_${Date.now()}${ext}`;

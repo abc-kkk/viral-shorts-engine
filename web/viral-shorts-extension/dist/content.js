@@ -53,22 +53,27 @@
       if (ctxData.success && ctxData.data) {
         const { projectId, index } = ctxData.data;
         const targetType = ctxData.data.targetType;
-        const safeProjectId = (projectId || "Proj").replace(/[^\w\u4e00-\u9fa5]/g, "");
-        if (targetType === "sceneImage") {
-          targetId = `${safeProjectId}_S${index}_Img`;
-        } else if (targetType === "sceneStartImage") {
-          targetId = `${safeProjectId}_S${index}_StartImg`;
-        } else if (targetType === "sceneVideo") {
-          targetId = `${safeProjectId}_S${index}_Vid`;
-        } else if (targetType === "locationImage") {
-          targetId = ctxData.data.meta && ctxData.data.meta.charName ? ctxData.data.meta.charName : "\u573A\u666F";
-        } else if (targetType === "sceneLocationImage") {
-          targetId = ctxData.data.meta && ctxData.data.meta.charName ? ctxData.data.meta.charName : `\u573A\u666F_S${index}`;
-        } else if (targetType === "characterImage") {
-          targetId = ctxData.data.meta && ctxData.data.meta.charName ? ctxData.data.meta.charName : `${safeProjectId}_Char${index}`;
-        } else if (targetType === "coverImage" && ctxData.data.meta) {
-          const safeRatio = (ctxData.data.meta.ratio || "").replace(":", "x");
-          targetId = `${safeProjectId}_Cover_${safeRatio}`;
+        const safeProjectId = (projectId || "Proj").replace(/[^\w\u4e00-\u9fa5]/g, "").replace("projects", "");
+        
+        if (ctxData.data.meta && ctxData.data.meta.charName) {
+            targetId = ctxData.data.meta.charName;
+        } else {
+            if (targetType === "sceneImage") {
+              targetId = `${safeProjectId}_S${index}_Img`;
+            } else if (targetType === "sceneStartImage") {
+              targetId = `${safeProjectId}_S${index}_StartImg`;
+            } else if (targetType === "sceneVideo") {
+              targetId = `${safeProjectId}_S${index}_Vid`;
+            } else if (targetType === "locationImage") {
+              targetId = "\u573A\u666F";
+            } else if (targetType === "sceneLocationImage") {
+              targetId = `\u573A\u666F_S${index}`;
+            } else if (targetType === "characterImage") {
+              targetId = `${safeProjectId}_Char${index}`;
+            } else if (targetType === "coverImage" && ctxData.data.meta) {
+              const safeRatio = (ctxData.data.meta.ratio || "").replace(":", "x");
+              targetId = `${safeProjectId}_Cover_${safeRatio}`;
+            }
         }
       }
     } catch (e) {

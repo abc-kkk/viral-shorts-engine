@@ -24,21 +24,19 @@ export function useCastingRoom(getFullScriptContext: () => string) {
   }, [getFullScriptContext]);
 
   const generateLocationImage = useCallback(async (referenceKeywords?: string[]) => {
-    const { locationPrompt, projectId, flowUrl, useHitlMode, setLocationImage, setIsProcessingLocation } = useProjectStore.getState();
+    const { locationPrompt, projectId, flowUrl, setLocationImage, setIsProcessingLocation } = useProjectStore.getState();
     if (!locationPrompt) return toast.warning("请先生成场景视觉提示词");
     setIsProcessingLocation('image');
     try {
-      await fetch('/api/extension/active-context', { method: 'POST', body: JSON.stringify({ projectId, targetType: 'locationImage' }) });
       const data = await fetchApi('/api/generate-assets', { 
         prompt: locationPrompt, 
         model: 'Nano Banana Pro', 
         referenceKeywords: referenceKeywords || [],
         flowUrl, 
         projectId, 
-        fireAndForget: useHitlMode,
         targetType: 'locationImage'
       });
-      if (!data.fireAndForget) {
+      if (data.url) {
          setLocationImage(data.url);
       }
     } catch (e: any) {
@@ -68,23 +66,21 @@ export function useCastingRoom(getFullScriptContext: () => string) {
   }, [getFullScriptContext]);
 
   const generateSceneLocationImage = useCallback(async (sceneIndex: number, referenceKeywords?: string[]) => {
-    const { sceneLocationPrompts, projectId, flowUrl, useHitlMode, setProcessingScene, setSceneLocationImages } = useProjectStore.getState();
+    const { sceneLocationPrompts, projectId, flowUrl, setProcessingScene, setSceneLocationImages } = useProjectStore.getState();
     const prompt = sceneLocationPrompts[sceneIndex];
     if (!prompt) return toast.warning("请先生成该幕场景视觉提示词");
     setProcessingScene((p: any) => ({ ...p, [sceneIndex]: 'action' }));
     try {
-      await fetch('/api/extension/active-context', { method: 'POST', body: JSON.stringify({ projectId, targetType: 'sceneLocationImage', index: sceneIndex }) });
       const data = await fetchApi('/api/generate-assets', { 
         prompt, 
         model: 'Nano Banana Pro', 
         referenceKeywords: referenceKeywords || [],
         flowUrl, 
         projectId, 
-        fireAndForget: useHitlMode,
         targetType: 'sceneLocationImage',
         index: sceneIndex
       });
-      if (!data.fireAndForget) {
+      if (data.url) {
          setSceneLocationImages((p: any) => ({ ...p, [sceneIndex]: data.url }));
       }
     } catch (e: any) {
@@ -117,13 +113,12 @@ export function useCastingRoom(getFullScriptContext: () => string) {
   }, [getFullScriptContext]);
 
   const generateCastingImage = useCallback(async (index: number) => {
-    const { characterPrompts, projectId, flowUrl, useHitlMode, characters, setProcessingChars, setCharacterImages } = useProjectStore.getState();
+    const { characterPrompts, projectId, flowUrl, characters, setProcessingChars, setCharacterImages } = useProjectStore.getState();
     if (!characterPrompts[index]) return toast.warning("请先生成或填写视觉提示词");
     setProcessingChars((p: any) => ({ ...p, [index]: 'image' }));
     try {
-      await fetch('/api/extension/active-context', { method: 'POST', body: JSON.stringify({ projectId, targetType: 'characterImage', index, meta: { charName: characters[index].name } }) });
-      const data = await fetchApi('/api/generate-assets', { prompt: characterPrompts[index], model: 'Nano Banana Pro', flowUrl, projectId, fireAndForget: useHitlMode, targetType: 'characterImage', index, meta: { charName: characters[index].name } });
-      if (!data.fireAndForget) {
+      const data = await fetchApi('/api/generate-assets', { prompt: characterPrompts[index], model: 'Nano Banana Pro', flowUrl, projectId, targetType: 'characterImage', index, meta: { charName: characters[index].name } });
+      if (data.url) {
          setCharacterImages((prev: any) => ({ ...prev, [index]: data.url }));
       }
     } catch (e: any) {

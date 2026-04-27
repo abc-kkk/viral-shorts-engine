@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Users, MapPin, Package, Sparkles, Loader2, Plus, Trash2, Edit3, Save, X, Wand2, ChevronRight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useStudioStore } from '@/lib/studio/store/useStudioStore';
@@ -9,6 +9,7 @@ import type { FsAsset, FsAssetType } from '@/lib/studio/types';
 import AssetCard from '@/components/studio/assets/AssetCard';
 import SceneAngleModal from '@/components/studio/assets/SceneAngleModal';
 import { useStudioInboxPoller } from '@/components/studio/assets/useStudioInboxPoller';
+import { VOICE_OPTIONS } from '@/lib/constants';
 
 const TYPE_TABS: { key: FsAssetType; label: string; icon: LucideIcon; color: string; bg: string }[] = [
   { key: 'character', label: '角色', icon: Users, color: 'text-blue-400', bg: 'bg-blue-500/10' },
@@ -18,6 +19,7 @@ const TYPE_TABS: { key: FsAssetType; label: string; icon: LucideIcon; color: str
 
 export default function AssetManagePage() {
   const params = useParams();
+  const router = useRouter();
   const scriptId = params.id as string;
 
   const {
@@ -37,6 +39,7 @@ export default function AssetManagePage() {
   // 手动添加表单
   const [addName, setAddName] = useState('');
   const [addDesc, setAddDesc] = useState('');
+  const [addVoiceName, setAddVoiceName] = useState('Zephyr');
 
   useEffect(() => {
     if (scriptId) selectScript(scriptId);
@@ -79,10 +82,14 @@ export default function AssetManagePage() {
 
   const handleSaveEdit = async () => {
     if (!editingAsset) return;
-    await updateAsset(editingAsset.id, {
+    const updatePayload: any = {
       name: addName.trim() || undefined,
       description: addDesc.trim() || undefined,
-    });
+    };
+    if (editingAsset.type === 'character') {
+      updatePayload.data = { voiceConfig: { voiceName: addVoiceName } };
+    }
+    await updateAsset(editingAsset.id, updatePayload);
     setShowEditDialog(false);
     setEditingAsset(null);
   };
@@ -91,6 +98,7 @@ export default function AssetManagePage() {
     setEditingAsset(asset);
     setAddName(asset.name);
     setAddDesc(asset.description);
+    setAddVoiceName((asset.data as any)?.voiceConfig?.voiceName || 'Zephyr');
     setShowEditDialog(true);
   };
 
@@ -124,6 +132,12 @@ export default function AssetManagePage() {
             </div>
           </div>
         </div>
+        <button
+          onClick={() => router.push(`/studio/scripts/${scriptId}/storyboard`)}
+          className="flex items-center gap-1.5 px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-900/20 transition-all"
+        >
+          下一步：分镜创作 <ChevronRight className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Tab 栏 */}
@@ -275,6 +289,24 @@ export default function AssetManagePage() {
                 <label className="text-xs font-bold text-neutral-400 mb-1.5 block">描述</label>
                 <textarea value={addDesc} onChange={e => setAddDesc(e.target.value)} className="w-full h-24 bg-neutral-800/50 border border-neutral-700/50 rounded-lg px-3 py-2 text-sm text-neutral-200 focus:outline-none focus:border-amber-500/50 resize-none" />
               </div>
+              {editingAsset.type === 'character' && (
+                <div>
+                  <label className="text-xs font-bold text-neutral-400 mb-1.5 block">配音音色</label>
+                  <select 
+                    value={addVoiceName} 
+                    onChange={e => setAddVoiceName(e.target.value)}
+                    className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-lg px-3 py-2 text-sm text-neutral-200 focus:outline-none focus:border-amber-500/50"
+                  >
+                    {VOICE_OPTIONS.map((group, idx) => (
+                      <optgroup key={idx} label={group.group}>
+                        {group.options.map((opt) => (
+                          <option key={opt.id} value={opt.id}>{opt.label}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
             <div className="px-6 py-4 border-t border-neutral-800 flex items-center justify-end gap-3">
               <button onClick={() => { setShowEditDialog(false); setEditingAsset(null); }} className="px-4 py-2 text-sm text-neutral-500 hover:text-neutral-300">取消</button>

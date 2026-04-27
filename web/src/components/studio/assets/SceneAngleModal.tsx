@@ -42,49 +42,94 @@ export default function SceneAngleModal({ asset, onClose }: SceneAngleModalProps
 
     try {
       const currentScript = useStudioStore.getState().currentScript;
-      
-      // 1. 设置 active-context
-      // charName 带角度后缀 → 防伪名唯一（如"地下车库_左45°"）
-      // angleKey 存入 meta → SSE poller 知道存到 angles 里
-      await fetch(`/api/studio/assets/${asset.id}/set-context`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          scriptId: asset.scriptId,
-          scriptTitle: currentScript?.title || `Script_${asset.scriptId}`,
-          targetType: 'locationImage',
-          charName: `${asset.name}_${angleKey}`,
-          angleKey
-        }),
+      const artStyle = (currentScript?.metadata as any)?.artStyle as string | undefined;
+      const { generateFlow } = await import('@/lib/studio/generateFlow');
+
+      const result = await generateFlow({
+        kind: 'angle',
+        asset,
+        scriptTitle: currentScript?.title || `Script_${asset.scriptId}`,
+        angleKey,
+        angleDesc: angleDef.desc,
+        artStyle,
       });
 
-      // 2. 构造角度专用 Prompt（参考图已提供画面信息，只需指定机位）
-      const prompt = `This same scene, shot from a ${angleDef.desc}. Keep everything identical, only change the camera position.`;
+      if (!result.success) throw new Error(result.error);
 
-      // 3. 触发生成（referenceKeyword 用原始名称，angleKey 只在 meta 里传）
-      await fetch('/api/generate-assets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt,
-          model: 'Nano Banana Pro',
-          referenceKeyword: asset.name,
-          projectId: `projects/${currentScript?.title || asset.scriptId}`,
-          fireAndForget: true,
-          targetType: 'locationImage',
-          meta: { fsAssetId: asset.id, charName: asset.name, angleKey }
-        }),
-      });
-
-      // 2秒后释放 loading（FireAndForget 模式）
-      setTimeout(() => {
-        setGeneratingAngles(prev => ({ ...prev, [angleKey]: false }));
-      }, 2000);
+      // 新 API 同步返回 URL，立即更新角度图
+      if (result.url) {
+        const newAngles = { ...sceneData.angles, [angleKey]: result.url };
+        updateAsset(asset.id, { data: { ...sceneData, angles: newAngles } as any });
+      }
 
     } catch (e) {
       console.error(`角度生成失败 [${angleKey}]:`, e);
+    } finally {
       setGeneratingAngles(prev => ({ ...prev, [angleKey]: false }));
     }
+  };
+
+  // 一键生成所有未生成的角度（前端分批，每批完成立刻上屏）
+  const [generatingAll, setGeneratingAll] = useState(false);
+  const handleGenerateAll = async () => {
+    if (!mainImage || generatingAll) return;
+    setGeneratingAll(true);
+    
+    const pendingAngles = CAMERA_ANGLES.filter(a => !angles[a.key]);
+    if (pendingAngles.length === 0) { setGeneratingAll(false); return; }
+
+    // 标记所有待生成的角度为 loading
+    const loadingState: Record<string, boolean> = {};
+    pendingAngles.forEach(a => { loadingState[a.key] = true; });
+    setGeneratingAngles(prev => ({ ...prev, ...loadingState }));
+
+    const currentScript = useStudioStore.getState().currentScript;
+    const artStyle = (currentScript?.metadata as any)?.artStyle as string | undefined;
+    const styleHint = artStyle ? ` Art style: ${artStyle}.` : '';
+    const scriptTitle = currentScript?.title || `Script_${asset.scriptId}`;
+    const projectId = `projects/${scriptTitle}`;
+
+    // 前端分批：每 4 个一批，独立请求，完成一批立刻显示一批
+    const CHUNK_SIZE = 4;
+    let currentAnglesSnapshot = { ...sceneData.angles };
+
+    for (let i = 0; i < pendingAngles.length; i += CHUNK_SIZE) {
+      const chunk = pendingAngles.slice(i, i + CHUNK_SIZE);
+      const tasks = chunk.map(angle => ({
+        prompt: `This same scene, shot from a ${angle.desc}. Keep everything identical, only change the camera position.${styleHint}`,
+        referenceKeywords: [asset.name],
+        targetType: 'locationImage',
+        meta: { fsAssetId: asset.id, charName: asset.name, angleKey: angle.key },
+      }));
+
+      try {
+        const res = await fetch('/api/generate-assets/batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tasks, projectId }),
+        });
+        const data = await res.json();
+
+        if (data.success && data.results) {
+          for (let j = 0; j < data.results.length; j++) {
+            if (data.results[j].url) {
+              currentAnglesSnapshot[chunk[j].key] = data.results[j].url;
+            }
+          }
+          // 立刻更新 UI！这一批的图瞬间亮起来
+          updateAsset(asset.id, { data: { ...sceneData, angles: currentAnglesSnapshot } as any });
+        }
+      } catch (e) {
+        console.error(`Batch chunk ${Math.floor(i / CHUNK_SIZE) + 1} failed:`, e);
+      }
+
+      // 清除这一批的 loading 状态
+      const clearChunk: Record<string, boolean> = {};
+      chunk.forEach(a => { clearChunk[a.key] = false; });
+      setGeneratingAngles(prev => ({ ...prev, ...clearChunk }));
+    }
+
+    setGeneratingAll(false);
   };
 
   // 选中查看大图
@@ -133,6 +178,25 @@ export default function SceneAngleModal({ asset, onClose }: SceneAngleModalProps
           <div className="px-5 py-4 border-b border-neutral-800/50">
             <h3 className="text-sm font-bold text-white">场景角度</h3>
             <p className="text-[11px] text-neutral-500 mt-1">点击角度按钮生成对应视角的场景图</p>
+            {mainImage && (
+              <button
+                onClick={handleGenerateAll}
+                disabled={generatingAll || Object.values(generatingAngles).some(Boolean)}
+                className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{
+                  background: generatingAll ? '#1a1a2e' : 'linear-gradient(135deg, #6366f1, #a855f7)',
+                  color: '#fff',
+                  border: 'none',
+                  boxShadow: generatingAll ? 'none' : '0 4px 20px rgba(99,102,241,0.3)',
+                }}
+              >
+                {generatingAll ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> 批量生成中...</>
+                ) : (
+                  <><Sparkles className="w-4 h-4" /> 🚀 一键生成全部角度</>
+                )}
+              </button>
+            )}
           </div>
 
           {/* 角度按钮 + 缩略图网格 */}

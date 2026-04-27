@@ -36,3 +36,11 @@
 - Never use standard `child.kill('SIGTERM')` for Next.js or Gateway processes spawned from Electron. On Windows, this leaves orphaned Turbopack workers (zombie `node.exe` processes) which will lock port 3000 and crash future launches.
 - ALWAYS use `taskkill /pid <PID> /T /F` to destroy the entire process tree on Windows.
 - `isPortAvailable` checks must omit the hostname (`server.listen(port)`) to properly scan all IPv4/IPv6 interfaces, preventing Next.js EADDRINUSE crashes.
+
+## 🔴 8. THE API & SSE FOUNDATION RULE (`src/lib/utils/apiClient.ts`)
+- **NEVER** use raw `fetch()` for API calls. **ALWAYS** use `apiClient.get/post/patch/delete` to ensure unified JSON parsing, headers, and error handling.
+- **NEVER** instantiate `new EventSource('/api/sse')` directly. **ALWAYS** use `globalSseClient.addListener` from `lib/utils/sseClient.ts` to prevent duplicate connection overhead and handle automatic reconnections.
+
+## 🔴 9. THE NO-SHORTCUT / NO-MOCKING RULE
+- **NEVER** take shortcuts for convenience (图省事). Do not hardcode limited sets of options, mock data, or use placeholder logic if a production source of truth exists.
+- **ALWAYS** deeply investigate the project to find existing constants (e.g., `VOICE_OPTIONS` in `constants.ts`), configurations, or utility functions, and fully integrate them. Ensure you deliver a complete, production-ready implementation on the very first try.

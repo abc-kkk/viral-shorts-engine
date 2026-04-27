@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, BookOpen, Edit3, Save, X, Wand2, Loader2, ArrowRight, Upload } from 'lucide-react';
+import { ArrowLeft, BookOpen, Edit3, Save, X, Wand2, Loader2, ArrowRight, Upload, Palette } from 'lucide-react';
 import { useStudioStore } from '@/lib/studio/store/useStudioStore';
+import { ART_STYLE_PRESETS, DEFAULT_ART_STYLE } from '@/lib/constants';
 
 export default function ScriptEditPage() {
   const params = useParams();
@@ -17,6 +18,7 @@ export default function ScriptEditPage() {
 
   const [editContent, setEditContent] = useState('');
   const [editTitle, setEditTitle] = useState('');
+  const [editArtStyle, setEditArtStyle] = useState(DEFAULT_ART_STYLE);
   const lastSavedContent = React.useRef<string | undefined>(undefined);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -34,6 +36,7 @@ export default function ScriptEditPage() {
   useEffect(() => {
     if (currentScript) {
       setEditTitle(currentScript.title);
+      setEditArtStyle((currentScript.metadata as any)?.artStyle || DEFAULT_ART_STYLE);
       if (currentScript.content !== lastSavedContent.current) {
         setEditContent(currentScript.content || '');
         lastSavedContent.current = currentScript.content;
@@ -83,6 +86,14 @@ export default function ScriptEditPage() {
     });
   };
 
+  const handleSaveStyle = async (newStyle: string) => {
+    setEditArtStyle(newStyle);
+    if (!currentScript) return;
+    await updateScript(currentScript.id, {
+      metadata: { ...(currentScript.metadata as object || {}), artStyle: newStyle }
+    });
+  };
+
   const handleGenerate = async () => {
     if (!currentScript || !aiPrompt.trim()) return;
     await generateScript(currentScript.id, aiMode, aiPrompt.trim(), {
@@ -119,7 +130,22 @@ export default function ScriptEditPage() {
             className="text-xl font-bold bg-transparent border-b border-transparent hover:border-neutral-700 focus:border-amber-500 focus:outline-none text-white transition-colors px-2 py-1 -ml-2"
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 mr-4 text-sm">
+            <Palette className="w-4 h-4 text-neutral-400" />
+            <select
+              value={editArtStyle}
+              onChange={e => handleSaveStyle(e.target.value)}
+              className="bg-transparent text-neutral-300 font-bold focus:outline-none focus:text-amber-500 cursor-pointer w-32 truncate"
+              title="美术风格设置"
+            >
+              {ART_STYLE_PRESETS.map((style, idx) => (
+                <option key={idx} value={style.value} className="bg-neutral-900 text-neutral-200">
+                  {style.label}
+                </option>
+              ))}
+            </select>
+          </div>
           <button
             onClick={() => { setShowAiPanel(!showAiPanel); setAiMode(hasContent ? 'polish' : 'generate'); }}
             disabled={generating}

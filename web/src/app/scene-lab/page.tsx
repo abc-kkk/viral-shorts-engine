@@ -110,12 +110,6 @@ export default function SceneLabPage() {
                        : 'scenelab_result';
       const meta = activeTarget.startsWith('char_') ? { charId: activeTarget.replace('char_', '') } : {};
       
-      await fetch('/api/extension/active-context', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId: 'scene-lab-standalone', targetType, meta })
-      });
-
       // 2. Extract keywords and generate
       const keywordMatches = composedPrompt.matchAll(/\{@([^{}]+)\}/g);
       const keywords = Array.from(keywordMatches, m => m[1]);
@@ -126,14 +120,17 @@ export default function SceneLabPage() {
           prompt: composedPrompt,
           model: 'Nano Banana Pro',
           referenceKeywords: keywords,
-
           projectId: 'scene-lab-standalone',
-          fireAndForget: true,
+          targetType,
+          meta
         }),
       });
       const data = await res.json();
-      if (data.success || data.fireAndForget) {
-        showToast('✅ 已发送到 Flow！请在 Flow 页面等待生成完成，用 Chrome 扩展选图落盘。');
+      if (data.success && data.url) {
+        if (targetType === 'scenelab_scene') setSceneImageUrl(data.url);
+        else if (targetType === 'scenelab_char' && meta.charId) setCharImages(prev => ({ ...prev, [meta.charId]: data.url }));
+        else setGeneratedImage(data.url);
+        showToast('✅ 生成成功并落盘！');
       } else {
         showToast('发送失败: ' + (data.error || '未知错误'));
       }

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, BookOpen, Sparkles, Trash2, Clock, FileText, ChevronRight, Loader2 } from 'lucide-react';
 import { useStudioStore } from '@/lib/studio/store/useStudioStore';
 import type { FsScript } from '@/lib/studio/types';
+import { ART_STYLE_PRESETS, DEFAULT_ART_STYLE } from '@/lib/constants';
 
 const STATUS_COLORS: Record<string, string> = {
   draft: 'bg-neutral-500/20 text-neutral-400 border-neutral-500/30',
@@ -24,6 +25,7 @@ export default function StudioPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
+  const [newArtStyle, setNewArtStyle] = useState(DEFAULT_ART_STYLE);
   const [creating, setCreating] = useState(false);
 
   useEffect(() => { fetchScripts(); }, [fetchScripts]);
@@ -36,6 +38,7 @@ export default function StudioPage() {
         title: newTitle.trim(),
         content: newContent.trim(),
         source: 'manual',
+        metadata: { artStyle: newArtStyle },
       });
       if (script) {
         setShowCreate(false);
@@ -160,6 +163,18 @@ export default function StudioPage() {
                 onChange={e => setNewTitle(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') handleCreate(); }}
               />
+            </div>
+            <div className="mb-4">
+              <label className="text-sm text-neutral-400 block mb-2">美术风格设定</label>
+              <select
+                value={newArtStyle}
+                onChange={e => setNewArtStyle(e.target.value)}
+                className="w-full bg-black/60 border border-neutral-700 rounded-xl p-3 text-white focus:border-amber-500 focus:outline-none"
+              >
+                {ART_STYLE_PRESETS.map((style, idx) => (
+                  <option key={idx} value={style.value}>{style.label}</option>
+                ))}
+              </select>
             </div>
             <div className="mb-6">
               <label className="text-sm text-neutral-400 block mb-2">剧本内容（可选，之后也能填）</label>

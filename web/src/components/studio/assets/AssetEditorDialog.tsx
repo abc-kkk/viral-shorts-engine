@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import type { FsAsset, FsAssetType, FsAssetCreateInput, FsAssetUpdateInput } from '@/lib/studio/types';
+import { VOICE_OPTIONS } from '@/lib/constants';
 
 interface AssetEditorDialogProps {
   mode: 'create' | 'edit';
@@ -39,6 +40,7 @@ export default function AssetEditorDialog({
   const [personality, setPersonality] = useState((charData.personality as string) || '');
   const [background, setBackground] = useState((charData.background as string) || '');
   const [relationships, setRelationships] = useState((charData.relationships as string) || '');
+  const [voiceName, setVoiceName] = useState(((charData.voiceConfig as any)?.voiceName as string) || 'Zephyr');
 
   // 场景特有字段
   const sceneData = (mode === 'edit' && asset?.type === 'scene' ? asset.data : {}) as Record<string, unknown>;
@@ -63,11 +65,11 @@ export default function AssetEditorDialog({
     // 构建类型特有 data
     let data: Record<string, unknown> = {};
     if (type === 'character') {
-      data = { appearance, personality, background, relationships };
+      data = { ...charData, appearance, personality, background, relationships, voiceConfig: { voiceName } };
     } else if (type === 'scene') {
-      data = { imagePrompt, atmosphere, timeOfDay };
+      data = { ...sceneData, imagePrompt, atmosphere, timeOfDay };
     } else if (type === 'prop') {
-      data = { imagePrompt: propImagePrompt, category: propCategory };
+      data = { ...propData, imagePrompt: propImagePrompt, category: propCategory };
     }
 
     if (mode === 'create') {
@@ -194,6 +196,22 @@ export default function AssetEditorDialog({
                   rows={2}
                   className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-600 resize-none"
                 />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">配音音色</label>
+                  <select
+                    value={voiceName}
+                    onChange={(e) => setVoiceName(e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-600"
+                  >
+                    {VOICE_OPTIONS.map((group, idx) => (
+                      <optgroup key={idx} label={group.group}>
+                        {group.options.map((opt) => (
+                          <option key={opt.id} value={opt.id}>{opt.label}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
               </div>
             </>
           )}

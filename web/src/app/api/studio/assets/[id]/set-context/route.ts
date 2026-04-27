@@ -9,7 +9,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const { scriptId, scriptTitle, targetType, charName, angleKey } = await request.json();
+    const { scriptId, scriptTitle, targetType, charName, angleKey, shotId, frameType } = await request.json();
 
     if (!scriptId || !targetType) {
       return NextResponse.json({ error: 'Missing scriptId or targetType' }, { status: 400 });
@@ -23,7 +23,9 @@ export async function POST(
       targetType: targetType,
       index: 0,
       meta: {
-        fsAssetId: id,
+        fsAssetId: shotId ? undefined : id, // 分镜帧图不需要 fsAssetId
+        shotId: shotId || undefined,        // 分镜帧图用 shotId
+        frameType: frameType || undefined,  // 'first' | 'last'
         charName: charName || undefined, // Required for characterImage to set anti-counterfeit name
         angleKey: angleKey || undefined  // 场景多角度：标识是哪个角度的图
       }

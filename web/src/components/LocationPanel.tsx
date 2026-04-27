@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronDown, ChevronRight, RotateCcw } from 'lucide-react';
-import { useProject } from '@/lib/ProjectContext';
 import { useProjectStore } from '@/lib/store/useProjectStore';
+import { extractRefKeywords } from '@/lib/utils/promptParser';
 
 interface LayoutPreset {
   id: string;
@@ -172,10 +172,6 @@ export default function LocationPanel({
     onGeneratePrompt(compositionHint || undefined);
   };
 
-  const extractRefKeywords = (p: string): string[] => {
-    const matches = p.matchAll(/\{@([^{}]+)\}/g);
-    return Array.from(matches, m => m[1]);
-  };
 
   const handleGenerateImageLocal = () => {
     const keywords = prompt ? extractRefKeywords(prompt) : [];

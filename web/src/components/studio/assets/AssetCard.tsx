@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Users, MapPin, Package, Edit3, Trash2, Sparkles, UserCircle, Loader2, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { FsAsset, FsAssetType } from '@/lib/studio/types';
-import { useStudioStore } from '@/lib/studio/store/useStudioStore';
+import { useStudioStore, getDefaultAssetPrompt } from '@/lib/studio/store/useStudioStore';
 
 const TYPE_CONFIG: Record<FsAssetType, { icon: LucideIcon; color: string; bg: string; label: string }> = {
   character: { icon: Users, color: 'text-blue-400', bg: 'bg-blue-500/10', label: '角色' },
@@ -23,10 +23,12 @@ export default function AssetCard({ asset, onOpenAngleModal, onEdit, onDelete }:
   const config = TYPE_CONFIG[asset.type];
   const Icon = config.icon;
   const data = asset.data as unknown as Record<string, unknown>;
-  const { generatingAssets, requestAssetGeneration } = useStudioStore();
+  const { currentScript, generatingAssets, requestAssetGeneration } = useStudioStore();
   const isGenerating = generatingAssets[asset.id] || false;
   
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
+  const [promptText, setPromptText] = useState('');
 
   // 点击图片：场景打开多角度面板（由父级管理），其他打开 Lightbox
   const handleImageClick = () => {
@@ -35,6 +37,17 @@ export default function AssetCard({ asset, onOpenAngleModal, onEdit, onDelete }:
     } else {
       setIsPreviewOpen(true);
     }
+  };
+
+  const handleSparklesClick = () => {
+    const artStyle = currentScript?.metadata?.artStyle as string | undefined;
+    setPromptText(getDefaultAssetPrompt(asset, artStyle));
+    setIsPromptModalOpen(true);
+  };
+
+  const handleGenerate = () => {
+    setIsPromptModalOpen(false);
+    requestAssetGeneration(asset, promptText);
   };
 
   // 提取摘要信息
@@ -100,7 +113,7 @@ export default function AssetCard({ asset, onOpenAngleModal, onEdit, onDelete }:
           {/* 操作按钮组 */}
           <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-neutral-900/80 backdrop-blur-md p-1.5 rounded-xl border border-neutral-700/50">
             <button 
-              onClick={() => requestAssetGeneration(asset)} 
+              onClick={handleSparklesClick} 
               disabled={isGenerating}
               className="p-1.5 text-neutral-400 hover:text-amber-400 hover:bg-neutral-800 rounded-lg disabled:opacity-50 transition-colors" 
               title={asset.thumbnail ? "重新生成图片" : "生成图片"}
@@ -125,9 +138,14 @@ export default function AssetCard({ asset, onOpenAngleModal, onEdit, onDelete }:
           <h4 className="font-bold text-white text-lg truncate mb-1.5">{asset.name}</h4>
           <p className="text-neutral-400 text-xs line-clamp-3 leading-relaxed flex-1">{getSummary()}</p>
           
-          {asset.type === 'character' && (data as any).relationships && (
-            <div className="mt-3 pt-3 border-t border-neutral-800/50 text-xs text-neutral-500 line-clamp-1" title={(data as any).relationships}>
-              🔗 {(data as any).relationships}
+          {asset.type === 'character' && (
+            <div className="mt-3 pt-3 border-t border-neutral-800/50 text-xs flex items-center justify-between gap-2">
+              <div className="text-neutral-500 line-clamp-1 flex-1" title={(data as any).relationships || '无关系描述'}>
+                {(data as any).relationships ? `🔗 ${(data as any).relationships}` : ''}
+              </div>
+              <div className="flex items-center gap-1 text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded-full font-medium shrink-0" title="配音音色">
+                🎙️ {(data as any).voiceConfig?.voiceName || 'Zephyr'}
+              </div>
             </div>
           )}
         </div>
@@ -151,6 +169,49 @@ export default function AssetCard({ asset, onOpenAngleModal, onEdit, onDelete }:
           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-neutral-900/80 backdrop-blur-md px-6 py-3 rounded-full border border-neutral-800 text-white flex flex-col items-center gap-1 shadow-xl pointer-events-none">
             <span className="text-base font-bold">{asset.name}</span>
             <span className="text-xs text-neutral-400 font-normal">点击任意空白处关闭</span>
+          </div>
+        </div>
+      )}
+
+      {/* 提示词编辑 Modal */}
+      {isPromptModalOpen && (
+        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setIsPromptModalOpen(false)}>
+          <div 
+            className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-neutral-800 flex justify-between items-center bg-neutral-900/50">
+              <h3 className="font-bold text-lg text-white flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-amber-400" />
+                生成 {config.label}图片：{asset.name}
+              </h3>
+              <button onClick={() => setIsPromptModalOpen(false)} className="text-neutral-500 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5 flex-1">
+              <p className="text-xs text-neutral-400 mb-3">你可以在发送给底层的生图引擎之前，对 AI 自动生成的提示词进行二次修改补充：</p>
+              <textarea 
+                className="w-full h-64 bg-black border border-neutral-800 rounded-xl p-4 text-sm text-neutral-200 focus:outline-none focus:border-amber-500/50 resize-none leading-relaxed"
+                value={promptText}
+                onChange={e => setPromptText(e.target.value)}
+              />
+            </div>
+            <div className="px-5 py-4 border-t border-neutral-800 flex justify-end gap-3 bg-neutral-950">
+              <button 
+                onClick={() => setIsPromptModalOpen(false)}
+                className="px-5 py-2 rounded-lg text-sm font-bold text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+              >
+                取消
+              </button>
+              <button 
+                onClick={handleGenerate}
+                disabled={!promptText.trim()}
+                className="px-6 py-2 rounded-lg text-sm font-bold bg-amber-500 hover:bg-amber-400 text-black disabled:opacity-50 transition-colors flex items-center gap-2"
+              >
+                <Sparkles className="w-4 h-4" /> 确认生成
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   const db = getDb();
+  const encoder = new TextEncoder();
   
   const stream = new ReadableStream({
     start(controller) {
@@ -32,7 +33,7 @@ export async function GET(req: Request) {
                   ...msg,
                   meta: msg.meta ? JSON.parse(msg.meta) : undefined
               };
-              controller.enqueue(`data: ${JSON.stringify(item)}\n\n`);
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(item)}\n\n`));
             });
           }
         } catch (e) {

@@ -5,6 +5,7 @@ import type { TargetType, InboxItem } from '@/lib/types';
 import fs from 'fs';
 import path from 'path';
 import * as schema from '@/lib/schema';
+import * as studioSchema from '@/lib/studio/schema';
 import { eq } from 'drizzle-orm';
 import { getDb } from '@/lib/db';
 
@@ -65,7 +66,9 @@ export async function POST(req: Request) {
     // 使用统一工具函数确定存储目录和文件名
     const assetType = getAssetTypeForTarget(targetType, mediaType);
     const assetsDir = getAssetDir(projectId, assetType);
-    const filename = generateAssetFilename(targetType, projectId, index, meta, mediaType);
+    let filename = generateAssetFilename(targetType, projectId, index, meta, mediaType);
+    // Sanitize filename to prevent directory traversal or ENOENT errors
+    filename = filename.split('/').pop() || filename;
     
     let buffer;
     if (base64Data) {
@@ -83,11 +86,16 @@ export async function POST(req: Request) {
     }
     
     const filepath = path.join(assetsDir, filename);
+    const fileDir = path.dirname(filepath);
+    if (!fs.existsSync(fileDir)) {
+        fs.mkdirSync(fileDir, { recursive: true });
+    }
     fs.writeFileSync(filepath, buffer);
     const localUrl = getAssetUrlWithCacheBust(projectId, assetType, filename);
     console.log(`[Extension] Saved: ${filepath}`);
 
     // Push to inbox array (Database-based IPC)
+    console.log(`[Extension] Pushing to inbox: targetType=${targetType}, meta=${JSON.stringify(meta)}, url=${localUrl.substring(0,60)}...`);
     db.insert(schema.inboxMessages).values({
         url: localUrl,
         mediaType,
@@ -96,6 +104,19 @@ export async function POST(req: Request) {
         referenceKeyword,
         meta: meta ? JSON.stringify(meta) : null
     }).run();
+
+    // 直接更新 FsAsset 的 thumbnail（不依赖 SSE 链路）
+    if (meta?.fsAssetId) {
+      try {
+        db.update(studioSchema.fsAssets)
+          .set({ thumbnail: localUrl, updatedAt: new Date().toISOString() })
+          .where(eq(studioSchema.fsAssets.id, meta.fsAssetId))
+          .run();
+        console.log(`[Extension] Updated FsAsset thumbnail: ${meta.fsAssetId}`);
+      } catch (e: any) {
+        console.warn(`[Extension] FsAsset thumbnail update failed (non-critical): ${e.message}`);
+      }
+    }
 
     return NextResponse.json({ success: true, url: localUrl }, { headers: corsHeaders });
 

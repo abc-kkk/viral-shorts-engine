@@ -3,6 +3,8 @@ import { fetchApi } from './useProjectState';
 import type { Character } from '../types';
 import { toast } from '../toast';
 import { useProjectStore } from '../store/useProjectStore';
+import { extractRefKeywords } from '../utils/promptParser';
+import { apiClient } from '../utils/apiClient';
 
 export function useStoryboard(getFullScriptContext: () => string) {
   const handleGenerateActionPrompt = useCallback(async (i: number) => {
@@ -84,10 +86,8 @@ export function useStoryboard(getFullScriptContext: () => string) {
         refKeywords.push(characters[charIdx].name);
       }
     }
-    const regex = /\{@([^{}]+)\}/g;
-    let match;
-    while ((match = regex.exec(prompt)) !== null) {
-      const kw = match[1];
+    const extracted = extractRefKeywords(prompt);
+    for (const kw of extracted) {
       if (!refKeywords.includes(kw)) {
         refKeywords.push(kw);
       }
@@ -98,18 +98,16 @@ export function useStoryboard(getFullScriptContext: () => string) {
   const generateSceneImageCore = useCallback(async (i: number, type: 'startImage' | 'image', promptObj: Record<number, string>, setObj: any) => {
     const promptText = promptObj[i];
     if (!promptText) return toast.warning("请先生成或填写视觉提示词");
-    const { flowUrl, useHitlMode, startLayoutPrompts, endLayoutPrompts, projectId, setProcessingScene } = useProjectStore.getState();
+    const { flowUrl, startLayoutPrompts, endLayoutPrompts, projectId, setProcessingScene } = useProjectStore.getState();
     setProcessingScene((p: any) => ({ ...p, [i]: type }));
     
     try {
       const layoutTag = (type === 'startImage' ? startLayoutPrompts[i] : endLayoutPrompts[i]) || '';
       const prompt = promptText + (layoutTag ? ` ${layoutTag}` : '');
       const refKeywords = getRefKeywords(i, prompt);
-
-      await fetch('/api/extension/active-context', { method: 'POST', body: JSON.stringify({ projectId, targetType: type === 'startImage' ? 'sceneStartImage' : 'sceneImage', index: i }) });
-      const data = await fetchApi('/api/generate-assets', { prompt, model: 'Nano Banana Pro', referenceKeywords: refKeywords, flowUrl, projectId, fireAndForget: useHitlMode, targetType: type === 'startImage' ? 'sceneStartImage' : 'sceneImage', index: i });
+      const data = await fetchApi('/api/generate-assets', { prompt, model: 'Nano Banana Pro', referenceKeywords: refKeywords, flowUrl, projectId, targetType: type === 'startImage' ? 'sceneStartImage' : 'sceneImage', index: i });
       
-      if (!data.fireAndForget) {
+      if (data.url) {
          setObj((p: any) => ({ ...p, [i]: data.url }));
       }
     } catch (e: any) {
@@ -130,25 +128,34 @@ export function useStoryboard(getFullScriptContext: () => string) {
   }, [generateSceneImageCore]);
 
   const handleGenerateVideo = useCallback(async (i: number) => {
-    const { flowUrl, useHitlMode, scriptLines, sceneVideoPrompts, sceneImageRefs, projectId, setProcessingScene, setSceneVideos } = useProjectStore.getState();
+    const { flowUrl, scriptLines, sceneVideoPrompts, sceneStartImages, sceneImages, projectId, setProcessingScene, setSceneVideos } = useProjectStore.getState();
 
     if (!sceneVideoPrompts[i]) return toast.warning("请先生成或填写视频运动提示词");
     
     setProcessingScene((p: any) => ({ ...p, [i]: 'video' }));
 
     try {
-      const line = scriptLines[i];
-      let charRefImage = '';
-      
       let prompt = sceneVideoPrompts[i].trim();
-      const safeProjectId = (projectId || 'Proj').replace(/[^\w\u4e00-\u9fa5]/g, '');
-      const startRef = sceneImageRefs[i - 1] || `${safeProjectId}_S${i - 1}_Img`;
-      const endRef = sceneImageRefs[i] || `${safeProjectId}_S${i}_Img`;
 
-      await fetch('/api/extension/active-context', { method: 'POST', body: JSON.stringify({ projectId, targetType: 'sceneVideo', index: i }) });
-      const data = await fetchApi('/api/generate-assets', { prompt, model: 'Veo 3.1', referenceKeywords: [startRef, endRef], flowUrl, projectId, fireAndForget: useHitlMode, veoMode: 'frame', targetType: 'sceneVideo', index: i, charRefImage });
+      // 使用最新的首帧和尾帧 URL（而不是旧的 sceneImageRefs）
+      const startImageUrl = sceneStartImages[i] || '';
+      const endImageUrl = sceneImages[i] || '';
+
+      const referenceKeywords: string[] = [];
+      if (startImageUrl) referenceKeywords.push(startImageUrl);
+      if (endImageUrl) referenceKeywords.push(endImageUrl);
+
+      if (referenceKeywords.length === 0) {
+        toast.warning("请先生成首帧和尾帧图片");
+        setProcessingScene((p: any) => ({ ...p, [i]: null }));
+        return;
+      }
+
+      console.log(`[Video] Using start: ${startImageUrl ? '✅' : '❌'}, end: ${endImageUrl ? '✅' : '❌'}`);
       
-      if (!data.fireAndForget) {
+      const data = await fetchApi('/api/generate-assets', { prompt, model: 'Veo 3.1', referenceKeywords, flowUrl, projectId, veoMode: 'frame', targetType: 'sceneVideo', index: i });
+      
+      if (data.url) {
           setSceneVideos((p: any) => ({ ...p, [i]: data.url }));
       }
     } catch (e: any) {
@@ -197,7 +204,7 @@ export function useStoryboard(getFullScriptContext: () => string) {
   }, [getFullScriptContext]);
 
   const handleGenerateCoverAsset = useCallback(async (ratio: string) => {
-    const { flowUrl, useHitlMode, characters, coverPrompts, projectId, setProcessingCovers, setCoverImages } = useProjectStore.getState();
+    const { flowUrl, characters, coverPrompts, projectId, setProcessingCovers, setCoverImages } = useProjectStore.getState();
     setProcessingCovers((p: any) => ({ ...p, [ratio]: 'image' }));
     try {
       const prompt = coverPrompts[ratio];
@@ -207,10 +214,9 @@ export function useStoryboard(getFullScriptContext: () => string) {
           .filter((c: Character) => !['旁白', '字卡', '标题', '画外音', '系统'].some(sys => c.name.includes(sys)))
           .map((c: Character) => c.name);
 
-      await fetch('/api/extension/active-context', { method: 'POST', body: JSON.stringify({ projectId, targetType: 'coverImage', meta: { ratio } }) });
-      const data = await fetchApi('/api/generate-assets', { prompt, model: 'Nano Banana Pro', referenceKeywords: refKeywords, flowUrl, projectId, fireAndForget: useHitlMode, targetType: 'coverImage', meta: { ratio } });
+      const data = await fetchApi('/api/generate-assets', { prompt, model: 'Nano Banana Pro', referenceKeywords: refKeywords, flowUrl, projectId, targetType: 'coverImage', meta: { ratio } });
       
-      if (data.url && !useHitlMode) {
+      if (data.url) {
          setCoverImages((p: any) => ({ ...p, [ratio]: data.url }));
       }
     } catch (e: any) {
