@@ -14,8 +14,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getScriptById, listAssets } from '@/lib/studio/db';
-
-const AI_GATEWAY_URL = process.env.AI_GATEWAY_URL || 'http://localhost:4100';
+import { generateText } from '@/lib/llm/generateText';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -71,9 +70,11 @@ const SYSTEM_PROMPT = `你是一位精通视觉叙事的导演兼镜头大师。
   C. 一正一侧：一人正面朝镜头（主体），另一人侧面朝向主体。
 - 连续对话场景中，默认锁定左右站位，除非剧情明确互换。
 
-【铁律7：视线与朝向强制锁定】
-- 严禁默认人物正脸直视镜头（除非打破第四面墙）。
-- 每个人物必须指定：面部朝向（侧脸/3/4侧脸/背对/朝左/朝右/正对镜头仅限主体）+ 视线落点（看向画外右方/低头看手中物品/视线失焦望向虚空/视线与某角色相交等）。
+【铁律7：视线与朝向防崩坏锁定（极其重要！）】
+- AI 视频大模型极易让角色不自觉地看向镜头（也就是所谓的打破第四面墙）。因此你必须在提示词中进行极高强度的【视线物理锁定】。
+- 如果剧情是角色在跟其他人对话：必须强制在提示词里写明「侧脸/半侧脸，视线完全避开镜头，死死盯着[左/右侧]的[某人]」。
+- 如果剧情确实是打破第四面墙、或者第一人称视角（POV）：才允许明确写「正脸直视镜头说话」。
+- 每个人物必须指定具体的物理面部朝向（朝左/朝右/侧脸/背对）和视线落点。
 
 【铁律8：表情克制 — 防恐怖谷】
 - 首帧/尾帧作为静止画面，禁止复杂动态表情，使用含蓄的静态微表情。
@@ -103,16 +104,16 @@ const SYSTEM_PROMPT = `你是一位精通视觉叙事的导演兼镜头大师。
   "杀意/威胁" → "眼神凌厉地注视对方"
 - 绝不使用任何可能被判定为暴力、色情或危险的词汇。
 
-=== 首帧/尾帧输出结构模板（吸收纪实写实与高级质感） ===
+=== 首帧/尾帧输出结构模板 ===
 每条首帧/尾帧提示词应按此结构组织（不分段，一整段）：
-在 {@场景名} 中，[空间锚点：基准面+关键参照物位置]；（主体人物），（前景/次要角色）；【镜头与画质】：景别 + 角度 + 采用写实摄影风格与纪录感生活影像基调，保留原生肤质细节（无磨皮无滤镜）；【画面描述】：人物空间位置关系 + 姿态/道具 + 面部朝向/视线落点 + 静止状态微表情（闭嘴，绝无开口暗示）；【光影与色调】：明确主光源（如窗外自然光/暖黄灯笼光），描述光斑与阴影分布，背景轻微虚化凸显空间呼吸感，整体色调完美契合美术风格设定。
+在 {@场景名} 中，[空间锚点：基准面+关键参照物位置]；（主体人物），（前景/次要角色）；【镜头与画质】：景别 + 角度 + [严格应用全局美术风格的画质描述，绝不缝合冲突的风格]；【画面描述】：人物空间位置关系 + 姿态/道具 + 面部朝向/视线落点 + 静止状态微表情（闭嘴，绝无开口暗示）；【光影与色调】：明确主光源（如窗外自然光/顶光），描述光斑与阴影分布，整体色调完美契合美术风格设定。
 === videoPrompt 专属规则（吸收时间轴强控与影视级调度） ===
 - 禁止使用 {@} 标签，用纯文本详尽描述所有元素。
 - 第一句必须明确人物视觉特征映射（例如：“白衣青年是陆长生，红衣女子是苏母。”）。
-- 必须采用【时间轴强控法则】来划分 5 秒视频的动作流，确保与首尾帧无缝衔接：
+- 必须采用【时间轴强控法则】来划分 8 秒视频的动作流，确保与首尾帧无缝衔接：
   1. 【0-2秒 画面开篇与蓄力】：对应首帧状态。描述镜头的初始运动（缓推/拉远等）、人物的静止姿态与蓄力微表情，建立场景张力。
-  2. 【2-4.5秒 核心动作与台词】：将具体动作与语音结合。按照“5字≈1秒”的物理定律计算说话时间，将原文台词完全嵌入动作中（如：2-4秒：角色猛地站起，厉声说道：“XXXX”）。
-  3. 【4.5-5秒 反馈与余韵】：对应尾帧状态。描述动作结束后的缓冲定格、面部情绪反馈或环境余韵（如光斑折射、烟雾消散），使画面归于平稳。
+  2. 【2-6.5秒 核心动作与台词】：将具体动作与语音结合。按照“5字≈1秒”的物理定律计算说话时间，将原文台词完全嵌入动作中（如：2-6秒：角色猛地站起，厉声说道：“XXXX”）。
+  3. 【6.5-8秒 反馈与余韵】：对应尾帧状态。描述动作结束后的缓冲定格、面部情绪反馈或环境余韵（如光斑折射、烟雾消散），使画面归于平稳。
 - 结尾必须写：画面整体呈现与美术风格一致的色调与光影。
 
 【videoPrompt 台词嵌入规则 — Veo 3.1 原生语音支持】
@@ -242,16 +243,12 @@ ${script.content?.substring(0, 2000) || '（空）'}
         );
     }
 
-    const res = await fetch(`${AI_GATEWAY_URL}/api/text/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ systemPrompt: finalSystemPrompt, userPrompt, forceJson: true }),
+    let text = await generateText({
+      systemPrompt: finalSystemPrompt,
+      userPrompt,
+      forceJson: true,
     });
-
-    if (!res.ok) throw new Error(`AI Gateway Error: ${await res.text()}`);
-
-    const data = await res.json();
-    let text = (data.text || '').trim();
+    text = text.trim();
 
     // Clean markdown
     const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -261,7 +258,13 @@ ${script.content?.substring(0, 2000) || '（空）'}
     const endIdx = text.lastIndexOf('}');
     if (startIdx === -1 || endIdx === -1) throw new Error('AI 返回格式异常');
 
-    const result = JSON.parse(text.substring(startIdx, endIdx + 1));
+    let result;
+    try {
+      result = JSON.parse(text.substring(startIdx, endIdx + 1));
+    } catch (e) {
+      console.error("Failed to parse JSON. Raw LLM output:", text);
+      throw e;
+    }
 
     return NextResponse.json({
       firstFramePrompt: result.firstFramePrompt || '',

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const AI_GATEWAY_URL = process.env.AI_GATEWAY_URL || 'http://localhost:4100';
+import { generateText } from '@/lib/llm/generateText';
 
 export async function POST(req: NextRequest) {
   try {
@@ -84,25 +83,12 @@ ${materialInfo.length > 0 ? materialInfo.join('\n') : '无可用参考图，请�
       ? `用户描述：${description}\n\n请根据以上描述和可用素材，生成一段精准的 Nano Banana Pro 生图提示词。`
       : `请根据可用素材，生成一段通用的生图提示词。${defaultGoal}`;
 
-    // 走 ai-gateway 的文本生成端点（劫持网页方式，非 API）
-    const gatewayRes = await fetch(`${AI_GATEWAY_URL}/api/text/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        systemPrompt,
-        userPrompt,
-        forceJson: false,
-        provider: 'gemini',
-      }),
+    // 走共享的大模型生成逻辑
+    const text = await generateText({
+      systemPrompt,
+      userPrompt,
+      forceJson: false,
     });
-
-    if (!gatewayRes.ok) {
-      const errBody = await gatewayRes.json().catch(() => ({ error: `Gateway returned ${gatewayRes.status}` }));
-      return NextResponse.json({ success: false, error: `AI Gateway Error: ${errBody.error}` });
-    }
-
-    const data = await gatewayRes.json();
-    const text = (data.text || '').trim();
 
     if (!text) {
       return NextResponse.json({ success: false, error: 'AI 返回空结果' });

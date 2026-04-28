@@ -61,6 +61,15 @@ export default function StoryboardPanel() {
                             <div className="text-xs text-neutral-500 truncate mt-0.5">
                                 {line.dialogue || line.actionHint || "无台词"}
                             </div>
+                            {line.props && line.props.length > 0 && (
+                                <div className="mt-1.5 flex flex-wrap gap-1">
+                                    {line.props.map((p, i) => (
+                                        <span key={i} className="text-[9px] bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded border border-orange-500/30 truncate max-w-[80px]">
+                                            {p}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
                         </button>
                     );
                 })}
@@ -81,6 +90,16 @@ export default function StoryboardPanel() {
                         <div className="text-neutral-400 text-sm">
                             动作提示: {scriptLines[activeSceneIndex].actionHint}
                         </div>
+                        {scriptLines[activeSceneIndex].props && scriptLines[activeSceneIndex].props.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-purple-500/20 flex items-center gap-2">
+                                <span className="text-xs font-bold text-orange-400 bg-orange-500/10 px-2 py-1 rounded-md border border-orange-500/20">📦 关键道具</span>
+                                <div className="flex flex-wrap gap-2">
+                                    {scriptLines[activeSceneIndex].props.map((p, i) => (
+                                        <span key={i} className="text-xs text-neutral-300 font-medium">{@${p}}</span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Waterfall Sections */}

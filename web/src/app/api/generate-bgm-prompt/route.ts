@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getTemplate } from '@/lib/prompts/promptStore';
 import { renderTemplate } from '@/lib/prompts/templateEngine';
-
-const AI_GATEWAY_URL = process.env.AI_GATEWAY_URL || 'http://localhost:4100';
+import { generateText } from '@/lib/llm/generateText';
 
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
@@ -22,25 +21,12 @@ export async function POST(req: Request) {
 
     const userPrompt = renderTemplate(template.userPrompt, variables);
 
-    console.log(`🚀 [BGM Gen] 正在通过 AI Gateway 生成 BGM 提示词...`);
-    const gatewayRes = await fetch(`${AI_GATEWAY_URL}/api/text/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        systemPrompt: template.systemPrompt || '', 
-        userPrompt, 
-        forceJson: false,
-        provider: 'minimax' 
-      }),
+    console.log(`🚀 [BGM Gen] 正在生成 BGM 提示词...`);
+    let resultText = await generateText({
+        systemPrompt: template.systemPrompt || '',
+        userPrompt,
+        forceJson: false
     });
-    
-    if (!gatewayRes.ok) {
-      const errBody = await gatewayRes.json().catch(() => ({ error: `Gateway returned ${gatewayRes.status}` }));
-      throw new Error(`AI Gateway Error: ${errBody.error}`);
-    }
-    
-    const gatewayData = await gatewayRes.json();
-    let resultText = gatewayData.text || '';
     
     // Clean up if it outputs think blocks from M2.7
     resultText = resultText.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();

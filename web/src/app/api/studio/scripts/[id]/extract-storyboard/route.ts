@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getScriptById, updateScript, listAssets } from '@/lib/studio/db';
-
-const AI_GATEWAY_URL = process.env.AI_GATEWAY_URL || 'http://localhost:4100';
+import { generateText } from '@/lib/llm/generateText';
 
 /**
  * 阶段 1：结构提取 — 只拆剧情骨架
@@ -28,6 +27,7 @@ const SYSTEM_PROMPT = `
    - "dialogue"：台词/旁白（无则空字符串）
    - "speaker"：说话角色名（无则空字符串，旁白则写"旁白"）
    - "characters"：出现在该镜头中的角色名列表
+   - "props"：出现在该镜头中的关键道具列表（如"白玉酒杯"、"手提箱"等，无则传空数组 []）
 
 === 画面描述 (visual) 的质量要求 ===
 - 必须包含景别（特写/近景/中景/全景/远景）
@@ -58,7 +58,8 @@ const SYSTEM_PROMPT = `
           "visual": "【全景】男主愤怒地推开办公室双扇大门，门框两侧的盆栽被气流带动微微晃动。反派身着深灰色西装，坐在巨大的红木办公桌后，双手交叉撑在下巴前，嘴角挂着冷笑。落地窗外的城市天际线模糊可见，百叶窗投下条纹状阴影。",
           "speaker": "赵天霸",
           "dialogue": "你终于来了。",
-          "characters": ["林辰", "赵天霸"]
+          "characters": ["林辰", "赵天霸"],
+          "props": ["红木办公桌", "盆栽"]
         }
       ]
     }
@@ -97,22 +98,11 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
 
     const userPrompt = `${assetContext}\n请分析以下短剧剧本，提取分镜结构：\n\n---\n${script.content}\n---`;
     
-    const res = await fetch(`${AI_GATEWAY_URL}/api/text/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        systemPrompt: SYSTEM_PROMPT,
-        userPrompt: userPrompt,
-        forceJson: true,
-      }),
+    let text = await generateText({
+      systemPrompt: SYSTEM_PROMPT,
+      userPrompt,
+      forceJson: true,
     });
-
-    if (!res.ok) {
-      throw new Error(`AI Gateway Error: ${await res.text()}`);
-    }
-
-    const data = await res.json();
-    let text = (data.text || '').trim();
 
     // Clean markdown blocks if present
     if (text.startsWith('```')) {
@@ -120,7 +110,13 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
       if (match) text = match[1];
     }
     
-    const parsed = JSON.parse(text);
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch (e) {
+      console.error("Failed to parse JSON. Raw LLM output:", text);
+      throw e;
+    }
     
     // 规范化输出，提示词字段置空（由 generate-shot-prompts 逐镜头生成）
     const groups = parsed.groups.map((g: any, gIdx: number) => ({
@@ -134,6 +130,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
         speaker: s.speaker || '',
         dialogue: s.dialogue || '',
         characters: s.characters || [],
+        props: s.props || [],
         firstFramePrompt: '',
         lastFramePrompt: '',
         videoPrompt: '',

@@ -8,8 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getScriptById, updateScript, createAssetsFromAnalysis } from '@/lib/studio/db';
 import type { FsScriptAnalysis } from '@/lib/studio/types';
-
-const AI_GATEWAY_URL = process.env.AI_GATEWAY_URL || 'http://localhost:4100';
+import { generateText } from '@/lib/llm/generateText';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -76,26 +75,24 @@ const PROP_PROMPT = `你是一位专业的短剧剧本分析师。你的任务�
 
 async function fetchAnalysisTask(systemPrompt: string, scriptContent: string) {
   const userPrompt = `请分析以下短剧剧本，提取相关信息：\n\n---\n${scriptContent}\n---`;
-  const res = await fetch(`${AI_GATEWAY_URL}/api/text/generate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      systemPrompt,
-      userPrompt,
-      forceJson: true,
-    }),
+  let jsonStr = await generateText({
+    systemPrompt,
+    userPrompt,
+    forceJson: true,
   });
 
-  if (!res.ok) {
-    throw new Error(`AI Gateway Error: ${await res.text()}`);
+  jsonStr = jsonStr.trim();
+  const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (jsonMatch) {
+    jsonStr = jsonMatch[1].trim();
   }
 
-  const data = await res.json();
-  let jsonStr = (data.text || '').trim();
-  const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (jsonMatch) jsonStr = jsonMatch[1].trim();
-
-  return JSON.parse(jsonStr);
+  try {
+    return JSON.parse(jsonStr);
+  } catch (e) {
+    console.error("Failed to parse JSON. Raw LLM output:", jsonStr);
+    throw e;
+  }
 }
 
 /** POST /api/studio/scripts/[id]/analyze?category=character|scene|prop */

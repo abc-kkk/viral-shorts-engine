@@ -11,8 +11,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getScriptById, updateScript } from '@/lib/studio/db';
-
-const AI_GATEWAY_URL = process.env.AI_GATEWAY_URL || 'http://localhost:4100';
+import { generateText } from '@/lib/llm/generateText';
 
 /** 生成模式 */
 type GenerateMode = 'generate' | 'polish';
@@ -100,23 +99,11 @@ export async function POST(
     let generatedContent: string;
 
     try {
-      const gatewayRes = await fetch(`${AI_GATEWAY_URL}/api/text/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemPrompt,
-          userPrompt,
-          forceJson: false, // 剧本是纯文本，不需要 JSON
-        }),
+      generatedContent = await generateText({
+        systemPrompt,
+        userPrompt,
+        forceJson: false,
       });
-
-      if (!gatewayRes.ok) {
-        const errText = await gatewayRes.text();
-        throw new Error(`AI Gateway 返回错误 (${gatewayRes.status}): ${errText}`);
-      }
-
-      const gatewayData = await gatewayRes.json();
-      generatedContent = gatewayData.text || '';
 
       if (!generatedContent.trim()) {
         throw new Error('AI 返回了空内容');

@@ -73,6 +73,7 @@ export interface ScriptLine {
   speaker: string;
   actionHint: string;
   dialogue: string;
+  props?: string[];
 }
 
 // ========================================
