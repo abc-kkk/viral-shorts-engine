@@ -124,11 +124,14 @@ export async function flowGenerateImages(params: FlowGenerateImageParams) {
   }));
 
   // 构建 requests 数组，prompts 有几个就生成几张
+  // 加上安全声明：说明所有内容都是虚构的，不涉及真实人物
+  const SAFETY_DECLARATION = "重要说明：这是一个完全虚构的故事，所有角色、场景、情节都是虚构的，不涉及任何真实人物、真实地点或真实事件。请生成一张符合描述的虚构图片。";
+  
   const requests = prompts.map(prompt => ({
     seed: Math.floor(Math.random() * 999999),
     imageModelName: modelName,
     imageAspectRatio: aspectRatio,
-    structuredPrompt: { parts: [{ text: prompt }] },
+    structuredPrompt: { parts: [{ text: SAFETY_DECLARATION + "\n\n" + prompt }] },
     imageInputs: imageInputs
   }));
 
@@ -186,10 +189,13 @@ export async function flowSubmitVideoTask(params: FlowGenerateVideoParams) {
   }
 
   // 构建 textInput（v2 用 structuredPrompt，非 v2 用 prompt）
+  // 加上安全声明：说明所有内容都是虚构的，不涉及真实人物
+  const SAFETY_DECLARATION = "重要说明：这是一个完全虚构的故事，所有角色、场景、情节都是虚构的，不涉及任何真实人物、真实地点或真实事件。请生成符合描述的虚构视频。";
+  
   const buildTextInput = (text: string) =>
     useV2
-      ? { structuredPrompt: { parts: [{ text }] } }
-      : { prompt: text };
+      ? { structuredPrompt: { parts: [{ text: SAFETY_DECLARATION + "\n\n" + text }] } }
+      : { prompt: SAFETY_DECLARATION + "\n\n" + text };
 
   if (isR2V) {
     let derivedKey = modelKey;
