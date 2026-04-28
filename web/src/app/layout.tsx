@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "短剧引擎 | Viral Shorts Engine",
+  title: "绘梦漫剧 | Viral Shorts Engine",
   description: "AI 驱动的短视频内容创作工作台 — 编剧、定妆、分镜、渲染、剪映导出一站式搞定",
 };
 

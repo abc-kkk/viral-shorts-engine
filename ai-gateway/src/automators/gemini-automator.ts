@@ -1,18 +1,74 @@
 import { chromium } from 'playwright-core';
+import { spawn } from 'child_process';
+import path from 'path';
+import os from 'os';
 
 /**
  * Automates the active gemini.google.com tab to generate prompts.
  * Uses Playwright CDP to inject instructions, send them, and wait for the response to finish.
  */
+async function launchChromeWithDebugPort() {
+    const tempUserDataDir = path.join(os.tmpdir(), 'chrome-debug');
+    
+    // Try common Chrome paths
+    const chromePaths = [
+        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+        'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+    ];
+
+    let chromePath = chromePaths.find(p => {
+        try {
+            return require('fs').existsSync(p);
+        } catch {
+            return false;
+        }
+    });
+
+    if (!chromePath) {
+        throw new Error('未找到 Chrome 浏览器，请手动启动：chrome --remote-debugging-port=9222');
+    }
+
+    console.log(`[Gemini Automator] 正在启动 Chrome: ${chromePath}`);
+    
+    const chromeProcess = spawn(chromePath, [
+        '--remote-debugging-port=9222',
+        `--user-data-dir=${tempUserDataDir}`,
+        '--no-first-run',
+        '--no-default-browser-check'
+    ], {
+        detached: true,
+        stdio: 'ignore'
+    });
+
+    chromeProcess.unref();
+    
+    // Wait for Chrome to start
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    console.log(`[Gemini Automator] Chrome 已启动`);
+}
+
 export async function generatePromptWithGeminiWeb(systemPrompt: string, userPrompt: string, forceJson: boolean = true): Promise<string> {
     const CDP_URL = process.env.CHROME_CDP_URL || 'http://127.0.0.1:9222';
     console.log(`[Gemini Automator] Connecting to Chrome CDP at ${CDP_URL}...`);
     
     let browser;
-    try {
-        browser = await chromium.connectOverCDP(CDP_URL);
-    } catch (e: any) {
-        throw new Error(`[Gemini Automator] Failed to connect to CDP. Make sure Chrome is running with --remote-debugging-port=9222.\n${e.message}`);
+    let retries = 0;
+    const maxRetries = 2;
+    
+    while (retries <= maxRetries) {
+        try {
+            browser = await chromium.connectOverCDP(CDP_URL);
+            break;
+        } catch (e: any) {
+            retries++;
+            if (retries > maxRetries) {
+                throw new Error(`[Gemini Automator] Failed to connect to CDP. Make sure Chrome is running with --remote-debugging-port=9222.\n${e.message}`);
+            }
+            console.log(`[Gemini Automator] 连接失败，尝试自动启动 Chrome (${retries}/${maxRetries})...`);
+            await launchChromeWithDebugPort();
+            await new Promise(resolve => setTimeout(resolve, 3000));
+        }
     }
 
     let targetPage = null;
@@ -27,8 +83,18 @@ export async function generatePromptWithGeminiWeb(systemPrompt: string, userProm
     }
 
     if (!targetPage) {
-        await browser.close();
-        throw new Error("找不到运行中的 Gemini 网页 (gemini.google.com)。请先在 Chrome 中打开它。");
+        console.log(`[Gemini Automator] 未找到 Gemini 页面，正在自动打开...`);
+        // Try to get a context or create a new one
+        let context;
+        if (browser.contexts().length > 0) {
+            context = browser.contexts()[0];
+        } else {
+            context = await browser.newContext();
+        }
+        targetPage = await context.newPage();
+        await targetPage.goto('https://gemini.google.com', { waitUntil: 'networkidle' });
+        console.log(`[Gemini Automator] Gemini 页面已打开，请在浏览器中登录你的 Google 账号！`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
     }
 
     try {

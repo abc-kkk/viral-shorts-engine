@@ -148,7 +148,7 @@ export default function ProjectList() {
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center shadow-lg shadow-orange-900/50">
               <Film className="text-white w-4 h-4" />
             </div>
-            <span className="truncate">短剧引擎</span>
+            <span className="truncate">绘梦漫剧</span>
           </h1>
           <p className="text-neutral-500 text-xs mt-2 font-medium tracking-wide">Comedy Skit Studio</p>
         </div>
@@ -298,19 +298,19 @@ export default function ProjectList() {
               </div>
               <h2 className="text-2xl font-bold mb-2 text-white">请作者喝杯咖啡</h2>
               <p className="text-sm text-neutral-400 mb-6 leading-relaxed">
-                本系统完全开源免费。<br/>如果你用它做出了爆款短剧，或者它为你省下了高昂的 API 费用，欢迎打赏支持！你的支持是我持续维护的动力。
+                本项目非商用、免费开放使用。<br/>如果借助本工具打造出爆款短剧，或是帮你节省了高额 API 调用成本，欢迎自愿打赏支持！你的认可与鼓励，是我持续更新维护的最大动力。
               </p>
               
               {/* QR Code */}
-              <div className="w-48 h-48 bg-white p-2 rounded-xl border-4 border-neutral-800 mb-6">
-                <img src="/donate-qr.jpg" alt="微信收款码" className="w-full h-full object-contain rounded-lg" />
+              <div className="w-44 h-44 rounded-2xl shadow-2xl shadow-black/30 mb-6 overflow-hidden">
+                <img src="/donate-qr.jpg" alt="微信收款码" className="w-full h-full object-cover" />
               </div>
 
               <button
                 onClick={() => setShowDonate(false)}
                 className="px-6 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold rounded-xl transition-colors w-full"
               >
-                好的，下次一定
+                闻人廰书
               </button>
             </div>
           </div>
