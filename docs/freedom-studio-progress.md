@@ -1,6 +1,6 @@
 # Freedom Studio 开发进度
 
-> 最后更新：2026-04-27 20:20 (GMT+8)
+> 最后更新：2026-04-28 11:20 (GMT+8)
 
 ---
 
@@ -45,12 +45,19 @@
 - **帧生成**：直接调用 REST API 同步返回，立即更新预览图
 - **视频生成**：直接使用最新的 `firstFrameImage` / `lastFrameImage` URL 作为首尾帧参考
 - **结果即时保存**：图片/视频生成后立即调用 `updateStoryboardShot()` 写入 DB
+- **道具资产注入**：每个镜头支持手动绑定道具资产，生成提示词时自动注入道具上下文并使用 `{@道具名}` 引用语法
 - 文件：`web/src/app/studio/scripts/[id]/storyboard/page.tsx`
 
-### 7. 统一网络层
-- **全局 HTTP Client**：统一使用 `lib/utils/apiClient.ts`，内置 JSON 解析与错误抛出
-- **SSE 单例**：`globalSseClient` 提供 Pub/Sub 机制（仅旧项目系统使用，Freedom Studio 已全部同步化）
-- 文件：`web/src/lib/utils/apiClient.ts`、`web/src/lib/utils/sseClient.ts`
+### 7. 视频生成管线（对齐 flow2api）
+- **5 种 Veo 模型支持**：Lite / Fast / Quality / Portrait / Quality+，在系统设置中切换
+- **动态 Model Key 派生**：根据基础 T2V key 自动派生 I2V / Interpolation key
+- **`_fl` 后缀智能处理**：仅首帧模式自动去掉 `_fl`，首尾帧模式保留
+- **用户 Tier 动态检测**：通过 `GET /credits` API 获取真实 `userPaygateTier`（10 分钟内存缓存）
+- **Ultra 模型自动升级**：TIER_TWO 用户的非 Lite 模型自动加 `_ultra` 后缀
+- **V2 配置条件注入**：仅 Lite 模型加 `useV2ModelConfig` + `mediaGenerationContext`，非 Lite 模型禁止传入（否则 403）
+- **Prompt 格式适配**：Lite 用 `structuredPrompt`，非 Lite 用 `{ prompt }`
+- 📖 详见：`docs/video-generation-pipeline.md`
+- 文件：`web/src/lib/utils/flowApi.ts`
 
 ---
 
@@ -115,12 +122,14 @@ Google Flow API 限制每次 ≤4 个 prompt。分批在**前端**做，后端�
 | `web/src/lib/studio/types.ts` | FsAsset / FsSceneData / FsPropData 类型定义 |
 | `web/src/lib/studio/generateFlow.ts` | 统一生图入口（封装 REST API 调用） |
 | `web/src/lib/studio/store/useStudioStore.ts` | Zustand Store：生图、资产 CRUD |
-| `web/src/lib/utils/flowApi.ts` | Google Flow REST API 底层封装 |
+| `web/src/lib/utils/flowApi.ts` | Google Flow REST API 底层封装（图片/视频/credits/认证） |
 | `web/src/app/api/generate-assets/route.ts` | 单张生图后端路由 |
 | `web/src/app/api/generate-assets/batch/route.ts` | 批量生图后端路由 |
 | `web/src/components/studio/assets/AssetCard.tsx` | 资产卡片 UI（含场景多角度入口） |
 | `web/src/components/studio/assets/SceneAngleModal.tsx` | 场景多角度面板（8 机位 + 一键生成） |
-| `web/src/app/studio/scripts/[id]/storyboard/page.tsx` | 分镜创作室页面 |
+| `web/src/app/studio/scripts/[id]/storyboard/page.tsx` | 分镜创作室页面（含角色/道具/场景绑定） |
+| `web/src/app/api/studio/scripts/[id]/generate-shot-prompts/route.ts` | 分镜提示词生成 API（注入角色/场景/道具上下文） |
 | `web/src/lib/context/useStoryboard.ts` | 分镜生成逻辑（旧项目系统） |
 | `web/src/lib/context/useCastingRoom.ts` | 角色/场景生图逻辑（旧项目系统） |
 | `web/src/app/api/studio/scripts/[id]/analyze/route.ts` | AI 资产提取（分类并行） |
+| `docs/video-generation-pipeline.md` | 视频生成管线技术文档 |
