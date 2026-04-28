@@ -23,6 +23,29 @@ export interface FlowGenerateVideoParams {
 
 const API_BASE = 'https://aisandbox-pa.googleapis.com/v1';
 
+// ========== 用户 Tier 动态获取 + 内存缓存 ==========
+let cachedTier: { tier: string; credits: number; expiresAt: number } | null = null;
+
+export async function flowGetCredits(at: string): Promise<{ credits: number; userPaygateTier: string }> {
+  // 10 分钟内复用缓存
+  if (cachedTier && Date.now() < cachedTier.expiresAt) {
+    return { credits: cachedTier.credits, userPaygateTier: cachedTier.tier };
+  }
+  const res = await fetch(`${API_BASE}/credits`, {
+    headers: { 'Authorization': `Bearer ${at}` }
+  });
+  if (!res.ok) {
+    console.warn('[API Flow] Failed to get credits, defaulting to PAYGATE_TIER_NOT_PAID');
+    return { credits: 0, userPaygateTier: 'PAYGATE_TIER_NOT_PAID' };
+  }
+  const data = await res.json();
+  const tier = data.userPaygateTier || 'PAYGATE_TIER_NOT_PAID';
+  const credits = data.credits || 0;
+  cachedTier = { tier, credits, expiresAt: Date.now() + 10 * 60 * 1000 };
+  console.log(`[API Flow] User tier: ${tier}, credits: ${credits}`);
+  return { credits, userPaygateTier: tier };
+}
+
 // 提取验证码与 AT (后端自动处理)
 export async function getAuthContext(flowUrlStr: string, isVideo: boolean) {
     const flowUrl = new URL(flowUrlStr);
@@ -120,9 +143,16 @@ export async function flowGenerateImages(params: FlowGenerateImageParams) {
 
 /**
  * 核心：视频生成接口 (支持首尾帧)
+ * 对齐 flow2api 的请求格式：
+ * - lite 模型使用 useV2ModelConfig + structuredPrompt
+ * - 非 lite 模型不加 useV2ModelConfig，使用 { prompt } 格式
+ * - 仅首帧模式需要去掉 model_key 中的 _fl 后缀
  */
 export async function flowSubmitVideoTask(params: FlowGenerateVideoParams) {
   const { projectId, at, recaptchaToken, prompt, aspectRatio, startImageId, endImageId, modelKey = "veo_3_1_t2v_lite" } = params;
+
+  const isLite = modelKey.includes('_lite');
+  const useV2 = isLite; // 只有 lite 模型需要 v2 config
 
   const requestObj: any = {
     aspectRatio: aspectRatio,
@@ -138,18 +168,78 @@ export async function flowSubmitVideoTask(params: FlowGenerateVideoParams) {
     endpoint = 'video:batchAsyncGenerateVideoStartImage';
   }
 
+  // 构建 textInput（v2 用 structuredPrompt，非 v2 用 prompt）
+  const buildTextInput = (text: string) =>
+    useV2
+      ? { structuredPrompt: { parts: [{ text }] } }
+      : { prompt: text };
+
   if (isI2V) {
-    if (startImageId && endImageId) {
-      requestObj.videoModelKey = modelKey.replace('_t2v_', '_interpolation_');
+    let derivedKey = modelKey;
+
+    if (isLite) {
+      if (startImageId && endImageId) {
+        derivedKey = modelKey.replace('_t2v_lite', '_interpolation_lite');
+      } else {
+        derivedKey = modelKey.replace('_t2v_lite', '_i2v_lite');
+      }
+    } else if (modelKey.includes('_t2v_fast')) {
+      derivedKey = modelKey.replace('_t2v_fast', '_i2v_s_fast_fl');
+    } else if (modelKey === 'veo_3_1_t2v' || modelKey === 'veo_3_1_t2v_portrait') {
+      derivedKey = modelKey.replace('_t2v', '_i2v_s');
     } else {
-      requestObj.videoModelKey = modelKey.replace('_t2v_', '_i2v_');
+      derivedKey = modelKey.replace('_t2v_', '_i2v_s_');
     }
+
+    // 仅首帧时需要去掉 _fl 后缀 (对齐 flow2api line 1637-1639)
+    if (startImageId && !endImageId) {
+      derivedKey = derivedKey.replace('_fl_', '_');
+      if (derivedKey.endsWith('_fl')) {
+        derivedKey = derivedKey.slice(0, -3);
+      }
+    }
+
+    requestObj.videoModelKey = derivedKey;
     if (startImageId) requestObj.startImage = { mediaId: startImageId };
     if (endImageId) requestObj.endImage = { mediaId: endImageId };
-    if (prompt) requestObj.textInput = { structuredPrompt: { parts: [{ text: prompt }] } };
+    if (prompt) requestObj.textInput = buildTextInput(prompt);
   } else {
     requestObj.videoModelKey = modelKey;
-    if (prompt) requestObj.textInput = { structuredPrompt: { parts: [{ text: prompt }] } };
+    if (prompt) requestObj.textInput = buildTextInput(prompt);
+  }
+
+  // 动态获取用户 Tier（对齐 flow2api: 从 /credits API 获取 userPaygateTier）
+  const { userPaygateTier } = await flowGetCredits(at);
+
+  // TIER_TWO 自动升级 model_key 到 _ultra 变体（对齐 flow2api _resolve_video_model_key_for_tier）
+  // lite 模型 allow_tier_upgrade=false，不升级
+  const finalModelKey = requestObj.videoModelKey as string;
+  if (userPaygateTier === 'PAYGATE_TIER_TWO' && !isLite && !finalModelKey.includes('_ultra')) {
+    if (finalModelKey.includes('_fl')) {
+      requestObj.videoModelKey = finalModelKey.replace('_fl', '_ultra_fl');
+    } else {
+      requestObj.videoModelKey = finalModelKey + '_ultra';
+    }
+    console.log(`[API Flow] TIER_TWO auto-upgrade: ${finalModelKey} → ${requestObj.videoModelKey}`);
+  }
+
+  console.log(`[API Flow] Video endpoint: ${endpoint}, modelKey: ${requestObj.videoModelKey}, tier: ${userPaygateTier}, useV2: ${useV2}`);
+
+  // 构建请求体（对齐 flow2api: 只有 lite/v2 模型才加 mediaGenerationContext 和 useV2ModelConfig）
+  const jsonBody: any = {
+    clientContext: {
+      recaptchaContext: { token: recaptchaToken, applicationType: "RECAPTCHA_APPLICATION_TYPE_WEB" },
+      sessionId: ";" + Date.now(),
+      projectId: projectId,
+      tool: "PINHOLE",
+      userPaygateTier: userPaygateTier
+    },
+    requests: [requestObj]
+  };
+
+  if (useV2) {
+    jsonBody.mediaGenerationContext = { batchId: crypto.randomUUID() };
+    jsonBody.useV2ModelConfig = true;
   }
 
   const res = await fetch(`${API_BASE}/${endpoint}`, {
@@ -158,18 +248,7 @@ export async function flowSubmitVideoTask(params: FlowGenerateVideoParams) {
       'Authorization': `Bearer ${at}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({
-      clientContext: {
-        recaptchaContext: { token: recaptchaToken, applicationType: "RECAPTCHA_APPLICATION_TYPE_WEB" },
-        sessionId: ";" + Date.now(),
-        projectId: projectId,
-        tool: "PINHOLE",
-        userPaygateTier: "PAYGATE_TIER_TWO" // 可通过接口动态获取
-      },
-      mediaGenerationContext: { batchId: crypto.randomUUID() },
-      useV2ModelConfig: true,
-      requests: [requestObj]
-    })
+    body: JSON.stringify(jsonBody)
   });
 
   if (!res.ok) throw new Error(`Video Task Submission Failed: ${await res.text()}`);

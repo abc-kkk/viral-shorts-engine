@@ -72,15 +72,54 @@ export default function AssetManagePage() {
       alert('所有资产都已经在生成中或没有需要生成的资产。');
       return;
     }
-    if (!confirm(`确定要批量生成列表中剩余的 ${assetsToGenerate.length} 个${activeTabConfig.label}资产吗？这可能需要几分钟。`)) return;
-    
-    const artStyle = currentScript?.metadata?.artStyle as string | undefined;
-    
-    for (const asset of assetsToGenerate) {
-      const promptText = getDefaultAssetPrompt(asset, artStyle);
-      // Initiate generation and wait slightly before triggering the next to avoid aggressive rate limiting
-      requestAssetGeneration(asset, promptText).catch(e => console.error(e));
-      await new Promise(resolve => setTimeout(resolve, 800));
+    if (!confirm(`确定要批量生成 ${assetsToGenerate.length} 个${activeTabConfig.label}吗？`)) return;
+
+    const artStyle = (currentScript?.metadata as any)?.artStyle as string | undefined;
+    const scriptTitle = currentScript?.title || 'Untitled';
+    const projectId = `projects/${scriptTitle}`;
+    const aspectRatio = activeTab === 'prop' ? 'IMAGE_ASPECT_RATIO_SQUARE' : 'IMAGE_ASPECT_RATIO_LANDSCAPE';
+
+    // 标记所有待生成资产为 loading
+    useStudioStore.setState(s => ({
+      generatingAssets: { ...s.generatingAssets, ...Object.fromEntries(assetsToGenerate.map(a => [a.id, true])) }
+    }));
+
+    // 构建任务列表
+    const allTasks = assetsToGenerate.map(asset => ({
+      prompt: getDefaultAssetPrompt(asset, artStyle),
+      targetType: asset.type === 'character' ? 'characterImage' : 'locationImage',
+      meta: { fsAssetId: asset.id, charName: asset.name },
+    }));
+
+    // 每 4 个一批，逐批发送（与场景多角度一致）
+    const CHUNK_SIZE = 4;
+    for (let i = 0; i < allTasks.length; i += CHUNK_SIZE) {
+      const chunk = allTasks.slice(i, i + CHUNK_SIZE);
+      const chunkAssets = assetsToGenerate.slice(i, i + CHUNK_SIZE);
+
+      try {
+        const res = await fetch('/api/generate-assets/batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tasks: chunk, projectId, aspectRatio }),
+        });
+        const data = await res.json();
+
+        if (data.success && data.results) {
+          for (let j = 0; j < data.results.length; j++) {
+            if (data.results[j].url) {
+              useStudioStore.getState().updateAssetThumbnail(chunkAssets[j].id, data.results[j].url);
+            }
+          }
+        }
+      } catch (e) {
+        console.error(`Batch chunk ${Math.floor(i / CHUNK_SIZE) + 1} failed:`, e);
+      }
+
+      // 清除这一批的 loading 状态
+      useStudioStore.setState(s => ({
+        generatingAssets: { ...s.generatingAssets, ...Object.fromEntries(chunkAssets.map(a => [a.id, false])) }
+      }));
     }
   };
 

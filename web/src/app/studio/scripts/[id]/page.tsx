@@ -33,16 +33,19 @@ export default function ScriptEditPage() {
     if (scriptId) selectScript(scriptId);
   }, [scriptId, selectScript]);
 
+  // 用稳定的字符串 key 追踪 metadata 变化（避免对象引用每次都不同导致死循环）
+  const metadataArtStyle = (currentScript?.metadata as any)?.artStyle as string | undefined;
+
   useEffect(() => {
     if (currentScript) {
       setEditTitle(currentScript.title);
-      setEditArtStyle((currentScript.metadata as any)?.artStyle || DEFAULT_ART_STYLE);
+      setEditArtStyle(metadataArtStyle || DEFAULT_ART_STYLE);
       if (currentScript.content !== lastSavedContent.current) {
         setEditContent(currentScript.content || '');
         lastSavedContent.current = currentScript.content;
       }
     }
-  }, [currentScript?.title, currentScript?.content, currentScript?.id]);
+  }, [currentScript?.title, currentScript?.content, currentScript?.id, metadataArtStyle]);
 
   // 剧本内容为空时自动显示 AI 面板
   useEffect(() => {

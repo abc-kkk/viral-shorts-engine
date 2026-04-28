@@ -26,6 +26,9 @@ export default function StoryboardLayoutPage() {
   // 角色覆盖层: { shotId: string[] } — 用户可增删，初始从 AI 提取
   const [shotCharOverrides, setShotCharOverrides] = useState<Record<string, string[]>>({});
   const [showCharPicker, setShowCharPicker] = useState(false);
+  // 道具覆盖层: { shotId: string[] } — 用户可增删
+  const [shotPropOverrides, setShotPropOverrides] = useState<Record<string, string[]>>({});
+  const [showPropPicker, setShowPropPicker] = useState(false);
 
   useEffect(() => {
     if (scriptId) selectScript(scriptId);
@@ -33,6 +36,7 @@ export default function StoryboardLayoutPage() {
 
   const sceneAssets = useMemo(() => currentAssets.filter((a: FsAsset) => a.type === 'scene'), [currentAssets]);
   const characterAssets = useMemo(() => currentAssets.filter((a: FsAsset) => a.type === 'character'), [currentAssets]);
+  const propAssets = useMemo(() => currentAssets.filter((a: FsAsset) => a.type === 'prop'), [currentAssets]);
 
   // Set initial active shot
   useEffect(() => {
@@ -145,7 +149,6 @@ export default function StoryboardLayoutPage() {
     }
   };
 
-  // 角色列表：优先用户覆盖 → 否则用 AI 提取的 shot.characters
   const shotCharacters = useMemo(() => {
     if (!activeShot || !activeData) return [];
     const names = shotCharOverrides[activeShot] ?? activeData.shot.characters ?? [];
@@ -166,6 +169,28 @@ export default function StoryboardLayoutPage() {
     if (!activeShot) return;
     const current = shotCharOverrides[activeShot] ?? activeData?.shot.characters ?? [];
     setShotCharOverrides(prev => ({ ...prev, [activeShot]: current.filter(n => n !== name) }));
+  };
+
+  const shotProps = useMemo(() => {
+    if (!activeShot || !activeData) return [];
+    const names = shotPropOverrides[activeShot] ?? activeData.shot.props ?? [];
+    return names.map(name => {
+      const asset = propAssets.find((a: FsAsset) => a.name === name);
+      return { name, asset: asset || null };
+    });
+  }, [activeShot, activeData, shotPropOverrides, propAssets]);
+
+  const addPropToShot = (name: string) => {
+    if (!activeShot) return;
+    const current = shotPropOverrides[activeShot] ?? activeData?.shot.props ?? [];
+    if (current.includes(name)) return;
+    setShotPropOverrides(prev => ({ ...prev, [activeShot]: [...current, name] }));
+    setShowPropPicker(false);
+  };
+  const removePropFromShot = (name: string) => {
+    if (!activeShot) return;
+    const current = shotPropOverrides[activeShot] ?? activeData?.shot.props ?? [];
+    setShotPropOverrides(prev => ({ ...prev, [activeShot]: current.filter(n => n !== name) }));
   };
 
   const currentPrompts = activeShot ? editablePrompts[activeShot] : null;
@@ -202,6 +227,7 @@ export default function StoryboardLayoutPage() {
           groupContext: activeData.group.context,
           groupTitle: activeData.group.title,
           characters: shotCharacters.map(c => c.name),
+          props: shotProps.map(p => p.name),
           sceneName: boundScene?.name || activeData.group.sceneName || '',
         }),
       });
@@ -479,6 +505,45 @@ export default function StoryboardLayoutPage() {
                       ))}
                       {characterAssets.filter((a: FsAsset) => !shotCharacters.some(c => c.name === a.name)).length === 0 && (
                         <div className="text-[10px] text-neutral-600 px-2 py-1">所有角色已添加</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* 涉及道具 */}
+                <div className="w-44 bg-neutral-900/40 border border-neutral-800 rounded-xl p-3 relative">
+                  <div className="text-[10px] text-emerald-400 font-bold mb-2 flex items-center justify-between">
+                    <span className="flex items-center gap-1"><Wand2 className="w-3 h-3" /> 涉及道具</span>
+                    <button onClick={() => setShowPropPicker(!showPropPicker)} className="text-neutral-500 hover:text-emerald-400 transition-colors"><Plus className="w-3 h-3" /></button>
+                  </div>
+                  {shotProps.length > 0 ? (
+                    <div className="space-y-1">
+                      {shotProps.map(({ name, asset }) => (
+                        <div key={name} className="flex items-center gap-1.5 group/prop">
+                          <div className="w-5 h-5 rounded-md overflow-hidden bg-neutral-800 border border-neutral-700 shrink-0">
+                            {asset?.thumbnail ? <img src={asset.thumbnail} alt="" className="w-full h-full object-cover" /> : <Wand2 className="w-2.5 h-2.5 text-neutral-600 m-auto mt-1" />}
+                          </div>
+                          <span className="text-[10px] text-neutral-200 truncate flex-1">{name}</span>
+                          <button onClick={() => removePropFromShot(name)} className="opacity-0 group-hover/prop:opacity-100 text-neutral-600 hover:text-red-400 transition-all"><X className="w-3 h-3" /></button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-[10px] text-neutral-600">无道具，点 + 添加</span>
+                  )}
+                  {showPropPicker && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-neutral-900 border border-neutral-700 rounded-lg p-1.5 z-20 shadow-xl max-h-40 overflow-y-auto">
+                      {propAssets.filter((a: FsAsset) => !shotProps.some(c => c.name === a.name)).map((a: FsAsset) => (
+                        <button key={a.id} onClick={() => addPropToShot(a.name)}
+                          className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-[10px] hover:bg-neutral-800 text-neutral-300">
+                          <div className="w-5 h-5 rounded-md overflow-hidden bg-neutral-800 border border-neutral-700 shrink-0">
+                            {a.thumbnail ? <img src={a.thumbnail} alt="" className="w-full h-full object-cover" /> : <Wand2 className="w-2.5 h-2.5 text-neutral-600 m-auto mt-1" />}
+                          </div>
+                          {a.name}
+                        </button>
+                      ))}
+                      {propAssets.filter((a: FsAsset) => !shotProps.some(c => c.name === a.name)).length === 0 && (
+                        <div className="text-[10px] text-neutral-600 px-2 py-1">所有道具已添加</div>
                       )}
                     </div>
                   )}

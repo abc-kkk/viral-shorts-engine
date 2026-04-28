@@ -7,8 +7,7 @@ import type { TargetType } from '@/lib/types';
 import { resolveFlowUrl } from '@/lib/detectFlowUrl';
 import fs from 'fs';
 import path from 'path';
-import puppeteer from 'puppeteer-core';
-import { flowGenerateImages, flowUploadImage } from '@/lib/utils/flowApi';
+import { flowGenerateImages, flowUploadImage, getAuthContext } from '@/lib/utils/flowApi';
 
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
@@ -33,37 +32,7 @@ export const dynamic = 'force-dynamic';
 // 内存级缓存（与主路由共享进程，但独立 Map 实例）
 const batchMediaIdCache = new Map<string, { mediaId: string, mtimeMs: number }>();
 
-async function getAuthContext(flowUrlStr: string) {
-    const flowUrl = new URL(flowUrlStr);
-    const projectId = flowUrl.pathname.split('/').pop() || '';
-    const portMatch = flowUrlStr.match(/port=(\d+)/);
-    const port = portMatch ? portMatch[1] : '9222';
-    
-    const res = await fetch(`http://127.0.0.1:${port}/json/version`);
-    const data = await res.json();
-    const browser = await puppeteer.connect({ browserWSEndpoint: data.webSocketDebuggerUrl, defaultViewport: null });
-
-    const pages = await browser.pages();
-    const page = pages.find(p => p.url().includes('tools/flow/project'));
-    if (!page) { await browser.disconnect(); throw new Error('未找到 Flow 页面'); }
-
-    const cookies = await page.cookies();
-    const stCookie = cookies.find(c => c.name === '__Secure-next-auth.session-token');
-    if (!stCookie) { await browser.disconnect(); throw new Error('未找到 Session Token'); }
-
-    const sessionRes = await fetch('https://labs.google/fx/api/auth/session', {
-        headers: { 'Cookie': `__Secure-next-auth.session-token=${stCookie.value}` }
-    });
-    const at = (await sessionRes.json()).access_token;
-
-    const recaptchaToken = await page.evaluate(async () => {
-        // @ts-ignore
-        return await window.grecaptcha.enterprise.execute('6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV', { action: 'IMAGE_GENERATION' });
-    });
-
-    await browser.disconnect();
-    return { projectId, at, recaptchaToken };
-}
+// Auth 统一使用 flowApi.getAuthContext（已在 import 中引入）
 
 async function resolveReferenceImage(kw: string, at: string, projectId: string, localProjectId: string, imagesDir: string): Promise<string | null> {
     let filePath = path.join(imagesDir, `${kw}.png`);
@@ -110,7 +79,7 @@ export async function POST(req: Request) {
         }
 
         console.log(`[Batch API] Generating ${tasks.length} images in ONE batch call...`);
-        const auth = await getAuthContext(flowUrl);
+        const auth = await getAuthContext(flowUrl, false);
         const imagesDir = getAssetDir(localProjectId, 'images');
 
         // 先统一上传所有参考图（去重）
@@ -128,11 +97,20 @@ export async function POST(req: Request) {
         }
         console.log(`[Batch API] Uploaded ${keywordToMediaId.size} unique reference images`);
 
+        // 模型名称映射（与主路由保持一致）
+        const db = getDb();
+        const modelState = db.select().from(schema.systemStates).where(eq(schema.systemStates.key, 'imageModel')).get();
+        const finalModel = modelState?.value || 'Nano Banana Pro';
+        let resolvedModelName = 'NARWHAL';
+        if (finalModel === 'Nano Banana Pro') resolvedModelName = 'GEM_PIX_2';
+        else if (finalModel === 'Nano Banana 2') resolvedModelName = 'NARWHAL';
+        else if (finalModel === 'Imagen 4') resolvedModelName = 'IMAGEN_3_5';
+
         // 前端已经分好批（每批最多4个），直接一次调用即可
         const referenceImageIds = Array.from(keywordToMediaId.values());
         const prompts = tasks.map((t: any) => t.prompt as string);
 
-        console.log(`[Batch API] Generating ${prompts.length} images in one call...`);
+        console.log(`[Batch API] Generating ${prompts.length} images (model: ${resolvedModelName})...`);
 
         const imageRes = await flowGenerateImages({
             projectId: auth.projectId,
@@ -140,7 +118,8 @@ export async function POST(req: Request) {
             recaptchaToken: auth.recaptchaToken,
             prompts,
             aspectRatio: aspectRatio || 'IMAGE_ASPECT_RATIO_LANDSCAPE',
-            referenceImageIds
+            referenceImageIds,
+            modelName: resolvedModelName
         });
 
         // 下载所有结果并落盘

@@ -180,6 +180,12 @@ export async function POST(req: Request) {
     let finalFifeUrl = '';
 
     if (isVideo) {
+        // 读取全局视频模型设置
+        const db = getDb();
+        const videoModelState = db.select().from(schema.systemStates).where(eq(schema.systemStates.key, 'videoModel')).get();
+        const resolvedVideoModel = videoModelState?.value || 'veo_3_1_t2v_lite';
+        console.log(`[API Flow] Video model: ${resolvedVideoModel}`);
+
         // 生成视频
         const videoRes = await flowSubmitVideoTask({
             projectId: auth.projectId,
@@ -188,7 +194,8 @@ export async function POST(req: Request) {
             prompt,
             aspectRatio: reqAspectRatio || "VIDEO_ASPECT_RATIO_LANDSCAPE",
             startImageId,
-            endImageId
+            endImageId,
+            modelKey: resolvedVideoModel
         });
 
         const taskId = videoRes.operations?.[0]?.operation?.name;

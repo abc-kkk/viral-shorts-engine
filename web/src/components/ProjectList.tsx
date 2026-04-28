@@ -34,7 +34,7 @@ export default function ProjectList() {
   const [chromeDataDirFeedback, setChromeDataDirFeedback] = useState('');
   const [updateChecking, setUpdateChecking] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  const [globalSettings, setGlobalSettings] = useState({ aiProvider: 'gemini', jianyingPath: '', flowUrl: '', imageModel: 'Nano Banana Pro' });
+  const [globalSettings, setGlobalSettings] = useState({ aiProvider: 'gemini', jianyingPath: '', flowUrl: '', imageModel: 'Nano Banana Pro', videoModel: 'veo_3_1_t2v_lite' });
 
   const electronAPI = typeof window !== 'undefined' && (window as any).electronAPI?.isElectron ? (window as any).electronAPI : null;
 
@@ -60,6 +60,7 @@ export default function ProjectList() {
           jianyingPath: data.data.jianyingPath || '',
           flowUrl: data.data.flowUrl || '',
           imageModel: data.data.imageModel || 'Nano Banana Pro',
+          videoModel: data.data.videoModel || 'veo_3_1_t2v_lite',
         });
       }
     } catch (e) {
@@ -357,6 +358,24 @@ export default function ProjectList() {
 
               <div className="h-px bg-neutral-800 w-full" />
 
+              {/* Video Model */}
+              <div>
+                <label className="text-sm font-bold text-neutral-300 block mb-2">🎬 全局生视频模型 (Video Model)</label>
+                <select 
+                  className="w-full bg-black/60 border border-neutral-700 rounded-lg p-3 text-neutral-300 font-bold text-sm focus:border-orange-500 focus:outline-none cursor-pointer"
+                  value={globalSettings.videoModel}
+                  onChange={e => updateGlobalSetting('videoModel', e.target.value)}
+                >
+                  <option value="veo_3_1_t2v_lite">Veo 3.1 - Lite (默认推荐: 极速生成)</option>
+                  <option value="veo_3_1_t2v_fast">Veo 3.1 - Fast (速度与画质平衡，需高级账号)</option>
+                  <option value="veo_3_1_t2v">Veo 3.1 - Quality (最高画质，需高级账号)</option>
+                  <option value="veo_3_1_t2v_lite_relaxed">Veo 3.1 - Lite [Lower Priority] (低优先级排队)</option>
+                  <option value="veo_3_1_t2v_fast_ultra_relaxed">Veo 3.1 - Fast [Lower Priority] (低优先级，需高级账号)</option>
+                </select>
+                <p className="text-xs text-neutral-600 mt-1.5">此选项将全局决定分镜创作室渲染视频时所使用的底层视频生成模型。Lower Priority 适合非紧急批量任务。</p>
+              </div>
+
+              <div className="h-px bg-neutral-800 w-full" />
 
               
               {/* JianYing Path */}
