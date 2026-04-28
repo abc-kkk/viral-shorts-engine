@@ -48,7 +48,18 @@ export async function generateText({ systemPrompt, userPrompt, forceJson = false
 
     if (!res.ok) {
       const errBody = await res.text();
-      throw new Error(`MiniMax API 错误: ${errBody}`);
+      let errMsg = errBody;
+      try {
+        const parsedErr = JSON.parse(errBody);
+        if (parsedErr.base_resp && parsedErr.base_resp.status_msg) {
+          errMsg = parsedErr.base_resp.status_msg;
+        } else if (parsedErr.message) {
+          errMsg = parsedErr.message;
+        }
+      } catch (e) {
+        // Not JSON, use raw body
+      }
+      throw new Error(`MiniMax API: ${errMsg}`);
     }
 
     if (!res.body) {
@@ -62,54 +73,65 @@ export async function generateText({ systemPrompt, userPrompt, forceJson = false
     let printedHeader = false;
     let hasEndedThink = false;
     let thinkTextStreamed = 0;
+    
+    let sseBuffer = '';
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      const chunkStr = decoder.decode(value, { stream: true });
-      const lines = chunkStr.split('\n');
+      
+      sseBuffer += decoder.decode(value, { stream: true });
+      const lines = sseBuffer.split('\n');
+      sseBuffer = lines.pop() || '';
 
       for (const line of lines) {
         if (line.startsWith('data: ') && !line.includes('[DONE]')) {
+          let data;
           try {
-            const data = JSON.parse(line.slice(6));
-            const deltaContent = data.choices?.[0]?.delta?.content || '';
-            contentBuffer += deltaContent;
-
-            // 实时打印思考过程
-            if (!hasEndedThink) {
-              const thinkStartIdx = contentBuffer.indexOf('<think>');
-              if (thinkStartIdx !== -1) {
-                if (!printedHeader) {
-                  console.log(`\n======================================`);
-                  console.log(`🤔 [MiniMax] 思考过程 (实时输出):`);
-                  console.log(`--------------------------------------`);
-                  printedHeader = true;
-                }
-
-                const thinkEndIdx = contentBuffer.indexOf('</think>');
-                let availableThinkText = '';
-                
-                if (thinkEndIdx !== -1) {
-                  availableThinkText = contentBuffer.substring(thinkStartIdx + 7, thinkEndIdx);
-                  hasEndedThink = true;
-                } else {
-                  availableThinkText = contentBuffer.substring(thinkStartIdx + 7);
-                }
-
-                const newTextToPrint = availableThinkText.substring(thinkTextStreamed);
-                if (newTextToPrint.length > 0) {
-                  process.stdout.write(newTextToPrint);
-                  thinkTextStreamed += newTextToPrint.length;
-                }
-
-                if (hasEndedThink) {
-                  console.log(`\n======================================\n`);
-                }
-              }
-            }
+            data = JSON.parse(line.slice(6));
           } catch (e) {
             // Ignore incomplete JSON chunks from split lines
+            continue;
+          }
+
+          if (data.base_resp && data.base_resp.status_code !== 0) {
+            throw new Error(`MiniMax 流式响应错误: ${data.base_resp.status_msg || '未知错误'}`);
+          }
+
+          const deltaContent = data.choices?.[0]?.delta?.content || '';
+          contentBuffer += deltaContent;
+
+          // 实时打印思考过程
+          if (!hasEndedThink) {
+            const thinkStartIdx = contentBuffer.indexOf('<think>');
+            if (thinkStartIdx !== -1) {
+              if (!printedHeader) {
+                console.log(`\n======================================`);
+                console.log(`🤔 [MiniMax] 思考过程 (实时输出):`);
+                console.log(`--------------------------------------`);
+                printedHeader = true;
+              }
+
+              const thinkEndIdx = contentBuffer.indexOf('</think>');
+              let availableThinkText = '';
+              
+              if (thinkEndIdx !== -1) {
+                availableThinkText = contentBuffer.substring(thinkStartIdx + 7, thinkEndIdx);
+                hasEndedThink = true;
+              } else {
+                availableThinkText = contentBuffer.substring(thinkStartIdx + 7);
+              }
+
+              const newTextToPrint = availableThinkText.substring(thinkTextStreamed);
+              if (newTextToPrint.length > 0) {
+                process.stdout.write(newTextToPrint);
+                thinkTextStreamed += newTextToPrint.length;
+              }
+
+              if (hasEndedThink) {
+                console.log(`\n======================================\n`);
+              }
+            }
           }
         }
       }

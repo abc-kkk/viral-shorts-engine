@@ -262,7 +262,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   extractStoryboard: async (id) => {
     set({ analyzing: true, error: null });
     try {
-      const data = await apiClient.post(`/api/studio/scripts/${id}/extract-storyboard`, undefined, { hideErrorToast: true });
+      const data = await apiClient.post(`/api/studio/scripts/${id}/extract-storyboard`);
       set({ storyboardGroups: data.groups || [], analyzing: false });
       return true;
     } catch (e: any) {
