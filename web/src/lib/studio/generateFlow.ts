@@ -69,6 +69,8 @@ interface StoryboardVideoConfig {
   shotIndex: number;
   prompt: string;
   referenceKeywords: string[];
+  /** 视频生成模式：'frame' = 首尾帧, 'r2v' = 多素材参考, 'broll' = 纯文生视频 */
+  veoMode?: 'frame' | 'r2v' | 'broll';
 }
 
 export type GenerateFlowConfig = AssetMainConfig | SceneAngleConfig | StoryboardFrameConfig | StoryboardVideoConfig;
@@ -181,12 +183,14 @@ function buildGenerateBody(config: GenerateFlowConfig): Record<string, unknown> 
     }
 
     case 'storyboardVideo': {
+      // 显式指定 veoMode 优先；否则根据有无引用图自动判断
+      const mode = config.veoMode || (config.referenceKeywords.length > 0 ? 'frame' : 'broll');
       return {
         prompt: config.prompt,
         model: 'Veo 3.1',
         referenceKeywords: config.referenceKeywords,
         projectId,
-        veoMode: config.referenceKeywords.length > 0 ? 'frame' : 'broll',
+        veoMode: mode,
         targetType: 'sceneVideo',
         meta: { shotId: config.shotId },
       };

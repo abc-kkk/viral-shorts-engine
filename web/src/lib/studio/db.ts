@@ -277,32 +277,27 @@ export function getAssetsByIds(ids: string[]): FsAsset[] {
  * 从 AI 分析结果批量创建资产
  *
  * AI 分析剧本后，将提取的角色/场景/道具批量写入 FsAsset 表。
- * 已存在的同名同类型资产会被跳过（不做覆盖）。
+ * 已存在的同名同类型资产会自动覆盖文字信息（描述、特征等），但保留其图片缩略图不变。
  */
 export function createAssetsFromAnalysis(scriptId: string, analysis: FsScriptAnalysis): FsAsset[] {
   const db = getDb();
   const created: FsAsset[] = [];
 
-  // 查询已有资产，避免重复
   const existing = db.select().from(schema.fsAssets)
     .where(eq(schema.fsAssets.scriptId, scriptId))
     .all();
-  const existingKeys = new Set(existing.map(a => `${a.type}:${a.name}`));
+  const existingMap = new Map<string, typeof existing[0]>();
+  for (const a of existing) {
+    existingMap.set(`${a.type}:${a.name}`, a);
+  }
 
   // 创建角色资产
   for (const char of analysis.characters) {
     const key = `character:${char.name}`;
-    if (existingKeys.has(key)) continue;
-
-    const result = db.insert(schema.fsAssets).values({
-      scriptId,
-      type: 'character',
-      name: char.name,
-      description: `${char.personality} ${char.background}`.trim(),
-      tags: serializeJson([]),
-      thumbnail: null,
-      source: 'ai_extracted',
-      data: serializeJson({
+    const oldAsset = existingMap.get(key);
+    
+    const description = `${char.personality} ${char.background}`.trim();
+    const dataObj = {
         appearance: char.appearance,
         personality: char.personality,
         background: char.background,
@@ -312,55 +307,86 @@ export function createAssetsFromAnalysis(scriptId: string, analysis: FsScriptAna
           age: char.age,
           occupation: char.occupation,
         },
-      }),
-    }).returning().get();
-    created.push(rowToAsset(result));
+    };
+
+    if (oldAsset) {
+      const updated = updateAsset(oldAsset.id, { description, data: dataObj });
+      if (updated) created.push(updated);
+    } else {
+      const result = db.insert(schema.fsAssets).values({
+        scriptId,
+        type: 'character',
+        name: char.name,
+        description,
+        tags: serializeJson([]),
+        thumbnail: null,
+        source: 'ai_extracted',
+        data: serializeJson(dataObj),
+      }).returning().get();
+      created.push(rowToAsset(result));
+    }
   }
 
   // 创建场景资产
   for (const scene of analysis.scenes) {
     const key = `scene:${scene.name}`;
-    if (existingKeys.has(key)) continue;
-
-    const result = db.insert(schema.fsAssets).values({
-      scriptId,
-      type: 'scene',
-      name: scene.name,
-      description: scene.atmosphere,
-      tags: serializeJson([]),
-      thumbnail: null,
-      source: 'ai_extracted',
-      data: serializeJson({
+    const oldAsset = existingMap.get(key);
+    
+    const description = scene.atmosphere;
+    const dataObj = {
         atmosphere: scene.atmosphere,
         imagePrompt: scene.imagePrompt,
         timeOfDay: scene.timeOfDay,
         weather: scene.weather,
-      }),
-    }).returning().get();
-    created.push(rowToAsset(result));
+    };
+
+    if (oldAsset) {
+      const updated = updateAsset(oldAsset.id, { description, data: dataObj });
+      if (updated) created.push(updated);
+    } else {
+      const result = db.insert(schema.fsAssets).values({
+        scriptId,
+        type: 'scene',
+        name: scene.name,
+        description,
+        tags: serializeJson([]),
+        thumbnail: null,
+        source: 'ai_extracted',
+        data: serializeJson(dataObj),
+      }).returning().get();
+      created.push(rowToAsset(result));
+    }
   }
 
   // 创建道具资产
   for (const prop of analysis.props) {
     const key = `prop:${prop.name}`;
-    if (existingKeys.has(key)) continue;
-
-    const result = db.insert(schema.fsAssets).values({
-      scriptId,
-      type: 'prop',
-      name: prop.name,
-      description: prop.imagePrompt,
-      tags: serializeJson([]),
-      thumbnail: null,
-      source: 'ai_extracted',
-      data: serializeJson({
+    const oldAsset = existingMap.get(key);
+    
+    const description = prop.imagePrompt;
+    const dataObj = {
         category: prop.category,
         imagePrompt: prop.imagePrompt,
         sizeDescription: prop.sizeDescription,
         heldBy: prop.heldBy,
-      }),
-    }).returning().get();
-    created.push(rowToAsset(result));
+    };
+
+    if (oldAsset) {
+      const updated = updateAsset(oldAsset.id, { description, data: dataObj });
+      if (updated) created.push(updated);
+    } else {
+      const result = db.insert(schema.fsAssets).values({
+        scriptId,
+        type: 'prop',
+        name: prop.name,
+        description,
+        tags: serializeJson([]),
+        thumbnail: null,
+        source: 'ai_extracted',
+        data: serializeJson(dataObj),
+      }).returning().get();
+      created.push(rowToAsset(result));
+    }
   }
 
   return created;

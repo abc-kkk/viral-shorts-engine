@@ -18,6 +18,7 @@ export interface FlowGenerateVideoParams {
   aspectRatio: string;
   startImageId?: string;
   endImageId?: string;
+  referenceImageIds?: string[]; // 新增 R2V 支持
   modelKey?: string;
 }
 
@@ -149,10 +150,11 @@ export async function flowGenerateImages(params: FlowGenerateImageParams) {
  * - 仅首帧模式需要去掉 model_key 中的 _fl 后缀
  */
 export async function flowSubmitVideoTask(params: FlowGenerateVideoParams) {
-  const { projectId, at, recaptchaToken, prompt, aspectRatio, startImageId, endImageId, modelKey = "veo_3_1_t2v_lite" } = params;
+  const { projectId, at, recaptchaToken, prompt, aspectRatio, startImageId, endImageId, referenceImageIds, modelKey = "veo_3_1_t2v_lite" } = params;
 
+  const isR2V = referenceImageIds && referenceImageIds.length > 0;
   const isLite = modelKey.includes('_lite');
-  const useV2 = isLite; // 只有 lite 模型需要 v2 config
+  const useV2 = isLite || isR2V; // R2V 必须使用 v2 config
 
   const requestObj: any = {
     aspectRatio: aspectRatio,
@@ -162,7 +164,9 @@ export async function flowSubmitVideoTask(params: FlowGenerateVideoParams) {
 
   const isI2V = !!startImageId;
   let endpoint = 'video:batchAsyncGenerateVideoText';
-  if (startImageId && endImageId) {
+  if (isR2V) {
+    endpoint = 'video:batchAsyncGenerateVideoReferenceImages';
+  } else if (startImageId && endImageId) {
     endpoint = 'video:batchAsyncGenerateVideoStartAndEndImage';
   } else if (startImageId) {
     endpoint = 'video:batchAsyncGenerateVideoStartImage';
@@ -174,7 +178,32 @@ export async function flowSubmitVideoTask(params: FlowGenerateVideoParams) {
       ? { structuredPrompt: { parts: [{ text }] } }
       : { prompt: text };
 
-  if (isI2V) {
+  if (isR2V) {
+    let derivedKey = modelKey;
+    if (derivedKey.includes('_t2v')) {
+      derivedKey = derivedKey.replace('_t2v', '_r2v');
+    }
+    
+    // R2V 需要显式带上横竖屏后缀
+    if (!derivedKey.includes('_landscape') && !derivedKey.includes('_portrait')) {
+      if (aspectRatio === 'VIDEO_ASPECT_RATIO_PORTRAIT') {
+        derivedKey += '_portrait';
+      } else {
+        derivedKey += '_landscape';
+      }
+    }
+    
+    requestObj.videoModelKey = derivedKey;
+    
+    // 官方协议：最多支持 3 张参考图
+    requestObj.referenceImages = referenceImageIds!.slice(0, 3).map(id => ({
+      imageUsageType: "IMAGE_USAGE_TYPE_ASSET",
+      mediaId: id
+    }));
+    
+    if (prompt) requestObj.textInput = buildTextInput(prompt);
+
+  } else if (isI2V) {
     let derivedKey = modelKey;
 
     if (isLite) {
@@ -277,8 +306,11 @@ export async function flowPollVideoStatus(at: string, taskId: string) {
  * 核心：上传图片，换取 mediaId
  */
 export async function flowUploadImage(projectId: string, at: string, imageBuffer: Buffer, aspectRatio: string) {
-  const mimeType = 'image/jpeg';
-  const fileName = `upload_${Date.now()}.jpg`;
+  // 简单嗅探一下文件头判断是不是 PNG
+  const isPng = imageBuffer.length > 8 && imageBuffer[0] === 0x89 && imageBuffer[1] === 0x50 && imageBuffer[2] === 0x4E && imageBuffer[3] === 0x47;
+  const mimeType = isPng ? 'image/png' : 'image/jpeg';
+  const ext = isPng ? 'png' : 'jpg';
+  const fileName = `upload_${Date.now()}_${Math.floor(Math.random() * 1000)}.${ext}`;
   const base64Data = imageBuffer.toString('base64');
 
   const res = await fetch(`${API_BASE}/flow/uploadImage`, {
@@ -302,5 +334,5 @@ export async function flowUploadImage(projectId: string, at: string, imageBuffer
 
   if (!res.ok) throw new Error(`Upload Failed: ${await res.text()}`);
   const data = await res.json();
-  return data.media?.name; // This is the mediaId
+  return { mediaId: data.media?.name, fileName }; // Return both mediaId and fileName
 }

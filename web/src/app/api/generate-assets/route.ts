@@ -115,7 +115,7 @@ async function getReferenceImageIds(keywords: string[], at: string, projectId: s
             // 如果缓存存在，且文件修改时间没变，直接复用！
             if (cached && cached.mtimeMs === fileMtime) {
                 console.log(`[API Flow] ⚡ Using cached mediaId for ${kw}`);
-                ids.push(cached.mediaId);
+                ids.push({ mediaId: cached.mediaId, fileName: cached.fileName, keyword: kw });
                 continue;
             }
 
@@ -124,11 +124,12 @@ async function getReferenceImageIds(keywords: string[], at: string, projectId: s
             }
             
             console.log(`[API Flow] ⬆️ Uploading reference image: ${kw}...`);
-            const mediaId = await flowUploadImage(projectId, at, fileBuffer, 'IMAGE_ASPECT_RATIO_LANDSCAPE');
-            if (mediaId) {
-                mediaIdCache.set(cacheKey, { mediaId, mtimeMs: fileMtime });
-                ids.push(mediaId);
-                console.log(`[API Flow] ✅ Uploaded ${kw} -> ${mediaId}`);
+            const uploadResult = await flowUploadImage(projectId, at, fileBuffer, 'IMAGE_ASPECT_RATIO_LANDSCAPE');
+            if (uploadResult && uploadResult.mediaId) {
+                const { mediaId, fileName } = uploadResult;
+                mediaIdCache.set(cacheKey, { mediaId, fileName, mtimeMs: fileMtime });
+                ids.push({ mediaId, fileName, keyword: kw });
+                console.log(`[API Flow] ✅ Uploaded ${kw} -> ${mediaId} (${fileName})`);
             }
         } catch (e) {
             console.error(`[API Flow] ❌ Failed to upload reference image ${kw}:`, e);
@@ -165,13 +166,19 @@ export async function POST(req: Request) {
     let startImageId: string | undefined;
     let endImageId: string | undefined;
     let imageInputs: string[] = [];
+    let referenceAssets: Array<{ mediaId: string, fileName: string, keyword: string }> = [];
 
     if (keywords.length > 0) {
         console.log(`[API Flow] Resolving ${keywords.length} reference keywords...`);
-        const mediaIds = await getReferenceImageIds(keywords, auth.at, auth.projectId, localProjectId);
-        if (isVideo && mediaIds.length >= 1) {
-            startImageId = mediaIds[0];
-            if (mediaIds.length >= 2) endImageId = mediaIds[1];
+        referenceAssets = await getReferenceImageIds(keywords, auth.at, auth.projectId, localProjectId);
+        const mediaIds = referenceAssets.map(a => a.mediaId);
+        if (isVideo) {
+            if (veoMode === 'r2v' || veoMode === 'reference') {
+                imageInputs = mediaIds; // R2V 模式将传入的所有图片作为参考素材
+            } else if (mediaIds.length >= 1) {
+                startImageId = mediaIds[0];
+                if (mediaIds.length >= 2) endImageId = mediaIds[1];
+            }
         } else {
             imageInputs = mediaIds;
         }
@@ -186,15 +193,20 @@ export async function POST(req: Request) {
         const resolvedVideoModel = videoModelState?.value || 'veo_3_1_t2v_lite';
         console.log(`[API Flow] Video model: ${resolvedVideoModel}`);
 
+        // 还原：把 {@苏母} 脱敏成纯文本，防止谷歌的安全拦截或解析错误
+        // 之所以不用 fileName 替换，是因为真正的失败原因很可能是之前的 PNG 文件被错误标记为 image/jpeg 导致的引擎崩溃
+        const safePrompt = prompt.replace(/\{@([^{}]+)\}/g, '$1');
+
         // 生成视频
         const videoRes = await flowSubmitVideoTask({
             projectId: auth.projectId,
             at: auth.at,
             recaptchaToken: auth.recaptchaToken,
-            prompt,
+            prompt: safePrompt,
             aspectRatio: reqAspectRatio || "VIDEO_ASPECT_RATIO_LANDSCAPE",
             startImageId,
             endImageId,
+            referenceImageIds: (veoMode === 'r2v' || veoMode === 'reference') ? imageInputs : undefined,
             modelKey: resolvedVideoModel
         });
 
@@ -221,7 +233,9 @@ export async function POST(req: Request) {
                 if (match) finalFifeUrl = match[0];
                 else throw new Error('Video generation succeeded but URL not found in metadata');
             } else if (status === 'MEDIA_GENERATION_STATUS_FAILED') {
-                throw new Error('视频生成被拒绝或失败');
+                const op = pollRes.operations?.[0];
+                const errMsg = op?.error?.message || '视频生成被拒绝或失败 (可能是 Safety Filter 或上游引擎解析错误)';
+                throw new Error(`视频生成被拒绝或失败: ${errMsg}`);
             }
         }
         if (!completed) throw new Error('视频生成轮询超时');

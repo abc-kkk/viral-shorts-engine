@@ -1,13 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, Wand2, Image as ImageIcon, Video, Play, CheckCircle2, Mic, Loader2, ChevronDown, MapPin, Film, Users, X, Plus, CopyPlus } from 'lucide-react';
+import { ArrowLeft, Wand2, Image as ImageIcon, Video, Play, CheckCircle2, Mic, Loader2, ChevronDown, MapPin, Film, Users, X, Plus, CopyPlus, Images } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 import { useStudioStore } from '@/lib/studio/store/useStudioStore';
 import type { FsAsset } from '@/lib/studio/types';
 import { useStudioInboxPoller } from '@/components/studio/assets/useStudioInboxPoller';
 
-type FrameMode = 'first_only' | 'first_and_last';
+type FrameMode = 'first_only' | 'first_and_last' | 'r2v';
 
 export default function StoryboardLayoutPage() {
   useStudioInboxPoller();
@@ -229,6 +229,12 @@ export default function StoryboardLayoutPage() {
           characters: shotCharacters.map(c => c.name),
           props: shotProps.map(p => p.name),
           sceneName: boundScene?.name || activeData.group.sceneName || '',
+          videoMode: frameMode === 'r2v' ? 'r2v' : undefined,
+          previousShotLastFramePrompt: (() => {
+            const prev = getPreviousShot();
+            if (!prev) return undefined;
+            return editablePrompts[prev.id]?.last || prev.lastFramePrompt || undefined;
+          })(),
         }),
       });
       if (!res.ok) throw new Error(await res.text());
@@ -565,9 +571,52 @@ export default function StoryboardLayoutPage() {
                   className={`px-4 py-2 rounded-lg text-xs font-bold border transition-all ${frameMode === 'first_and_last' ? 'bg-blue-600/20 border-blue-500/40 text-blue-400' : 'bg-neutral-900/50 border-neutral-800 text-neutral-500 hover:text-neutral-300'}`}>
                   首尾帧
                 </button>
+                <button onClick={() => setFrameMode('r2v')}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold border transition-all flex items-center gap-1 ${frameMode === 'r2v' ? 'bg-violet-600/20 border-violet-500/40 text-violet-400' : 'bg-neutral-900/50 border-neutral-800 text-neutral-500 hover:text-neutral-300'}`}>
+                  <Images className="w-3 h-3" /> 素材
+                </button>
               </div>
 
+              {/* R2V 素材模式说明卡片 */}
+              {frameMode === 'r2v' && (
+                <div className="bg-violet-500/5 border border-violet-500/20 rounded-xl p-3">
+                  <div className="text-[10px] text-violet-400 font-bold mb-1.5 flex items-center gap-1">
+                    <Images className="w-3 h-3" /> 素材参考模式 (R2V)
+                  </div>
+                  <p className="text-[10px] text-neutral-400 leading-relaxed">
+                    跳过首尾帧生成，直接用角色/场景/道具的原画作为参考素材生成视频。AI 提示词会自动使用 {'{@资产名}'} 语法引用素材。最多 3 张。
+                  </p>
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {shotCharacters.map(({ name, asset }) => (
+                      <div key={name} className="flex items-center gap-1 bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded text-[9px] font-bold">
+                        <div className="w-4 h-4 rounded-full overflow-hidden bg-neutral-800 shrink-0">
+                          {asset?.thumbnail ? <img src={asset.thumbnail} alt="" className="w-full h-full object-cover" /> : <Users className="w-2.5 h-2.5 text-neutral-600 m-auto mt-0.5" />}
+                        </div>
+                        {'{@'}{name}{'}'}
+                      </div>
+                    ))}
+                    {boundScene && (
+                      <div className="flex items-center gap-1 bg-purple-500/10 text-purple-400 px-1.5 py-0.5 rounded text-[9px] font-bold">
+                        <div className="w-4 h-4 rounded overflow-hidden bg-neutral-800 shrink-0">
+                          {boundScene.thumbnail ? <img src={boundScene.thumbnail} alt="" className="w-full h-full object-cover" /> : <MapPin className="w-2.5 h-2.5 text-neutral-600 m-auto mt-0.5" />}
+                        </div>
+                        {'{@'}{boundScene.name}{'}'}
+                      </div>
+                    )}
+                    {shotProps.map(({ name, asset }) => (
+                      <div key={name} className="flex items-center gap-1 bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded text-[9px] font-bold">
+                        <div className="w-4 h-4 rounded overflow-hidden bg-neutral-800 shrink-0">
+                          {asset?.thumbnail ? <img src={asset.thumbnail} alt="" className="w-full h-full object-cover" /> : <Wand2 className="w-2.5 h-2.5 text-neutral-600 m-auto mt-0.5" />}
+                        </div>
+                        {'{@'}{name}{'}'}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* 首帧 */}
+              {frameMode !== 'r2v' && (
               <div className="bg-neutral-900/40 border border-neutral-800 rounded-xl overflow-hidden">
                 <div className="px-3 py-2 border-b border-neutral-800/80 bg-neutral-900/60 flex justify-between items-center">
                   <div className="font-bold text-xs text-emerald-400 flex items-center gap-1.5"><ImageIcon className="w-3.5 h-3.5" /> 首帧提示词</div>
@@ -610,6 +659,7 @@ export default function StoryboardLayoutPage() {
                   </div>
                 </div>
               </div>
+              )}
 
               {/* 尾帧 */}
               {frameMode === 'first_and_last' && (
@@ -650,7 +700,11 @@ export default function StoryboardLayoutPage() {
               <div className="bg-neutral-900/40 border border-neutral-800 rounded-xl overflow-hidden">
                 <div className="px-3 py-2 border-b border-neutral-800/80 bg-neutral-900/60 flex justify-between items-center">
                   <div className="font-bold text-xs text-amber-400 flex items-center gap-1.5"><Video className="w-3.5 h-3.5" /> 视频动态提示词</div>
-                  <span className="text-[10px] text-neutral-500">Veo 3.1</span>
+                  <span className="text-[10px] text-neutral-500">
+                    {frameMode === 'r2v' ? (
+                      <span className="text-violet-400">R2V 素材模式 · Veo 3.1</span>
+                    ) : 'Veo 3.1'}
+                  </span>
                 </div>
                 <div className="p-3 space-y-2">
                   <div className="text-[10px] text-neutral-500 leading-relaxed">{renderRefTags(currentPrompts.video || '（AI 提取后自动填充）')}</div>
@@ -660,7 +714,10 @@ export default function StoryboardLayoutPage() {
                     value={currentPrompts.video}
                     onChange={e => updatePrompt('video', e.target.value)}
                     onBlur={handleSavePrompts}
-                    placeholder="描述从首帧到尾帧的完整动态过程、运镜和口播..."
+                    placeholder={frameMode === 'r2v'
+                      ? '描述视频动态过程，使用 {@角色名} {@场景名} {@道具名} 引用素材...'
+                      : '描述从首帧到尾帧的完整动态过程、运镜和口播...'
+                    }
                   />
                   <div className="aspect-video bg-black border border-neutral-800 border-dashed rounded-lg flex items-center justify-center overflow-hidden">
                     {activeData?.shot.videoUrl ? (
@@ -668,8 +725,10 @@ export default function StoryboardLayoutPage() {
                     ) : (
                       <div className="flex flex-col items-center gap-1"><Video className="w-6 h-6 text-neutral-700" /><span className="text-[10px] text-neutral-600">
                         {!currentPrompts.video ? '请先填写视频提示词' : (
-                          frameMode === 'first_only' ? (activeData?.shot.firstFrameImage ? '可以渲染视频' : '需要先生成首帧图') :
-                          (activeData?.shot.firstFrameImage && activeData?.shot.lastFrameImage ? '可以渲染视频' : '需要先生成首尾帧图')
+                          frameMode === 'r2v'
+                            ? (shotCharacters.length > 0 || boundScene ? '素材已就绪，可以渲染视频' : '请先在左侧添加角色或绑定场景')
+                            : frameMode === 'first_only' ? (activeData?.shot.firstFrameImage ? '可以渲染视频' : '需要先生成首帧图')
+                            : (activeData?.shot.firstFrameImage && activeData?.shot.lastFrameImage ? '可以渲染视频' : '需要先生成首尾帧图')
                         )}
                       </span></div>
                     )}
@@ -679,7 +738,7 @@ export default function StoryboardLayoutPage() {
                       if (!activeShot || !currentPrompts?.video || !activeData) return;
                       setGeneratingFrame(prev => ({ ...prev, [activeShot]: 'video' as any }));
                       try {
-                        const { generateFlow } = await import('@/lib/studio/generateFlow');
+                        const { generateFlow, extractRefKeywords } = await import('@/lib/studio/generateFlow');
                         let shotIndex = 0;
                         for (const group of storyboardGroups) {
                           for (const shot of group.shots) {
@@ -689,27 +748,64 @@ export default function StoryboardLayoutPage() {
                           if (group.shots.some(s => s.id === activeShot)) break;
                         }
 
-                        // 直接使用最新的首尾帧图片 URL
-                        const refs: string[] = [];
-                        if (activeData.shot.firstFrameImage) refs.push(activeData.shot.firstFrameImage);
-                        if (frameMode === 'first_and_last' && activeData.shot.lastFrameImage) {
-                          refs.push(activeData.shot.lastFrameImage);
-                        }
+                        if (frameMode === 'r2v') {
+                          // R2V 素材模式：从 videoPrompt 中提取 {@} 引用作为素材名称
+                          let refs = extractRefKeywords(currentPrompts.video);
+                          
+                          // 如果 AI 提取的引用少于 3 个，自动用当前镜头绑定的其它素材补齐（优先角色和场景）
+                          if (refs.length < 3) {
+                            const available = [
+                              ...shotCharacters.map(c => c.name),
+                              ...(boundScene ? [boundScene.name] : []),
+                              ...shotProps.map(p => p.name),
+                            ];
+                            for (const name of available) {
+                              if (!refs.includes(name) && refs.length < 3) {
+                                refs.push(name);
+                              }
+                            }
+                          }
+                          
+                          refs = refs.slice(0, 3);
 
-                        const result = await generateFlow({
-                          kind: 'storyboardVideo',
-                          scriptId,
-                          scriptTitle: currentScript?.title || scriptId,
-                          shotId: activeShot,
-                          shotIndex,
-                          prompt: currentPrompts.video,
-                          referenceKeywords: refs,
-                        });
+                          const result = await generateFlow({
+                            kind: 'storyboardVideo',
+                            scriptId,
+                            scriptTitle: currentScript?.title || scriptId,
+                            shotId: activeShot,
+                            shotIndex,
+                            prompt: currentPrompts.video,
+                            referenceKeywords: refs,
+                            veoMode: 'r2v',
+                          });
 
-                        if (!result.success) throw new Error(result.error);
+                          if (!result.success) throw new Error(result.error);
+                          if (result.url) {
+                            await updateStoryboardShot(activeShot, { videoUrl: result.url });
+                          }
+                        } else {
+                          // 首尾帧模式：直接使用最新的首尾帧图片 URL
+                          const refs: string[] = [];
+                          if (activeData.shot.firstFrameImage) refs.push(activeData.shot.firstFrameImage);
+                          if (frameMode === 'first_and_last' && activeData.shot.lastFrameImage) {
+                            refs.push(activeData.shot.lastFrameImage);
+                          }
 
-                        if (result.url) {
-                          await updateStoryboardShot(activeShot, { videoUrl: result.url });
+                          const result = await generateFlow({
+                            kind: 'storyboardVideo',
+                            scriptId,
+                            scriptTitle: currentScript?.title || scriptId,
+                            shotId: activeShot,
+                            shotIndex,
+                            prompt: currentPrompts.video,
+                            referenceKeywords: refs,
+                            veoMode: refs.length > 0 ? 'frame' : 'broll',
+                          });
+
+                          if (!result.success) throw new Error(result.error);
+                          if (result.url) {
+                            await updateStoryboardShot(activeShot, { videoUrl: result.url });
+                          }
                         }
                       } catch (e: any) {
                         console.error('生成视频失败:', e);
@@ -721,12 +817,21 @@ export default function StoryboardLayoutPage() {
                     disabled={
                       generatingFrame[activeShot!] === 'video' as any ||
                       !currentPrompts.video ||
+                      (frameMode === 'r2v' && shotCharacters.length === 0 && !boundScene) ||
                       (frameMode === 'first_only' && !activeData?.shot.firstFrameImage) ||
                       (frameMode === 'first_and_last' && (!activeData?.shot.firstFrameImage || !activeData?.shot.lastFrameImage))
                     } 
-                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg flex items-center justify-center gap-1.5 text-xs transition-colors disabled:opacity-50 disabled:bg-emerald-600/30 disabled:text-emerald-500/70 disabled:cursor-not-allowed border border-emerald-600/30">
+                    className={`w-full py-2 text-white font-bold rounded-lg flex items-center justify-center gap-1.5 text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed border ${
+                      frameMode === 'r2v'
+                        ? 'bg-violet-600 hover:bg-violet-500 disabled:bg-violet-600/30 disabled:text-violet-500/70 border-violet-600/30'
+                        : 'bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-600/30 disabled:text-emerald-500/70 border-emerald-600/30'
+                    }`}>
                     {generatingFrame[activeShot!] === 'video' as any ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
-                    {generatingFrame[activeShot!] === 'video' as any ? '准备渲染...' : '渲染视频 (Veo 3.1)'}
+                    {generatingFrame[activeShot!] === 'video' as any
+                      ? '准备渲染...'
+                      : frameMode === 'r2v'
+                        ? '素材渲染视频 (R2V · Veo 3.1)'
+                        : '渲染视频 (Veo 3.1)'}
                   </button>
                 </div>
               </div>
