@@ -137,8 +137,8 @@ export function useStoryboard(getFullScriptContext: () => string) {
     try {
       let prompt = sceneVideoPrompts[i].trim();
 
-      // 使用最新的首帧和尾帧 URL（而不是旧的 sceneImageRefs）
-      const startImageUrl = sceneStartImages[i] || '';
+      // 使用最新的首帧和尾帧 URL，如果不是第一镜，则默认继承上一镜的尾帧作为首帧
+      const startImageUrl = sceneStartImages[i] || (i > 0 ? sceneImages[i - 1] : '') || '';
       const endImageUrl = sceneImages[i] || '';
 
       const referenceKeywords: string[] = [];

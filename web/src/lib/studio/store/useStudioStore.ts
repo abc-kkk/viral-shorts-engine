@@ -94,13 +94,20 @@ export function getDefaultAssetPrompt(asset: FsAsset, artStyle?: string): string
      const appearance = data.appearance ? `外貌：${data.appearance}。` : '';
      const personality = data.personality ? `性格/身份：${data.personality}。` : '';
      const desc = asset.description ? `描述：${asset.description}。` : '';
-     prompt = `角色【${asset.name}】多角度设定图。${appearance}${personality}${desc}要求如下：
-1. 构图：画面左侧必须是一个极大的面部高清特写（占据约三分之一画面），画面右侧为三个全身视图（正面全身、侧面全身、背面全身），整体横向排列在同一张纯白背景图上。
-2. 画风：${styleInstruction}。
-3. 严格禁止：画面中绝不能出现任何文字、字母、图解、箭头或水印(no text, no labels, no words, no annotations)。
-4. 一致性：保持人物五官、发型、服装细节在不同角度下100%一致。
-5. 表情：设定图必须是绝对的中性无表情（Neutral expression, emotionless, blank stare），请强制忽略描述中可能包含的任何表情词汇（如皱眉、微笑等）。
-6. 道具限制：角色必须双手空空，绝对不能在手里拿任何武器、法器、包裹或其他任何道具(empty hands, holding nothing, hands empty, no weapons, no swords, no props)。`;
+     prompt = `专业角色设定表(Character Design Sheet) - 目标角色：【${asset.name}】
+角色特征：${appearance} ${personality} ${desc}
+
+请严格按以下要求生成设定图：
+- 画幅构图：横向 16:9，专业角色设定表排版，纯白色极简背景，无多余元素。
+- 视觉风格：严格遵循以下风格定调：${styleInstruction}。
+- 左侧特写：画面左侧占据三分之一，必须是角色面部高清特写。肤质光影符合上述风格，展示确切的年龄与性别特征。
+- 右侧三视图：画面右侧占据三分之二，必须是角色标准全身三视图（正面全身、侧面全身、背面全身），站姿自然直立，展示全身比例。【极其重要】：全身视图的光影、质感、渲染/摄影画风必须与左侧特写保持100%绝对一致，严禁左右两侧画风割裂（如左边写实、右边变成草图线稿）。
+- 服装与细节：除非描述中明确要求衣服破损，否则必须完整无破损。
+- 一致性原则：保持五官、发型、服装细节在左侧特写和右侧三视图中100%一致。
+- 绝对中立表情：必须是绝对的中性无表情（Neutral expression, emotionless, blank stare），强制屏蔽特征中的情绪词（如微笑、愤怒）。
+- 强制空手状态：双手必须空空，绝对不能在手里拿任何武器、法器、包裹(empty hands, holding nothing, no weapons, no props)。
+- 画面纯净度：画面中绝不能出现任何文字、字母、图解、箭头或水印(no text, no labels, no annotations)。
+- 负向提示词(Negative Prompts)：text, watermark, sketch, unfinished, ugly.`;
   } else if (asset.type === 'prop') {
      const imgPrompt = data.imagePrompt ? `${data.imagePrompt}。` : '';
      const size = data.sizeDescription ? `尺寸参考：${data.sizeDescription}。` : '';
@@ -112,12 +119,14 @@ export function getDefaultAssetPrompt(asset: FsAsset, artStyle?: string): string
 3. 严格禁止：画面中绝不能出现任何文字、标签、水印、人手或多余背景元素(no text, no labels, no annotations, no watermarks, single image only)。`;
   } else {
      const atmosphere = data.atmosphere ? `氛围：${data.atmosphere}。` : '';
+     const imgPrompt = data.imagePrompt ? `画面描述：${data.imagePrompt}。` : '';
      const desc = asset.description ? `描述：${asset.description}。` : '';
-     prompt = `电影级实拍空镜头场景【${asset.name}】。${atmosphere}${desc}
+     prompt = `不能出现其他人，无人，纯场景，无打斗无破坏无废墟，电影级纯净空镜头场景【${asset.name}】。${atmosphere}${imgPrompt}${desc}
 要求：
-1. 画面内容：纯粹的场景背景图，绝对空镜头，画面中【严禁】出现任何人物或动物。
-2. 画风：${styleInstruction}。必须展现出极具电影感的布光与画面质感（Cinematic lighting, 8K resolution）。
-3. 严格禁止：必须是一张完整的单幅画面，绝不能是设定图、草图或分镜表；画面中绝不能出现任何文字、标签、箭头、边框或UI元素(no text, no labels, no concept art sheet, single image only)。`;
+1. 绝对真空：纯粹的场景背景图，画面中严禁出现任何人影、动物或角色。
+2. 绝对纯净与完好：场景必须呈现整洁、完好、无破坏的状态。严禁出现打斗痕迹、废墟、血迹、碎片、爆炸、烟雾、混乱动态等元素(intact, no damage, no battle, no debris)。
+3. 画风：${styleInstruction}。请展现极具电影感的布光与画面质感（Cinematic lighting, 8K resolution）。
+4. 画面纯净度：必须是一张完整的单幅画面；绝不能出现任何文字、标签、边框或UI元素(no text, no labels, no concept art sheet, single image only)。`;
   }
   return prompt;
 }

@@ -54,11 +54,11 @@ export default function AssetCard({ asset, onOpenAngleModal, onEdit, onDelete }:
   const getSummary = () => {
     switch (asset.type) {
       case 'character':
-        return (data as any).appearance || (data as any).personality || asset.description || '暂无描述';
+        return asset.description || (data as any).appearance || (data as any).personality || '暂无描述';
       case 'scene':
-        return (data as any).atmosphere || (data as any).imagePrompt || asset.description || '暂无描述';
+        return asset.description || (data as any).atmosphere || (data as any).imagePrompt || '暂无描述';
       case 'prop':
-        return (data as any).imagePrompt || asset.description || '暂无描述';
+        return asset.description || (data as any).imagePrompt || '暂无描述';
       default:
         return asset.description || '暂无描述';
     }

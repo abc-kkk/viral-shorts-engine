@@ -64,6 +64,7 @@ export const ART_STYLE_PRESETS = [
   { value: "王家卫式港风复古写实，高对比度，霓虹环境光或昏暗街灯反射，轻微的抽帧模糊感与胶片颗粒(film grain)，情绪化、忧郁、暧昧的色彩基调，充满故事感。", label: "🎞️ 港风复古电影写实 (Vintage Cinematic)" },
   { value: "90年代家庭录像带(VHS)画质，带有真实的雪花噪点、轻微色差边缘和画面模糊，浓厚的怀旧家庭录像氛围，真实且温馨。", label: "📼 90年代家庭录像带 (90s Home Video VHS)" },
   { value: "暗黑情绪写实风，低调光(Low-key lighting)，强烈的明暗对比，色彩饱和度偏低，压抑、冷峻且充满戏剧张力的悬疑/心理现实质感。", label: "🌑 暗黑情绪写实风 (Moody Dark Realism)" },
+  { value: "顶级3D国漫风格 (3D Donghua style), Unreal Engine 5 render, 3D CGI, 精致绝美的东方玄幻/武侠审美，三维动画顶级CG渲染，电影级唯美光效，超高精度模型材质，华丽细腻的服饰纹理，拥有真实的体积光影，非真人。", label: "🐉 顶级 3D 国漫风 (3D Donghua / Chinese CG)" },
   { value: "Pixar 3D animated movie, highly detailed, vibrant colors", label: "🌟 皮克斯 3D 动画风格 (Pixar 3D)" },
   { value: "Studio Ghibli anime style, beautiful hand-painted watercolor backgrounds", label: "🌸 吉卜力手绘动漫 (Ghibli Anime)" },
   { value: "Cyberpunk neon city style, futuristic, glowing reflections", label: "🌃 赛博朋克霓虹风 (Cyberpunk Neon)" },

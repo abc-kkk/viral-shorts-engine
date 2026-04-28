@@ -42,7 +42,7 @@ src/
 │       ├── serve/[...path]/      # 文件服务代理（从工作空间读取资源）
 │       ├── state/route.ts        # 项目状态 CRUD（?projectId=xxx）
 │       ├── generate-prompts/     # 剧本/提示词生成（走模板引擎）
-│       ├── generate-assets/      # Playwright Flow 自动化生图/视频
+│       ├── generate-assets/      # Flow 纯 HTTP API 生图/视频
 │       ├── generate-voice/       # Playwright AI Studio TTS 配音
 │       ├── prompt-templates/     # 提示词模板 CRUD API
 │       ├── layouts/route.ts      # 布局预设 CRUD（存储在 _layouts/ 目录）
@@ -67,8 +67,6 @@ src/
 │   │   ├── defaultTemplates.ts   # 11 个内置提示词模板（Source of Truth）
 │   │   ├── promptStore.ts        # 模板持久化存储 + 自动升级合并
 │   │   └── templateEngine.ts     # {{变量}} 渲染引擎
-│   └── tools/
-│       ├── flow-automator.ts     # Google Flow CDP 自动化
 │       └── aistudio-automator.ts # AI Studio TTS CDP 自动化
 └── remotion/                     # Remotion 渲染组件（不变）
 ```
@@ -151,15 +149,15 @@ WORKSPACE_PATH=/Users/ios/Desktop/work-data/短剧项目
 
 ---
 
-## 三、 人机协同架构 (Human-in-the-Loop Chrome Extension) [v5.5 首创]
+## 三、 Direct Connect 直连落盘架构 (Direct API Integration) [v8.5 新生]
 
-为了彻底突破 Google Labs 苛刻的封控机制，同时让创作者有挑选最好素材的权利，我们开发了伴随式 Chrome 插件 (`viral-shorts-extension`)。
+为了彻底实现全自动且无缝的生图与视频落盘体验，系统彻底移除了早期的 Chrome 扩展，升级为 **API Direct Connect** 架构。
 
-这是本引擎**最推荐的工作流**：
-1. **一键发车 (Fire-and-Forget)**：在 Studio 点击生成后，服务器不再使用 Headless 模式死等结果，而是把 Prompt 填好、选好芯片后立刻交还控制权。
-2. **人工抽卡**：创作者在原生 Chrome 浏览器里舒适地抽卡，挑选最完美的一张结果。
-3. **一键飞跃**：在选中的图片或视频上点击右键（或使用插件面板），选择 `Push to Studio`。
-4. **无缝落盘同步**：扩展会抓取高清资源，自动通过本地 Inbox 桥接器 (`/api/extension/inbox`) 发给 Studio，React 界面瞬间渲染出该素材并自动将文件存入当前项目文件夹！
+这是本引擎当前的核心工作流：
+1. **一键发车 (Synchronous API Flow)**：在 Studio 点击生成后，前端直接调用 `/api/generate-assets` 并在等待期间显示 Loading。
+2. **底层自动化生成**：后端通过混合架构（Puppeteer 瞬间获取 Token + 纯 HTTP Fetch API）直接向 Google 服务器提交生成任务并轮询进度。
+3. **直连下载并落盘**：拿到结果 CDN URL 后，服务端直接将其下载并存入工作空间的正确目录。
+4. **瞬间回显**：前端收到 `/api/generate-assets` 返回的本地映射 URL，瞬间更新 Zustand 状态并重新渲染素材，整个流程零人工干预、绝对可靠！
 
 ---
 
@@ -332,28 +330,13 @@ Scene Lab 编辑器通过 URL 参数控制行为：
 - `__tests__/fieldRegistry.test.ts`: 静态检查 schema.ts 中的所有表字段是否被纳入预期清单，防止新增字段遗漏映射
 - 运行命令: `npx vitest run`
 
-### 十二、 Chrome Extension 的 TypeScript 与安全规约 (Extension Architecture) [v6.2]
-
-为了解决浏览器端扩展代码中 `targetType` 与 Web 后端 API 类型定义（Single Source of Truth）不同步的问题，我们已将 `viral-shorts-extension` 彻底迁移至 TypeScript 编译架构。
-
-#### 1. Type-only Import 魔法与零打包器
-我们没有使用沉重的 Webpack/Vite 来构建单文件的 Content Script。
-- 扩展源码位于 `web/viral-shorts-extension/src/content.ts`。
-- 代码中通过 `import type { TargetType } from '../../src/lib/types';` 进行纯类型引用。
-- 这样，TS 编译器会在编码阶段强制校验扩展中的 `targetType` 分支是否涵盖了后端的枚举字典，一旦后端新增资源类型而扩展没改，编译就会立刻报错。而在编译生成 `dist/content.js` 时，这个 `import` 语句会被自动擦除，保证了浏览器端原生的兼容性。
-
-#### 2. ESBuild 构建与产物隔离
-由于跨目录引用的行为会导致 `tsc` 生成深层嵌套文件夹，我们引入了 `esbuild` 作为高速构建管线：
-`tsc -p tsconfig.json && esbuild src/content.ts --bundle --outfile=dist/content.js`
-这保证了 `manifest.json` 能够简单干净地指向 `dist/content.js`。
-**开发者注意**：任何对扩展的修改都必须在 `src/content.ts` 中进行，修改后运行全项目的 `npm run build` 或专门的 `npm run build:ext` 即可自动编译生效。必须在 Chrome 中重新加载该扩展文件夹。
 
 ### 十三、 API 网关的透传机制 (Pass-through Meta Architecture) [v6.3]
 
 为了解决高并发下读取 `tmp/active-context.json` 临时文件导致的严重竞争态 Bug，我们重构了 Next.js API 与 `ai-gateway` 之间的通讯链路：
 - **废除临时文件猜取**：`generate-assets/route.ts` 不再从本地文件系统猜测当前的任务，而是直接由前端 Hooks 明确传入 `targetType`, `index`, `meta` 等完整上下文。
 - **透明网关传递 (passthroughMeta)**：在调用 `ai-gateway` 生图接口时，这些上下文被打包为 `passthroughMeta` 交给网关。网关内部不关心这些业务逻辑，但在完成 Playwright 流程（成功、失败、或后台 FireAndForget 挂起）返回响应时，会将 `passthroughMeta` 原样弹回。
-- 这项重构让后端生图彻底无状态化，极大提升了多任务并发生图时的落盘稳定性。*(注：Chrome 扩展依然会读取 `active-context` 以实现人工抽卡时的快速防伪名填充，但这已与后端核心落盘逻辑完全解耦。)*
+- 这项重构让后端生图彻底无状态化，极大提升了多任务并发生图时的落盘稳定性。
 
 ### 十四、 Drizzle ORM + SQLite 动态本地数据库与增量同步机制 [v8.2]
 
@@ -379,7 +362,7 @@ Scene Lab 编辑器通过 URL 参数控制行为：
 
 #### 3. 场景与资产通信命名陷阱 (The Asset Naming Trap)
 这个项目是一个前后端与端外（Chrome Extension）深度耦合的流水线。UI 里的文本框提示词，同时也是系统层面的“通信寻址协议”。
-- **灾难后果**：发给大模型的提示词确实变成了 `在 {@高档写字楼办公室} 中`，但在 Chrome 扩展的生图底层逻辑中，全剧的通用背景必定被**硬编码**为 `场景`，独立幕背景必定为 `场景_S[x]`！当大模型生成的提示词传回 Flow 端时，自动化脚本根本找不到名为 `高档写字楼办公室` 的资产图，瞬间抛出 404 资产找不到的致命报错！
+- **灾难后果**：发给大模型的提示词确实变成了 `在 {@高档写字楼办公室} 中`，但如果底层生图逻辑中，全剧的通用背景被**硬编码**为 `场景`，独立幕背景被写死为 `场景_S[x]`！当大模型生成的提示词传回 Flow 端时，自动化脚本根本找不到名为 `高档写字楼办公室` 的资产图，瞬间抛出 404 资产找不到的致命报错！
 - **正确做法**：**绝对禁止**对任何跨端流转的占位符（如 `{@场景}`）做“动态化、智能化”的正则表达式提取或重命名。必须死死遵守底层的硬编码规则。写死就是最好的系统健壮性保证！
 
 ### 十六、 桌面客户端架构与打包避坑 (Desktop Architecture & Packaging) [v8.0]
@@ -401,9 +384,6 @@ Scene Lab 编辑器通过 URL 参数控制行为：
 - **现状**：目前只是给渲染室换了 Zustand 数据源以修复全局重绘问题，但它内部依然存在大量为了妥协 HTML5 `<video>` 播放机制而写的老旧时间轴同步逻辑。
 - **优化方向**：如果你后续决定不砍掉这个模块，建议利用 Zustand 的 **瞬态更新 (Transient Updates)** 机制重构时间轴拖拽。拖拽进度条时可以完全脱离 React 的生命周期，达到原生客户端级别的 60fps 剪辑体验。
 
-### 3. 前后端 Type 共享工程化
-- **现状**：目前 Chrome 插件 (`viral-shorts-extension`) 是通过非常 Hack 的 `import type ... from '../../src/lib/types'` 跨目录拉取后端的接口定义。
-- **优化方向**：建议引入简单的 Monorepo 思想（例如建立一个 shared 文件夹或独立的 npm package），让扩展和 Web 后端更安全地共享 `TargetType` 等资产字典，避免未来打包工具链升级时产生路径编译断裂。
 
 ### 4. 极端并发下的 Toast 与任务流体验
 - **现状**：虽然已经用纯净的 Toast 替换掉了浏览器阻塞的 `alert()`，但在极端并发的批量生图场景下，Toast 依然可能会疯狂堆叠。

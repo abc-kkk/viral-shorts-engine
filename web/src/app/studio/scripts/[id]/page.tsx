@@ -52,24 +52,41 @@ export default function ScriptEditPage() {
     }
   }, [currentScript, generating]);
 
-  const handleImportTxt = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const text = e.target?.result as string;
-      if (text) {
-        setEditContent(text);
-        if (currentScript) {
-          lastSavedContent.current = text;
-          await updateScript(currentScript.id, {
-            title: editTitle.trim(),
-            content: text,
-          });
-        }
+
+    const processText = async (text: string) => {
+      setEditContent(text);
+      if (currentScript) {
+        lastSavedContent.current = text;
+        await updateScript(currentScript.id, {
+          title: editTitle.trim(),
+          content: text,
+        });
       }
     };
-    reader.readAsText(file);
+
+    try {
+      if (file.name.toLowerCase().endsWith('.docx')) {
+        const arrayBuffer = await file.arrayBuffer();
+        // Dynamically import mammoth to avoid SSR issues and keep initial bundle small
+        const mammoth = (await import('mammoth')).default || await import('mammoth');
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        await processText(result.value);
+      } else {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          const text = e.target?.result as string;
+          if (text) await processText(text);
+        };
+        reader.readAsText(file);
+      }
+    } catch (err: any) {
+      console.error('File import error:', err);
+      alert('导入失败: ' + err.message);
+    }
+    
     e.target.value = '';
   };
 
@@ -177,9 +194,9 @@ export default function ScriptEditPage() {
           </div>
           <div>
             <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-neutral-400 hover:text-white bg-neutral-800/50 hover:bg-neutral-800 rounded-lg transition-colors">
-              <Upload className="w-3.5 h-3.5" /> 导入 TXT
+              <Upload className="w-3.5 h-3.5" /> 导入剧本 (.txt/.docx)
             </button>
-            <input type="file" accept=".txt" ref={fileInputRef} onChange={handleImportTxt} className="hidden" />
+            <input type="file" accept=".txt,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" ref={fileInputRef} onChange={handleImportFile} className="hidden" />
           </div>
         </div>
         <div className="flex-1 p-8 w-full relative">

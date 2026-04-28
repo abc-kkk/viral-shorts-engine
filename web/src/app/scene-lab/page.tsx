@@ -58,28 +58,7 @@ export default function SceneLabPage() {
     }
   }, []);
 
-  // Poll inbox for Chrome Extension pushes
-  useEffect(() => {
-    const poller = setInterval(async () => {
-      try {
-        const res = await fetch('/api/extension/inbox');
-        if (!res.ok) return;
-        const body = await res.json();
-        if (body.success && body.data && body.data.length > 0) {
-          for (const item of body.data) {
-            if (item.targetType === 'scenelab_scene') {
-              setSceneImageUrl(item.url);
-            } else if (item.targetType === 'scenelab_char' && item.meta?.charId) {
-              setCharImages(prev => ({ ...prev, [item.meta.charId]: item.url }));
-            } else if (item.targetType === 'scenelab_result') {
-              setGeneratedImage(item.url);
-            }
-          }
-        }
-      } catch(e) {}
-    }, 3000);
-    return () => clearInterval(poller);
-  }, []);
+
 
   const characters = sceneObjects.filter((o: any) => o.type === 'character');
 

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Users, MapPin, Package, Sparkles, Loader2, Plus, Trash2, Edit3, Save, X, Wand2, ChevronRight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useStudioStore } from '@/lib/studio/store/useStudioStore';
+import { useStudioStore, getDefaultAssetPrompt } from '@/lib/studio/store/useStudioStore';
 import type { FsAsset, FsAssetType } from '@/lib/studio/types';
 import AssetCard from '@/components/studio/assets/AssetCard';
 import SceneAngleModal from '@/components/studio/assets/SceneAngleModal';
@@ -24,6 +24,7 @@ export default function AssetManagePage() {
 
   const {
     currentScript, currentAssets, loading, analyzing,
+    generatingAssets, requestAssetGeneration,
     selectScript, analyzeScript,
     createAsset, updateAsset, deleteAsset,
   } = useStudioStore();
@@ -65,6 +66,24 @@ export default function AssetManagePage() {
     setAnalyzingCategory(null);
   };
 
+  const handleBatchGenerate = async () => {
+    const assetsToGenerate = filteredAssets.filter((a: FsAsset) => !generatingAssets[a.id]);
+    if (assetsToGenerate.length === 0) {
+      alert('所有资产都已经在生成中或没有需要生成的资产。');
+      return;
+    }
+    if (!confirm(`确定要批量生成列表中剩余的 ${assetsToGenerate.length} 个${activeTabConfig.label}资产吗？这可能需要几分钟。`)) return;
+    
+    const artStyle = currentScript?.metadata?.artStyle as string | undefined;
+    
+    for (const asset of assetsToGenerate) {
+      const promptText = getDefaultAssetPrompt(asset, artStyle);
+      // Initiate generation and wait slightly before triggering the next to avoid aggressive rate limiting
+      requestAssetGeneration(asset, promptText).catch(e => console.error(e));
+      await new Promise(resolve => setTimeout(resolve, 800));
+    }
+  };
+
   const handleAddAsset = async () => {
     if (!addName.trim()) return;
     await createAsset({
@@ -87,7 +106,7 @@ export default function AssetManagePage() {
       description: addDesc.trim() || undefined,
     };
     if (editingAsset.type === 'character') {
-      updatePayload.data = { voiceConfig: { voiceName: addVoiceName } };
+      updatePayload.data = { ...(editingAsset.data as any), voiceConfig: { voiceName: addVoiceName } };
     }
     await updateAsset(editingAsset.id, updatePayload);
     setShowEditDialog(false);
@@ -96,8 +115,20 @@ export default function AssetManagePage() {
 
   const openEditDialog = (asset: FsAsset) => {
     setEditingAsset(asset);
+    
+    // 如果资产本身没有 description，则尝试从 AI 提取的 data 中读取用于编辑
+    const data = asset.data as any;
+    let initialDesc = asset.description || '';
+    if (!initialDesc && asset.type === 'character') {
+      initialDesc = data?.appearance || data?.personality || '';
+    } else if (!initialDesc && asset.type === 'scene') {
+      initialDesc = data?.atmosphere || data?.imagePrompt || '';
+    } else if (!initialDesc && asset.type === 'prop') {
+      initialDesc = data?.imagePrompt || '';
+    }
+
     setAddName(asset.name);
-    setAddDesc(asset.description);
+    setAddDesc(initialDesc);
     setAddVoiceName((asset.data as any)?.voiceConfig?.voiceName || 'Zephyr');
     setShowEditDialog(true);
   };
@@ -197,6 +228,13 @@ export default function AssetManagePage() {
           <div className="flex items-center justify-between mb-4">
             <span className="text-xs text-neutral-500">{filteredAssets.length} 个{activeTabConfig.label}</span>
             <div className="flex items-center gap-2">
+              <button
+                onClick={handleBatchGenerate}
+                disabled={filteredAssets.length === 0}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 rounded-lg disabled:opacity-50 transition-colors shadow-lg shadow-indigo-900/20"
+              >
+                <Wand2 className="w-3 h-3" /> 批量生成
+              </button>
               <button
                 onClick={() => handleAiAnalyze(activeTab)}
                 disabled={!!analyzingCategory}

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAssetDir, getDb } from '@/lib/db';
+import { getAssetDir, getDb, getWorkspacePath } from '@/lib/db';
 import * as schema from '@/lib/schema';
 import { eq, and, or } from 'drizzle-orm';
 import { generateAssetFilename, getAssetTypeForTarget, getAssetUrlWithCacheBust } from '@/lib/assetUrl';
@@ -8,63 +8,11 @@ import { PassthroughMetaSchema } from '@/lib/validation';
 import { resolveFlowUrl } from '@/lib/detectFlowUrl';
 import fs from 'fs';
 import path from 'path';
-import puppeteer from 'puppeteer-core';
-import { flowGenerateImages, flowSubmitVideoTask, flowPollVideoStatus, flowUploadImage } from '@/lib/utils/flowApi';
+import { flowGenerateImages, flowSubmitVideoTask, flowPollVideoStatus, flowUploadImage, getAuthContext } from '@/lib/utils/flowApi';
 
 export const maxDuration = 300; // Vercel timeout (300s = 5m), fine for local
 export const dynamic = 'force-dynamic';
 
-// 提取验证码与 AT (后端自动处理)
-async function getAuthContext(flowUrlStr: string, isVideo: boolean) {
-    const flowUrl = new URL(flowUrlStr);
-    const projectId = flowUrl.pathname.split('/').pop() || '';
-    
-    // 假设 Flow URL 包含了 debugger port 信息，如果没有则默认 9222
-    const portMatch = flowUrlStr.match(/port=(\d+)/);
-    const port = portMatch ? portMatch[1] : '9222';
-    
-    let browser;
-    try {
-        const res = await fetch(`http://127.0.0.1:${port}/json/version`);
-        const data = await res.json();
-        browser = await puppeteer.connect({
-            browserWSEndpoint: data.webSocketDebuggerUrl,
-            defaultViewport: null,
-        });
-    } catch (e) {
-        throw new Error(`无法连接到 Chrome CDP (Port ${port})。请确保开启了 --remote-debugging-port=${port}`);
-    }
-
-    const pages = await browser.pages();
-    const page = pages.find(p => p.url().includes('tools/flow/project'));
-    if (!page) {
-        await browser.disconnect();
-        throw new Error('未找到打开的 Flow 页面，请先在 Chrome 中打开目标项目');
-    }
-
-    const cookies = await page.cookies();
-    const stCookie = cookies.find(c => c.name === '__Secure-next-auth.session-token');
-    if (!stCookie) {
-        await browser.disconnect();
-        throw new Error('未找到 Session Token (未登录或 Cookie 失效)');
-    }
-
-    const st = stCookie.value;
-
-    const sessionRes = await fetch(`https://labs.google/fx/api/auth/session`, {
-        headers: { 'Cookie': `__Secure-next-auth.session-token=${st}` }
-    });
-    const at = (await sessionRes.json()).access_token;
-
-    const action = isVideo ? 'VIDEO_GENERATION' : 'IMAGE_GENERATION';
-    const recaptchaToken = await page.evaluate(async (act) => {
-        // @ts-ignore
-        return await window.grecaptcha.enterprise.execute('6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV', { action: act });
-    }, action);
-
-    await browser.disconnect();
-    return { projectId, at, recaptchaToken };
-}
 
 // 在内存中缓存已上传的 Media ID，避免同一个角色/图片被重复上传
 // 键为: filePath, 值为: { mediaId, mtimeMs }
@@ -80,6 +28,38 @@ async function getReferenceImageIds(keywords: string[], at: string, projectId: s
     for (const kw of keywords) {
         let filePath = path.join(imagesDir, `${kw}.png`);
         let found = fs.existsSync(filePath);
+
+        let fileBuffer: Buffer | null = null;
+        let fileMtime = 0;
+        let cacheKey = '';
+
+        // 1. 特殊情况：如果是 3D 布局预设 (形如 Layout_123456)
+        if (kw.startsWith('Layout_')) {
+            const numPart = kw.replace('Layout_', '');
+            const ws = getWorkspacePath();
+            const layoutsDir = path.join(ws, '_layouts');
+            if (fs.existsSync(layoutsDir)) {
+                const files = fs.readdirSync(layoutsDir).filter(f => f.endsWith('.json') && f.includes(numPart));
+                if (files.length > 0) {
+                    const layoutPath = path.join(layoutsDir, files[0]);
+                    try {
+                        const layoutData = JSON.parse(fs.readFileSync(layoutPath, 'utf-8'));
+                        if (layoutData.image) {
+                            let base64Data = layoutData.image;
+                            if (base64Data.includes(',')) {
+                                base64Data = base64Data.split(',')[1];
+                            }
+                            fileBuffer = Buffer.from(base64Data, 'base64');
+                            fileMtime = fs.statSync(layoutPath).mtimeMs;
+                            cacheKey = layoutPath;
+                            found = true;
+                        }
+                    } catch (e) {
+                        console.error(`[API Flow] Error parsing layout preset for ${kw}:`, e);
+                    }
+                }
+            }
+        }
 
         if (!found) {
             // 去数据库查找这个名字对应的 Character，获取真实的文件名
@@ -101,7 +81,6 @@ async function getReferenceImageIds(keywords: string[], at: string, projectId: s
 
         if (!found) {
             // 再去场景图里兜底查一下 (匹配以 kw 结尾的 imageRef 或 imageAsset)
-            // 这里用简单正则或者包含判断。比如传过来的是 url
             if (kw.includes('/api/serve/')) {
                 const urlParts = kw.split('/');
                 const filename = decodeURIComponent(urlParts[urlParts.length - 1].split('?')[0]);
@@ -125,22 +104,29 @@ async function getReferenceImageIds(keywords: string[], at: string, projectId: s
         }
         
         try {
-            const stats = fs.statSync(filePath);
-            const cacheKey = filePath;
+            if (!fileBuffer) {
+                const stats = fs.statSync(filePath);
+                fileMtime = stats.mtimeMs;
+                cacheKey = filePath;
+            }
+
             const cached = mediaIdCache.get(cacheKey);
 
             // 如果缓存存在，且文件修改时间没变，直接复用！
-            if (cached && cached.mtimeMs === stats.mtimeMs) {
+            if (cached && cached.mtimeMs === fileMtime) {
                 console.log(`[API Flow] ⚡ Using cached mediaId for ${kw}`);
                 ids.push(cached.mediaId);
                 continue;
             }
 
-            const buffer = fs.readFileSync(filePath);
-            console.log(`[API Flow] ⬆️ Uploading reference image: ${path.basename(filePath)}...`);
-            const mediaId = await flowUploadImage(projectId, at, buffer, 'IMAGE_ASPECT_RATIO_LANDSCAPE');
+            if (!fileBuffer) {
+                fileBuffer = fs.readFileSync(filePath);
+            }
+            
+            console.log(`[API Flow] ⬆️ Uploading reference image: ${kw}...`);
+            const mediaId = await flowUploadImage(projectId, at, fileBuffer, 'IMAGE_ASPECT_RATIO_LANDSCAPE');
             if (mediaId) {
-                mediaIdCache.set(cacheKey, { mediaId, mtimeMs: stats.mtimeMs });
+                mediaIdCache.set(cacheKey, { mediaId, mtimeMs: fileMtime });
                 ids.push(mediaId);
                 console.log(`[API Flow] ✅ Uploaded ${kw} -> ${mediaId}`);
             }
@@ -234,6 +220,17 @@ export async function POST(req: Request) {
         if (!completed) throw new Error('视频生成轮询超时');
 
     } else {
+        // 模型名称映射 (匹配 flow2api 结构)
+        const db = getDb();
+        const state = db.select().from(schema.systemStates).where(eq(schema.systemStates.key, 'imageModel')).get();
+        const globalModel = state?.value;
+        const finalModel = globalModel || model || "Nano Banana Pro";
+
+        let resolvedModelName = "NARWHAL"; // 默认 3.1 Flash
+        if (finalModel === "Nano Banana Pro") resolvedModelName = "GEM_PIX_2"; // Gemini 3.0 Pro
+        else if (finalModel === "Nano Banana 2") resolvedModelName = "NARWHAL"; // Gemini 3.1 Flash (原 GEM_PIX 报 500，切换为更稳的 3.1)
+        else if (finalModel === "Imagen 4") resolvedModelName = "IMAGEN_3_5"; // Imagen 4.0
+
         // 生成图片
         const imageRes = await flowGenerateImages({
             projectId: auth.projectId,
@@ -241,7 +238,8 @@ export async function POST(req: Request) {
             recaptchaToken: auth.recaptchaToken,
             prompts: [prompt],
             aspectRatio: reqAspectRatio || "IMAGE_ASPECT_RATIO_LANDSCAPE", 
-            referenceImageIds: imageInputs
+            referenceImageIds: imageInputs,
+            modelName: resolvedModelName
         });
 
         const fifeUrl = imageRes.media?.[0]?.image?.generatedImage?.fifeUrl;

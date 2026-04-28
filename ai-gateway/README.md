@@ -8,7 +8,6 @@
 | 端点 | 能力 | 底层模型 |
 |---|---|---|
 | `POST /api/text/generate` | 文本生成（编剧、翻译、分析） | Gemini (gemini.google.com) / 豆包 (doubao.com) |
-| `POST /api/media/generate` | 生图 / 生视频 | Nano Banana Pro / Veo 3.1 (Google Flow) |
 | `POST /api/speech/generate` | 语音合成 (TTS) | Gemini TTS (AI Studio) |
 
 ## 🚀 快速开始
@@ -50,12 +49,6 @@ curl -X POST http://localhost:4100/api/text/generate \
 > [!TIP]
 > `provider` 字段可选 `gemini` 或 `doubao`，如果不传则默认使用 `gemini`。
 
-### 生图
-```bash
-curl -X POST http://localhost:4100/api/media/generate \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "A cute cat in a space suit", "model": "Nano Banana Pro"}'
-```
 
 ### 语音合成
 ```bash

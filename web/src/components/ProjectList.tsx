@@ -34,7 +34,7 @@ export default function ProjectList() {
   const [chromeDataDirFeedback, setChromeDataDirFeedback] = useState('');
   const [updateChecking, setUpdateChecking] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  const [globalSettings, setGlobalSettings] = useState({ aiProvider: 'gemini', jianyingPath: '', flowUrl: '' });
+  const [globalSettings, setGlobalSettings] = useState({ aiProvider: 'gemini', jianyingPath: '', flowUrl: '', imageModel: 'Nano Banana Pro' });
 
   const electronAPI = typeof window !== 'undefined' && (window as any).electronAPI?.isElectron ? (window as any).electronAPI : null;
 
@@ -59,6 +59,7 @@ export default function ProjectList() {
           aiProvider: data.data.aiProvider || 'gemini',
           jianyingPath: data.data.jianyingPath || '',
           flowUrl: data.data.flowUrl || '',
+          imageModel: data.data.imageModel || 'Nano Banana Pro',
         });
       }
     } catch (e) {
@@ -339,20 +340,24 @@ export default function ProjectList() {
 
               <div className="h-px bg-neutral-800 w-full" />
 
-              {/* Flow URL */}
+              {/* Image Model */}
               <div>
-                <label className="text-sm font-bold text-neutral-300 block mb-2">🔗 Google Flow 项目大本营网址</label>
-                <input 
-                  type="text"
-                  className="w-full bg-black/60 border border-neutral-700 rounded-lg p-3 text-white font-mono text-sm focus:border-orange-500 focus:outline-none"
-                  value={globalSettings.flowUrl}
-                  onChange={e => updateGlobalSetting('flowUrl', e.target.value)}
-                  placeholder="留空则读取 .env 配置。格式: https://labs.google/fx/.../project/xyz..."
-                />
-                <p className="text-xs text-neutral-600 mt-1.5">此网址全局共享，所有项目和自由创作室都使用同一个 Flow 大本营。</p>
+                <label className="text-sm font-bold text-neutral-300 block mb-2">🖼️ 全局生图模型 (Image Model)</label>
+                <select 
+                  className="w-full bg-black/60 border border-neutral-700 rounded-lg p-3 text-neutral-300 font-bold text-sm focus:border-orange-500 focus:outline-none cursor-pointer"
+                  value={globalSettings.imageModel}
+                  onChange={e => updateGlobalSetting('imageModel', e.target.value)}
+                >
+                  <option value="Nano Banana Pro">Nano Banana Pro (默认推荐: 高画质 Gemini 3.0 Pro)</option>
+                  <option value="Imagen 4">Imagen 4.0 (专注生图的高质模型)</option>
+                  <option value="Nano Banana 2">Nano Banana 2 (极速出图: Gemini 3.1 Flash)</option>
+                </select>
+                <p className="text-xs text-neutral-600 mt-1.5">此选项将全局决定自由创作室、定妆室和画板区生成图片时所使用的底层大模型。</p>
               </div>
 
               <div className="h-px bg-neutral-800 w-full" />
+
+
               
               {/* JianYing Path */}
               <div>

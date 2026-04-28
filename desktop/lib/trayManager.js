@@ -60,15 +60,7 @@ function createTray(getMainWindow, createMainWindow) {
       label: '📂 打开工作空间',
       click: () => shell.openPath(store.get('workspacePath')),
     },
-    {
-      label: '📦 打开扩展文件夹',
-      click: () => {
-        const extPath = isDev
-          ? path.join(__dirname, '../..', 'web', 'viral-shorts-extension')
-          : path.join(process.resourcesPath, 'viral-shorts-extension');
-        shell.openPath(extPath);
-      },
-    },
+
     { type: 'separator' },
     {
       label: '⚙️ 修改工作空间路径',

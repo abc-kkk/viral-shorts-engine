@@ -60,12 +60,7 @@ app.whenReady().then(async () => {
     return null;
   });
 
-  ipcMain.handle('open-extension-folder', () => {
-    const extPath = isDev
-      ? path.join(__dirname, '..', 'web', 'viral-shorts-extension')
-      : path.join(process.resourcesPath, 'viral-shorts-extension');
-    return shell.openPath(extPath);
-  });
+
 
   ipcMain.handle('open-workspace-folder', () => {
     const ws = store.get('workspacePath');

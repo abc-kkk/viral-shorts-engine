@@ -1,3 +1,5 @@
+import puppeteer from 'puppeteer-core';
+
 export interface FlowGenerateImageParams {
   projectId: string;
   at: string;
@@ -20,6 +22,58 @@ export interface FlowGenerateVideoParams {
 }
 
 const API_BASE = 'https://aisandbox-pa.googleapis.com/v1';
+
+// 提取验证码与 AT (后端自动处理)
+export async function getAuthContext(flowUrlStr: string, isVideo: boolean) {
+    const flowUrl = new URL(flowUrlStr);
+    const projectId = flowUrl.pathname.split('/').pop() || '';
+    
+    // 假设 Flow URL 包含了 debugger port 信息，如果没有则默认 9222
+    const portMatch = flowUrlStr.match(/port=(\d+)/);
+    const port = portMatch ? portMatch[1] : '9222';
+    
+    let browser;
+    try {
+        const res = await fetch(`http://127.0.0.1:${port}/json/version`);
+        const data = await res.json();
+        browser = await puppeteer.connect({
+            browserWSEndpoint: data.webSocketDebuggerUrl,
+            defaultViewport: null,
+        });
+    } catch (e) {
+        throw new Error(`无法连接到 Chrome CDP (Port ${port})。请确保开启了 --remote-debugging-port=${port}`);
+    }
+
+    const pages = await browser.pages();
+    const page = pages.find(p => p.url().includes('tools/flow/project'));
+    if (!page) {
+        await browser.disconnect();
+        throw new Error('未找到打开的 Flow 页面，请先在 Chrome 中打开目标项目');
+    }
+
+    const cookies = await page.cookies();
+    const stCookie = cookies.find(c => c.name === '__Secure-next-auth.session-token');
+    if (!stCookie) {
+        await browser.disconnect();
+        throw new Error('未找到 Session Token (未登录或 Cookie 失效)');
+    }
+
+    const st = stCookie.value;
+
+    const sessionRes = await fetch(`https://labs.google/fx/api/auth/session`, {
+        headers: { 'Cookie': `__Secure-next-auth.session-token=${st}` }
+    });
+    const at = (await sessionRes.json()).access_token;
+
+    const action = isVideo ? 'VIDEO_GENERATION' : 'IMAGE_GENERATION';
+    const recaptchaToken = await page.evaluate(async (act) => {
+        // @ts-ignore
+        return await window.grecaptcha.enterprise.execute('6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV', { action: act });
+    }, action);
+
+    await browser.disconnect();
+    return { projectId, at, recaptchaToken };
+}
 
 /**
  * 核心：图片生成接口 (支持多并发、画幅、参考图)
@@ -77,16 +131,25 @@ export async function flowSubmitVideoTask(params: FlowGenerateVideoParams) {
   };
 
   const isI2V = !!startImageId;
-  const endpoint = isI2V ? 'video:batchAsyncGenerateVideoStartAndEndImage' : 'video:batchAsyncGenerateVideoText';
+  let endpoint = 'video:batchAsyncGenerateVideoText';
+  if (startImageId && endImageId) {
+    endpoint = 'video:batchAsyncGenerateVideoStartAndEndImage';
+  } else if (startImageId) {
+    endpoint = 'video:batchAsyncGenerateVideoStartImage';
+  }
 
   if (isI2V) {
-    requestObj.videoModelKey = modelKey.replace('_t2v_', '_i2v_');
+    if (startImageId && endImageId) {
+      requestObj.videoModelKey = modelKey.replace('_t2v_', '_interpolation_');
+    } else {
+      requestObj.videoModelKey = modelKey.replace('_t2v_', '_i2v_');
+    }
     if (startImageId) requestObj.startImage = { mediaId: startImageId };
     if (endImageId) requestObj.endImage = { mediaId: endImageId };
     if (prompt) requestObj.textInput = { structuredPrompt: { parts: [{ text: prompt }] } };
   } else {
     requestObj.videoModelKey = modelKey;
-    requestObj.textInput = { structuredPrompt: { parts: [{ text: prompt }] } };
+    if (prompt) requestObj.textInput = { structuredPrompt: { parts: [{ text: prompt }] } };
   }
 
   const res = await fetch(`${API_BASE}/${endpoint}`, {

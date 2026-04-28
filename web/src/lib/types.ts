@@ -10,7 +10,6 @@
 //   2. api/extension/push-asset/route.ts — 文件命名分支
 //   3. api/generate-assets/route.ts — 文件命名分支
 //   4. lib/ProjectContext.tsx — active-context POST + inbox poller 消费
-//   5. viral-shorts-extension/content.js — fetchTargetId() 显示名映射
 
 /** 所有合法的资源目标类型 */
 export const TARGET_TYPES = [

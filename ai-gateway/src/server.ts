@@ -2,7 +2,6 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { textRouter } from './routes/text.js';
-import { mediaRouter } from './routes/media.js';
 import { speechRouter } from './routes/speech.js';
 
 const app = express();
@@ -50,7 +49,6 @@ app.get('/health', (_req, res) => {
 // ========================================
 
 app.use('/api/text', textRouter);
-app.use('/api/media', mediaRouter);
 app.use('/api/speech', speechRouter);
 
 // ========================================

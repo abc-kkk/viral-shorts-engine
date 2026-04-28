@@ -122,33 +122,7 @@ export default function LocationPanel({
     showToast(`✅ 已复制 Flow 资产名：${tag}`);
   };
 
-  const handleUploadToFlow = async (preset: LayoutPreset) => {
-    copyFlowTag(preset);
-    if (!flowUrl) {
-      showToast('⚠️ 未设置 Flow URL，无法自动上传');
-      return;
-    }
-    showToast('🚀 正在自动上传至 Flow，请勿操作鼠标...');
-    try {
-      const res = await fetch('/api/extension/upload-layout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            image: preset.image, 
-            name: getFlowTag(preset), 
-            flowUrl 
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        showToast('✅ 自动化上传成功！');
-      } else {
-        showToast(`❌ 上传失败: ${data.error}`);
-      }
-    } catch (e: any) {
-      showToast(`❌ 上传报错: ${e.message}`);
-    }
-  };
+
 
   const handleGeneratePromptLocal = () => {
     let compositionHint = '';
@@ -226,10 +200,9 @@ export default function LocationPanel({
                                         <code className="text-[11px] text-amber-400 font-mono font-bold">{getFlowTag(selectedPreset)}</code>
                                         <div className="ml-auto flex items-center gap-1">
                                             <button onClick={() => copyFlowTag(selectedPreset)} className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20 transition-colors font-bold">📋 复制</button>
-                                            <button onClick={() => handleUploadToFlow(selectedPreset)} className="text-[10px] px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/20 transition-colors font-bold">🚀 全自动上传</button>
                                         </div>
                                     </div>
-                                    <div className="text-[9px] text-neutral-600 leading-tight">💡 请在 Flow 资产库中上传布局截图时，用上面的英文名命名。生图时系统会自动通过 {'{@}'} 引用该参考图。</div>
+                                    <div className="text-[9px] text-neutral-600 leading-tight">💡 系统在生图时会自动在后台提取此截图作为布局参考，无需手动上传。</div>
                                     <div className="flex gap-2">
                                         <a href={`/scene-lab/editor?returnUrl=${encodeURIComponent(studioReturnUrl)}&presetId=${encodeURIComponent(selectedPreset.id)}`} className="flex-1 text-center py-1.5 rounded-md text-xs font-bold border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 no-underline">✏️ 编辑此布局</a>
                                         <button onClick={() => handleSelectPreset(null)} className="flex-1 py-1.5 rounded-md text-xs font-bold border border-neutral-600 bg-neutral-800/30 text-neutral-400 hover:bg-neutral-700/40">取消选择</button>

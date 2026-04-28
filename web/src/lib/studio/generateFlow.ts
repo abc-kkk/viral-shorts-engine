@@ -3,14 +3,13 @@
  *
  * 这是整个系统中所有 AI 生图请求的 **唯一入口**。
  * 它内部封装了：
- *   1. set-context（设置 Chrome 插件落盘的上下文）
- *   2. generate-assets（触发 Flow Automator）
+ *   1. generate-assets（触发 Flow Automator）
  *
  * 调用者只需传入一个类型安全的 config 对象，
  * 内部自动处理 projectId 构造、文件命名、meta 路由等所有细节。
  *
  * === 使用规则 ===
- * ❌ 禁止：在任何页面/组件中直接调用 `/api/studio/assets/xxx/set-context` 或 `/api/generate-assets`
+ * ❌ 禁止：在任何页面/组件中直接调用 `/api/generate-assets`
  * ✅ 正确：所有生图统一通过本模块的 `generateFlow()` 函数
  *
  * === 三种生图场景 ===
@@ -94,7 +93,7 @@ function buildProjectId(scriptTitle: string): string {
 // ========================================
 
 /**
- * 统一生图入口 — 一次调用搞定 set-context + generate-assets
+ * 统一生图入口 — 一次调用搞定 generate-assets
  *
  * @example
  * // 角色主图
