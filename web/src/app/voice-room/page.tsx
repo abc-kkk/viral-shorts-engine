@@ -5,7 +5,7 @@ import { Mic, Play, Pause, Volume2, ArrowLeft, RefreshCw, ChevronDown, ChevronRi
 import { VOICE_OPTIONS } from '@/lib/constants';
 
 interface ProjectInfo {
-  id: string;
+  projectId: string;
   projectName: string;
   currentPhase: number;
 }
@@ -217,7 +217,7 @@ export default function VoiceRoomPage() {
               >
                 <option value="">-- 请选择项目 --</option>
                 {projects.map(p => (
-                  <option key={p.id} value={p.id}>{p.projectName}</option>
+                  <option key={p.projectId} value={p.projectId}>{p.projectName}</option>
                 ))}
               </select>
             </div>
