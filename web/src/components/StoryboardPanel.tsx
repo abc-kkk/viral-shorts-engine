@@ -95,7 +95,7 @@ export default function StoryboardPanel() {
                                 <span className="text-xs font-bold text-orange-400 bg-orange-500/10 px-2 py-1 rounded-md border border-orange-500/20">📦 关键道具</span>
                                 <div className="flex flex-wrap gap-2">
                                     {scriptLines[activeSceneIndex].props.map((p, i) => (
-                                        <span key={i} className="text-xs text-neutral-300 font-medium">{@${p}}</span>
+                                        <span key={i} className="text-xs text-neutral-300 font-medium">@{p}</span>
                                     ))}
                                 </div>
                             </div>
