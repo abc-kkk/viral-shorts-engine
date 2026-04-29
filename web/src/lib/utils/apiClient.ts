@@ -32,12 +32,10 @@ async function request<T = any>(endpoint: string, config: RequestConfig = {}): P
     url += `?${searchParams.toString()}`;
   }
 
-  const headers: HeadersInit = {
-    ...customConfig.headers,
-  };
+  const headers = new Headers(customConfig.headers);
 
   if (data) {
-    headers['Content-Type'] = 'application/json';
+    headers.set('Content-Type', 'application/json');
     customConfig.body = JSON.stringify(data);
   }
 

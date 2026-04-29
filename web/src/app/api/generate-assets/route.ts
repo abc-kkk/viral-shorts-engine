@@ -16,11 +16,11 @@ export const dynamic = 'force-dynamic';
 
 // 在内存中缓存已上传的 Media ID，避免同一个角色/图片被重复上传
 // 键为: filePath, 值为: { mediaId, mtimeMs }
-const mediaIdCache = new Map<string, { mediaId: string, mtimeMs: number }>();
+const mediaIdCache = new Map<string, { mediaId: string, fileName: string, mtimeMs: number }>();
 
 // 根据本地文件名，上传本地图片换取 Media ID
 async function getReferenceImageIds(keywords: string[], at: string, projectId: string, localProjectId: string) {
-    const ids: string[] = [];
+    const ids: Array<{ mediaId: string, fileName: string, keyword: string }> = [];
     const imagesDir = getAssetDir(localProjectId, 'images');
 
     const db = getDb();
@@ -150,7 +150,7 @@ export async function POST(req: Request) {
     }
 
     const validationResult = PassthroughMetaSchema.safeParse({ targetType: reqTargetType, index: reqIndex, meta: reqMeta });
-    const validMeta = validationResult.success ? validationResult.data : { targetType: reqTargetType, meta: reqMeta };
+    const validMeta = validationResult.success ? validationResult.data : { targetType: reqTargetType, index: reqIndex, meta: reqMeta };
 
     const isVideo = model === 'Veo 3.1';
     console.log(`[API Flow] Generating ${isVideo ? 'Video' : 'Image'} via API...`);

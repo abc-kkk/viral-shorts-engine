@@ -167,8 +167,8 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
     }
 
     // 合并第一步的结构和第二步的映射结果
-    const groupMap = new Map(parsed2.groups?.map((g: any) => [g.id, g.sceneName]) || []);
-    const shotMap = new Map(parsed2.shots?.map((s: any) => [s.id, { characters: s.characters || [], props: s.props || [] }]) || []);
+    const groupMap = new Map<string, string>(parsed2.groups?.map((g: any) => [g.id, g.sceneName]) || []);
+    const shotMap = new Map<string, { characters: string[], props: string[] }>(parsed2.shots?.map((s: any) => [s.id, { characters: s.characters || [], props: s.props || [] }]) || []);
 
     const groups = parsed1.groups.map((g: any, gIdx: number) => {
       const gId = g.id || `g${gIdx + 1}`;

@@ -60,9 +60,12 @@ async function resolveReferenceImage(kw: string, at: string, projectId: string, 
     if (cached && cached.mtimeMs === stats.mtimeMs) return cached.mediaId;
 
     const buffer = fs.readFileSync(filePath);
-    const mediaId = await flowUploadImage(projectId, at, buffer, 'IMAGE_ASPECT_RATIO_LANDSCAPE');
-    if (mediaId) batchMediaIdCache.set(filePath, { mediaId, mtimeMs: stats.mtimeMs });
-    return mediaId;
+    const uploadResult = await flowUploadImage(projectId, at, buffer, 'IMAGE_ASPECT_RATIO_LANDSCAPE');
+    if (uploadResult && uploadResult.mediaId) {
+        batchMediaIdCache.set(filePath, { mediaId: uploadResult.mediaId, mtimeMs: stats.mtimeMs });
+        return uploadResult.mediaId;
+    }
+    return null;
 }
 
 export async function POST(req: Request) {

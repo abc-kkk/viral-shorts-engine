@@ -216,6 +216,7 @@ export interface FsStoryboardShot {
   speaker?: string;
   dialogue: string;
   characters: string[];
+  props?: string[];
   firstFramePrompt: string;
   lastFramePrompt: string;
   videoPrompt: string;
