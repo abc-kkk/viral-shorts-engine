@@ -88,15 +88,13 @@ export default function ImageViewer({ imageUrl, onClose }: ImageViewerProps) {
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
-      {/* Close button */}
       <button
         onClick={onClose}
         className="absolute top-4 right-4 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors z-10"
       >
         <X className="w-6 h-6" />
       </button>
-      
-      {/* Zoom controls */}
+
       <div className="absolute bottom-4 right-4 flex gap-2 z-10">
         <button
           onClick={zoomOut}
@@ -120,14 +118,12 @@ export default function ImageViewer({ imageUrl, onClose }: ImageViewerProps) {
           <ZoomIn className="w-5 h-5" />
         </button>
       </div>
-      
-      {/* Zoom level indicator */}
+
       <div className="absolute top-4 left-4 px-3 py-1.5 rounded-full bg-black/50 text-white/80 text-sm z-10">
         {Math.round(scale * 100)}%
       </div>
-      
-      {/* Image */}
-      <div 
+
+      <div
         className="relative"
         style={{
           transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
@@ -143,10 +139,9 @@ export default function ImageViewer({ imageUrl, onClose }: ImageViewerProps) {
           onClick={(e) => e.stopPropagation()}
         />
       </div>
-      
-      {/* Instructions */}
+
       <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white/60 text-sm pointer-events-none">
-        滚轮缩放 · 拖拽移动 · 点击背景或 ESC 关闭
+        滚轮缩放 · 拖拽移动 · 点击背景或按 ESC 关闭
       </div>
     </div>
   );

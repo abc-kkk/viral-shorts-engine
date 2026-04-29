@@ -8,10 +8,10 @@ export function detectGender(character: Character): 'male' | 'female' {
   // 1. 检查 voice 字段
   if (character.voice) {
     const voice = character.voice.toLowerCase();
-    if (voice.includes('女') || voice.includes('female') || voice.includes('woman') || voice.includes('girl') || voice.includes('小姐') || voice.includes('女士')) {
+    if (voice.includes('女') || voice.includes('female') || voice.includes('woman') || voice.includes('girl')) {
       return 'female';
     }
-    if (voice.includes('男') || voice.includes('male') || voice.includes('man') || voice.includes('boy') || voice.includes('先生') || voice.includes('男士')) {
+    if (voice.includes('男') || voice.includes('male') || voice.includes('man') || voice.includes('boy')) {
       return 'male';
     }
   }
@@ -19,10 +19,10 @@ export function detectGender(character: Character): 'male' | 'female' {
   // 2. 检查 persona 字段
   if (character.persona) {
     const persona = character.persona.toLowerCase();
-    if (persona.includes('女') || persona.includes('female') || persona.includes('woman') || persona.includes('girl') || persona.includes('小姐') || persona.includes('女士')) {
+    if (persona.includes('女') || persona.includes('female') || persona.includes('woman') || persona.includes('girl')) {
       return 'female';
     }
-    if (persona.includes('男') || persona.includes('male') || persona.includes('man') || persona.includes('boy') || persona.includes('先生') || persona.includes('男士')) {
+    if (persona.includes('男') || persona.includes('male') || persona.includes('man') || persona.includes('boy')) {
       return 'male';
     }
   }
@@ -30,9 +30,9 @@ export function detectGender(character: Character): 'male' | 'female' {
   // 3. 检查名字（简单规则）
   if (character.name) {
     const name = character.name;
-    const femaleNameKeywords = ['婷', '娜', '芳', '花', '玲', '萍', '燕', '美', '雪', '梅', '丽', '娟', '红', '英', '华', '凤', '云', '霞', '莉', '雯', '静', '秀', '桂', '珍', '兰', '凤'];
-    const maleNameKeywords = ['强', '伟', '军', '杰', '涛', '明', '华', '平', '刚', '文', '辉', '鹏', '健', '斌', '波', '宇', '浩', '轩', '博', '凯'];
-    
+    const femaleNameKeywords = ['婷', '娜', '丽', '芳', '静', '燕', '萍', '娟', '秀', '霞', '敏', '英', '华', '兰', '梅', '雪', '芬', '红', '玲', '玉'];
+    const maleNameKeywords = ['伟', '强', '勇', '军', '涛', '磊', '刚', '健', '峰', '亮', '鹏', '飞', '杰', '俊', '豪', '超', '帅', '鑫', '浩', '宇'];
+
     for (const keyword of femaleNameKeywords) {
       if (name.includes(keyword)) return 'female';
     }
@@ -41,7 +41,7 @@ export function detectGender(character: Character): 'male' | 'female' {
     }
   }
 
-  // 4. 默认如果是主角，我们默认主角可能是男或女，这里默认女性（因为默认声音是 Zephyr）
+  // 4. 默认如果是主角，默认女（因为默认声音是Zephyr）
   return character.isProtagonist ? 'female' : 'male';
 }
 
@@ -50,7 +50,7 @@ export function detectGender(character: Character): 'male' | 'female' {
  */
 export function getDefaultVoice(gender: 'male' | 'female'): string {
   // 收集所有该性别的声音选项
-  const voices = VOICE_OPTIONS.flatMap(group => 
+  const voices = VOICE_OPTIONS.flatMap(group =>
     group.options.filter(opt => {
       const label = opt.label.toLowerCase();
       if (gender === 'female') {
@@ -61,13 +61,13 @@ export function getDefaultVoice(gender: 'male' | 'female'): string {
     })
   );
 
-  // 默认女声：Zephyr 是第一个
+  // 默认女声，Zephyr 是第一个
   if (gender === 'female') {
     const femaleVoice = voices.find(v => v.id === 'Zephyr') || voices[0];
     return femaleVoice?.id || 'Zephyr';
   }
 
-  // 默认男声：Puck 是第一个
+  // 默认男声，Puck 是第一个
   if (gender === 'male') {
     const maleVoice = voices.find(v => v.id === 'Puck') || voices.find(v => v.label.includes('男')) || voices[0];
     return maleVoice?.id || 'Puck';
@@ -80,7 +80,7 @@ export function getDefaultVoice(gender: 'male' | 'female'): string {
  * 自动给角色配置合适的声音
  */
 export function autoConfigureVoice(character: Character): Character {
-  // 如果已经配置了 voiceName，不覆盖
+  // 如果已经配置过 voiceName，不覆盖
   if (character.voiceName) return character;
 
   // 否则自动配置
@@ -95,4 +95,3 @@ export function autoConfigureVoice(character: Character): Character {
 export function autoConfigureVoices(characters: Character[]): Character[] {
   return characters.map(autoConfigureVoice);
 }
-
