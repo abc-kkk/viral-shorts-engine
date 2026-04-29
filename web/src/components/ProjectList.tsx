@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Film, Clock, Layers, Trash2, FolderOpen, Settings, BookOpen, Coffee, Globe, Package, HardDrive, RefreshCw, MonitorCog, X, Sparkles } from 'lucide-react';
+import { Plus, Film, Clock, Layers, Trash2, FolderOpen, Settings, BookOpen, Coffee, Globe, Package, HardDrive, RefreshCw, MonitorCog, X, Sparkles, Mic } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import ConfirmDialog from './ConfirmDialog';
 
@@ -168,6 +168,9 @@ export default function ProjectList() {
           <a href="/studio" className="flex items-center gap-3 px-3 py-2.5 text-neutral-400 hover:bg-neutral-800 hover:text-emerald-300 rounded-xl font-medium transition-colors group relative">
              <Sparkles className="w-4 h-4 text-amber-400" /> 自由创作室
              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[8px] bg-gradient-to-r from-amber-500 to-orange-500 text-white px-1.5 py-0.5 rounded-full font-bold leading-none">NEW</span>
+          </a>
+          <a href="/voice-room" className="flex items-center gap-3 px-3 py-2.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 rounded-xl font-medium transition-colors">
+             <Mic className="w-4 h-4 text-pink-400" /> 配音区
           </a>
           
           <div className="text-[10px] font-bold text-neutral-500 mb-1 px-2 mt-4 uppercase tracking-wider">帮助与设置</div>
