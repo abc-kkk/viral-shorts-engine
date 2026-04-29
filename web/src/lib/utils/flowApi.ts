@@ -49,9 +49,6 @@ export async function flowGetCredits(at: string): Promise<{ credits: number; use
 
 // 提取验证码与 AT (后端自动处理)
 export async function getAuthContext(flowUrlStr: string, isVideo: boolean) {
-    const flowUrl = new URL(flowUrlStr);
-    const projectId = flowUrl.pathname.split('/').pop() || '';
-    
     // 假设 Flow URL 包含了 debugger port 信息，如果没有则默认 9222
     const portMatch = flowUrlStr.match(/port=(\d+)/);
     const port = portMatch ? portMatch[1] : '9222';
@@ -69,17 +66,33 @@ export async function getAuthContext(flowUrlStr: string, isVideo: boolean) {
     }
 
     const pages = await browser.pages();
-    const page = pages.find(p => p.url().includes('tools/flow/project'));
+    const page = pages.find(p => p.url().includes('tools/flow'));
     if (!page) {
         await browser.disconnect();
         throw new Error('未找到打开的 Flow 页面，请先在 Chrome 中打开目标项目');
+    }
+
+    // 从实际的 page.url() 中提取 projectId，因为 /json 可能会返回旧的 pushState 之前的 URL
+    const actualUrl = new URL(page.url());
+    const projectIdMatch = actualUrl.pathname.match(/project\/([a-zA-Z0-9-]+)/);
+    let projectId = projectIdMatch ? projectIdMatch[1] : '';
+
+    if (!projectId) {
+        // 如果 page 依然没有 project id，降级使用传入的 url 解析
+        const fallbackUrl = new URL(flowUrlStr);
+        projectId = fallbackUrl.pathname.split('/').pop() || '';
+    }
+
+    if (!projectId || projectId === 'flow' || projectId === 'zh') {
+        await browser.disconnect();
+        throw new Error('当前页面不是一个具体的 Flow 项目。请在调试 Chrome 中打开具体的项目页面 (包含 /project/... 的链接)。');
     }
 
     const cookies = await page.cookies();
     const stCookie = cookies.find(c => c.name === '__Secure-next-auth.session-token');
     if (!stCookie) {
         await browser.disconnect();
-        throw new Error('未找到 Session Token (未登录或 Cookie 失效)');
+        throw new Error('未找到 Session Token (未登录或 Cookie 失效)。请在调试 Chrome 中确保您已登录 Flow。');
     }
 
     const st = stCookie.value;

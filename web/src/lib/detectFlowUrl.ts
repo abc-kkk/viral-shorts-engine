@@ -10,7 +10,7 @@
  */
 
 const CDP_URL = 'http://127.0.0.1:9222';
-const FLOW_URL_PATTERN = /tools\/flow\/project/;
+const FLOW_URL_PATTERN = /tools\/flow/;
 
 /**
  * 从 Chrome DevTools Protocol 端点查询所有打开的标签页，
