@@ -27,8 +27,6 @@ export interface FlowGenerateVideoParams {
 
 const API_BASE = 'https://aisandbox-pa.googleapis.com/v1';
 
-import { ProxyAgent, fetch as undiciFetch } from 'undici';
-
 // 统一封装请求 Google 服务的 fetch，增加对 fetch failed（没走代理）的友好提示
 export async function googleFetch(url: string, init?: RequestInit) {
   try {
@@ -38,6 +36,9 @@ export async function googleFetch(url: string, init?: RequestInit) {
     const proxyUrl = proxyRow?.value;
 
     const fetchInit: any = { ...init };
+
+    // 动态导入 undici，避免 Next.js build 期间的 page data collection 报错 (s.util.markAsUncloneable is not a function)
+    const { ProxyAgent, fetch: undiciFetch } = await import('undici');
 
     if (proxyUrl && proxyUrl.trim()) {
       // Node 18+ 原生 fetch 基于 undici，必须显式传入 dispatcher 才能在运行时动态代理
