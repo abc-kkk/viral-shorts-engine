@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  serverExternalPackages: ['puppeteer-core'],
   allowedDevOrigins: ['127.0.0.1'],  // Electron 通过 127.0.0.1 加载，需允许 HMR
   async headers() {
     return [

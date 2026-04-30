@@ -78,9 +78,10 @@ function startGateway(port) {
 
   if (isDev) {
     console.log('[Main] Starting ai-gateway in dev mode...');
-    // macOS GUI 应用的 PATH 通常被截断，需要显式注入 node_modules/.bin
-    const binDir = path.join(gatewayDir, 'node_modules', '.bin');
-    env.PATH = binDir + path.delimiter + (env.PATH || '');
+    if (process.platform === 'darwin') {
+      const binDir = path.join(gatewayDir, 'node_modules', '.bin');
+      env.PATH = binDir + path.delimiter + (env.PATH || '');
+    }
     gatewayProcess = spawn('npm', ['run', 'dev'], {
       cwd: gatewayDir,
       env,

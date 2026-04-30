@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, Wand2, Image as ImageIcon, Video, Play, CheckCircle2, Mic, Loader2, ChevronDown, MapPin, Film, Users, X, Plus, CopyPlus, Images } from 'lucide-react';
+import { ArrowLeft, Wand2, Image as ImageIcon, Video, Play, CheckCircle2, Mic, Loader2, ChevronDown, MapPin, Film, Users, X, Plus, CopyPlus, Images, Rocket } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 import { useStudioStore } from '@/lib/studio/store/useStudioStore';
 import type { FsAsset } from '@/lib/studio/types';
 import { useStudioInboxPoller } from '@/components/studio/assets/useStudioInboxPoller';
+import { toast } from '@/lib/toast';
 
 type FrameMode = 'first_only' | 'first_and_last' | 'r2v';
 
@@ -20,6 +21,7 @@ export default function StoryboardLayoutPage() {
   
   const [activeShot, setActiveShot] = useState<string | null>(null);
   const [frameMode, setFrameMode] = useState<FrameMode>('first_and_last');
+  const [exporting, setExporting] = useState(false);
   const [shotSceneMap, setShotSceneMap] = useState<Record<string, string>>({});
   const [showScenePicker, setShowScenePicker] = useState(false);
   const [editablePrompts, setEditablePrompts] = useState<Record<string, { first: string; last: string; video: string }>>({});
@@ -313,6 +315,39 @@ export default function StoryboardLayoutPage() {
     }
   };
 
+  const handleExportToJianYing = async () => {
+    if (!currentScript || storyboardGroups.length === 0) return;
+    setExporting(true);
+    try {
+      // 展平所有镜头
+      const shots = [];
+      for (const group of storyboardGroups) {
+        for (const shot of group.shots) {
+          shots.push(shot);
+        }
+      }
+
+      const res = await fetch(`/api/studio/scripts/${scriptId}/export`, { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scriptTitle: currentScript.title,
+          shots
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(`剪映草稿已就绪！\n草稿路径: ${data.file}\n请打开剪映桌面端查看并精修！`);
+      } else {
+        toast.error(`导出失败:\n${data.error}`);
+      }
+    } catch(err: any) {
+      toast.error(`导出失联 (网络/环境错误):\n${err.message}`);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   // 高亮 {@xxx} 标签
   const renderRefTags = (text: string) => {
     const parts = text.split(/(\{@[^{}]+\})/g);
@@ -358,6 +393,13 @@ export default function StoryboardLayoutPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {storyboardGroups.length > 0 && (
+            <button onClick={handleExportToJianYing} disabled={exporting}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/30 text-emerald-400 text-xs font-bold rounded-lg transition-colors disabled:opacity-50">
+              {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Rocket className="w-3.5 h-3.5" />}
+              {exporting ? '导出中...' : '导出至剪映草稿箱'}
+            </button>
+          )}
           <button onClick={handleExtract} disabled={analyzing}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-bold rounded-lg transition-colors disabled:opacity-50">
             {analyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5 text-amber-500" />}

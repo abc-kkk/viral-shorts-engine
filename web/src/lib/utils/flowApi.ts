@@ -27,6 +27,8 @@ export interface FlowGenerateVideoParams {
 
 const API_BASE = 'https://aisandbox-pa.googleapis.com/v1';
 
+import { ProxyAgent, fetch as undiciFetch } from 'undici';
+
 // 统一封装请求 Google 服务的 fetch，增加对 fetch failed（没走代理）的友好提示
 export async function googleFetch(url: string, init?: RequestInit) {
   try {
@@ -35,16 +37,16 @@ export async function googleFetch(url: string, init?: RequestInit) {
     const proxyRow = db.select().from(schema.systemStates).where(eq(schema.systemStates.key, 'proxyUrl')).get();
     const proxyUrl = proxyRow?.value;
 
+    const fetchInit: any = { ...init };
+
     if (proxyUrl && proxyUrl.trim()) {
-      process.env.HTTPS_PROXY = proxyUrl.trim();
-      process.env.HTTP_PROXY = proxyUrl.trim();
-      process.env.NO_PROXY = '127.0.0.1,localhost';
-    } else {
-      delete process.env.HTTPS_PROXY;
-      delete process.env.HTTP_PROXY;
+      // Node 18+ 原生 fetch 基于 undici，必须显式传入 dispatcher 才能在运行时动态代理
+      fetchInit.dispatcher = new ProxyAgent(proxyUrl.trim());
     }
 
-    return await fetch(url, init);
+    // 这里必须使用 undici 导出的 fetch，而不是全局的 fetch！
+    // 因为 Next.js 在全局 fetch 上打补丁加入了缓存，会导致传入自定义 dispatcher 时抛出 "invalid onRequestStart method" 错误。
+    return await undiciFetch(url, fetchInit) as unknown as Response;
   } catch (e: any) {
     const causeMsg = e.cause ? e.cause.message : e.message;
     if (e.message === 'fetch failed' || e.message?.includes('ECONNRESET') || e.message?.includes('ETIMEDOUT')) {
