@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronDown, ChevronRight, RotateCcw } from 'lucide-react';
 import { useProjectStore } from '@/lib/store/useProjectStore';
 import { extractRefKeywords } from '@/lib/utils/promptParser';
+import ImageViewer from './ImageViewer';
 
 interface LayoutPreset {
   id: string;
@@ -66,6 +67,8 @@ export default function LocationPanel({
 
   // Toast
   const [toastMsg, setToastMsg] = useState('');
+  // 图片预览状态
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const showToast = useCallback((msg: string) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(''), 3000);
@@ -193,7 +196,12 @@ export default function LocationPanel({
                             {selectedPreset && (
                                 <div className="space-y-2">
                                     <div className="text-[10px] text-indigo-400 font-bold">当前选中：{selectedPreset.name}</div>
-                                    <img src={selectedPreset.image} alt={selectedPreset.name} className="w-full h-32 object-cover rounded-lg border border-indigo-500/30 bg-black/50" />
+                                    <img 
+                                        src={selectedPreset.image} 
+                                        alt={selectedPreset.name} 
+                                        className="w-full h-32 object-cover rounded-lg border border-indigo-500/30 bg-black/50 cursor-zoom-in hover:border-indigo-500/50 transition-colors" 
+                                        onClick={() => setPreviewImage(selectedPreset.image)}
+                                    />
                                     {/* Flow 资产标签 + 复制按钮 */}
                                     <div className="flex items-center gap-2 bg-black/40 rounded-md px-2.5 py-1.5 border border-neutral-800">
                                         <span className="text-[10px] text-neutral-500">Flow 资产名：</span>
@@ -217,7 +225,15 @@ export default function LocationPanel({
                                     <div className="grid grid-cols-3 gap-2">
                                         {layoutPresets.map(preset => (
                                             <div key={preset.id} className={`relative group cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${selectedPreset?.id === preset.id ? 'border-indigo-500 shadow-lg shadow-indigo-500/20' : 'border-neutral-800 hover:border-neutral-600'}`} onClick={() => handleSelectPreset(preset)}>
-                                                <img src={preset.image} alt={preset.name} className="w-full h-16 object-cover bg-black/50" />
+                                                <img 
+                                                    src={preset.image} 
+                                                    alt={preset.name} 
+                                                    className="w-full h-16 object-cover bg-black/50"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setPreviewImage(preset.image);
+                                                    }}
+                                                />
                                                 <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1.5 py-0.5 text-[9px] text-neutral-300 truncate">{preset.name}</div>
                                                 <button onClick={(e) => { e.stopPropagation(); handleDeletePreset(preset.id); }} className="absolute top-0.5 right-0.5 w-4 h-4 rounded bg-red-500/80 text-white text-[8px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">✕</button>
                                             </div>
@@ -256,7 +272,12 @@ export default function LocationPanel({
 
                     {image ? (
                         <div className="relative group">
-                            <img src={image} className="w-full h-32 object-cover bg-white/5 rounded-lg border border-neutral-700" alt="Location" />
+                            <img 
+                                src={image} 
+                                className="w-full h-32 object-cover bg-white/5 rounded-lg border border-neutral-700 cursor-zoom-in hover:border-purple-500/50 transition-colors" 
+                                alt="Location" 
+                                onClick={() => setPreviewImage(image)}
+                            />
                             <button 
                                 onClick={handleGenerateImageLocal}
                                 className="absolute top-2 right-2 bg-black/80 p-2 rounded text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -287,6 +308,9 @@ export default function LocationPanel({
                 {toastMsg}
             </div>
         )}
+        
+        {/* Image Viewer */}
+        <ImageViewer imageUrl={previewImage} onClose={() => setPreviewImage(null)} />
     </div>
   );
 }

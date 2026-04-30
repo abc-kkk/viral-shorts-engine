@@ -4,6 +4,7 @@ import { bustUrlCache, bustUrlCacheMap } from '../assetUrl';
 import { useProjectStore } from '../store/useProjectStore';
 import { DEFAULT_ART_STYLE } from '../constants';
 import { apiClient } from '../utils/apiClient';
+import { autoConfigureVoices } from '../voiceUtils';
 
 export function useProjectState(projectId: string) {
   // Sync projectId to Zustand
@@ -34,9 +35,10 @@ export function useProjectState(projectId: string) {
         });
 
         // Hydrate Writer Room Settings
+        const characters = autoConfigureVoices(data.characters || []);
         useProjectStore.getState().hydrateWriterRoomSettings({
           theme: data.theme || "",
-          characters: data.characters || [],
+          characters,
           scriptLines: data.scriptLines || [],
           writerStep: data.writerStep || 1,
           inspirations: data.inspirations || [],

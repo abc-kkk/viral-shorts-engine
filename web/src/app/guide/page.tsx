@@ -117,7 +117,7 @@ export default function GuidePage() {
         {/* Hero */}
         <div className="bg-gradient-to-br from-orange-950/40 to-amber-950/20 border border-orange-800/30 rounded-2xl p-8 text-center">
           <h2 className="text-3xl font-extrabold mb-3">
-            🎬 欢迎使用<span className="bg-gradient-to-r from-orange-400 to-amber-500 text-transparent bg-clip-text">短剧引擎</span>
+            🎬 欢迎使用<span className="bg-gradient-to-r from-orange-400 to-amber-500 text-transparent bg-clip-text">绘梦漫剧</span>
           </h2>
           <p className="text-neutral-400 max-w-2xl mx-auto leading-relaxed">
             本系统通过<strong className="text-neutral-200">「劫持网页流」</strong>技术，在您的本地浏览器中自动操作 Google 的 AI 大模型来免费生成剧本、图片、视频和配音。

@@ -3,6 +3,7 @@ import type { Character, ScriptLine, InspirationItem, ScriptReview } from '../ty
 import { fetchApi } from './useProjectState';
 import { toast } from '../toast';
 import { useProjectStore } from '../store/useProjectStore';
+import { autoConfigureVoices } from '../voiceUtils';
 
 export function useWriterRoom(setCurrentPhase: (phase: number) => void) {
   const getFullScriptContext = useCallback(() => {
@@ -18,7 +19,8 @@ export function useWriterRoom(setCurrentPhase: (phase: number) => void) {
     const { aiProvider } = useProjectStore.getState();
     try {
       const promptData = await fetchApi('/api/generate-prompts', { aiProvider, taskType: 'script', theme: themeParam });
-      useProjectStore.getState().setCharacters(promptData.characters || []);
+      const characters = autoConfigureVoices(promptData.characters || []);
+      useProjectStore.getState().setCharacters(characters);
       useProjectStore.getState().setScriptLines(promptData.script || []);
       setCurrentPhase(1);
     } catch (err: any) {
@@ -139,7 +141,8 @@ export function useWriterRoom(setCurrentPhase: (phase: number) => void) {
     useProjectStore.getState().setIsSplittingScript(true);
     try {
       const data = await fetchApi('/api/generate-prompts', { aiProvider, taskType: 'script_to_scenes', theme: rawScript });
-      useProjectStore.getState().setCharacters(data.characters || []);
+      const characters = autoConfigureVoices(data.characters || []);
+      useProjectStore.getState().setCharacters(characters);
       useProjectStore.getState().setScriptLines(data.script || []);
       useProjectStore.getState().setWriterStep(3);
     } catch (e: any) {
@@ -152,7 +155,14 @@ export function useWriterRoom(setCurrentPhase: (phase: number) => void) {
   const updateCharacter = useCallback((index: number, field: string, value: any) => {
     useProjectStore.getState().setCharacters((prev: Character[]) => {
       const newChars = [...prev];
-      newChars[index] = { ...newChars[index], [field]: value };
+      let updatedChar = { ...newChars[index], [field]: value };
+      
+      // 如果修改了 persona 或 voice 字段，并且当前没有 voiceName，自动配置
+      if ((field === 'persona' || field === 'voice') && !updatedChar.voiceName) {
+        updatedChar = autoConfigureVoices([updatedChar])[0];
+      }
+      
+      newChars[index] = updatedChar;
       return newChars;
     });
   }, []);

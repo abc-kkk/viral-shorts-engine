@@ -18,7 +18,8 @@ export default function PromptEditor({ template, onChange, onSave, onReset, isSa
   const userInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Validate missing required variables
-  const requiredVarKeys = template.variables.filter(v => v.required).map(v => v.key);
+  // 排除 auto_inject 类型的变量，因为它们会在运行时自动注入
+  const requiredVarKeys = template.variables.filter(v => v.required && v.source !== 'auto_inject').map(v => v.key);
   const missingSystemVars = validateTemplate(template.systemPrompt, requiredVarKeys);
   const missingUserVars = validateTemplate(template.userPrompt, requiredVarKeys);
   const allMissingVars = [...new Set([...missingSystemVars, ...missingUserVars])].filter(

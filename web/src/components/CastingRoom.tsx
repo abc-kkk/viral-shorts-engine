@@ -6,6 +6,7 @@ import { useProject } from '@/lib/ProjectContext';
 import { VOICE_OPTIONS } from '@/lib/constants';
 import LocationPanel from './LocationPanel';
 import { useProjectStore } from '@/lib/store/useProjectStore';
+import ImageViewer from './ImageViewer';
 
 // ========================================
 // 角色设定图内容选项（借鉴 Moyin Creator 的 SHEET_ELEMENTS）
@@ -43,6 +44,8 @@ export default function CastingRoom() {
   // 每个角色独立的设定图选项状态
   const [charSheetElements, setCharSheetElements] = useState<Record<number, SheetElementId[]>>({});
   const [sheetExpanded, setSheetExpanded] = useState<Record<number, boolean>>({});
+  // 图片预览状态
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // ========================================
   // 角色设定图逻辑
@@ -227,7 +230,12 @@ export default function CastingRoom() {
 
                             {characterImages[i] ? (
                                 <div className="relative group">
-                                    <img src={characterImages[i]} className="w-full h-48 object-contain bg-black/50 rounded-lg border border-neutral-700" alt="Casting" />
+                                    <img 
+                                        src={characterImages[i]} 
+                                        className="w-full h-48 object-contain bg-black/50 rounded-lg border border-neutral-700 cursor-zoom-in hover:border-blue-500/50 transition-colors" 
+                                        alt="Casting" 
+                                        onClick={() => setPreviewImage(characterImages[i])}
+                                    />
                                     <button 
                                         onClick={() => generateCastingImage(i)}
                                         className="absolute top-2 right-2 bg-black/80 p-2 rounded text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -262,6 +270,9 @@ export default function CastingRoom() {
             </button>
 
         {/* Global Toast */}
+        
+        {/* Image Viewer */}
+        <ImageViewer imageUrl={previewImage} onClose={() => setPreviewImage(null)} />
     </div>
   );
 }

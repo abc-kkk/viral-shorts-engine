@@ -22,6 +22,20 @@ export default function StoryboardPanel() {
 
   if (currentPhase !== 3) return null;
 
+  console.log("StoryboardPanel Debug:", { currentPhase, scriptLinesCount: scriptLines.length, activeSceneIndex });
+
+  if (scriptLines.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-120px)] text-neutral-500">
+        <div className="text-center">
+          <Camera className="w-16 h-16 mx-auto mb-4 opacity-20" />
+          <p className="text-lg mb-2">没有分镜数据</p>
+          <p className="text-sm opacity-70">请先回到剧本室生成剧本并拆解分镜</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex gap-6 w-full h-[calc(100vh-120px)] animate-in slide-in-from-right-8 duration-500">
         
