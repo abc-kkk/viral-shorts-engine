@@ -1,4 +1,7 @@
 import puppeteer from 'puppeteer-core';
+import { getDb } from '@/lib/db';
+import * as schema from '@/lib/schema';
+import { eq } from 'drizzle-orm';
 
 export interface FlowGenerateImageParams {
   projectId: string;
@@ -27,11 +30,25 @@ const API_BASE = 'https://aisandbox-pa.googleapis.com/v1';
 // 统一封装请求 Google 服务的 fetch，增加对 fetch failed（没走代理）的友好提示
 export async function googleFetch(url: string, init?: RequestInit) {
   try {
+    // 动态读取数据库中的 proxyUrl 配置
+    const db = getDb();
+    const proxyRow = db.select().from(schema.systemStates).where(eq(schema.systemStates.key, 'proxyUrl')).get();
+    const proxyUrl = proxyRow?.value;
+
+    if (proxyUrl && proxyUrl.trim()) {
+      process.env.HTTPS_PROXY = proxyUrl.trim();
+      process.env.HTTP_PROXY = proxyUrl.trim();
+      process.env.NO_PROXY = '127.0.0.1,localhost';
+    } else {
+      delete process.env.HTTPS_PROXY;
+      delete process.env.HTTP_PROXY;
+    }
+
     return await fetch(url, init);
   } catch (e: any) {
     const causeMsg = e.cause ? e.cause.message : e.message;
     if (e.message === 'fetch failed' || e.message?.includes('ECONNRESET') || e.message?.includes('ETIMEDOUT')) {
-      throw new Error(`无法连接 Google API (原因: ${causeMsg})。如果已开启 TUN 模式但依然报错，请尝试将代理软件切换为【全局模式】，或在启动时设置 HTTP_PROXY=http://127.0.0.1:7890`);
+      throw new Error(`无法连接 Google API (原因: ${causeMsg})。如果您所在的网络受限，请在【系统设置】中填入您的代理地址 (例如 http://127.0.0.1:7890) 以便开启全局接管。`);
     }
     throw e;
   }

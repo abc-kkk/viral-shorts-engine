@@ -34,7 +34,7 @@ export default function ProjectList() {
   const [chromeDataDirFeedback, setChromeDataDirFeedback] = useState('');
   const [updateChecking, setUpdateChecking] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  const [globalSettings, setGlobalSettings] = useState({ aiProvider: 'gemini', minimaxApiKey: '', jianyingPath: '', flowUrl: '', imageModel: 'Nano Banana Pro', videoModel: 'veo_3_1_t2v_lite' });
+  const [globalSettings, setGlobalSettings] = useState({ aiProvider: 'gemini', minimaxApiKey: '', jianyingPath: '', flowUrl: '', imageModel: 'Nano Banana Pro', videoModel: 'veo_3_1_t2v_lite', proxyUrl: '' });
 
   const electronAPI = typeof window !== 'undefined' && (window as any).electronAPI?.isElectron ? (window as any).electronAPI : null;
 
@@ -62,6 +62,7 @@ export default function ProjectList() {
           flowUrl: data.data.flowUrl || '',
           imageModel: data.data.imageModel || 'Nano Banana Pro',
           videoModel: data.data.videoModel || 'veo_3_1_t2v_lite',
+          proxyUrl: data.data.proxyUrl || '',
         });
       }
     } catch (e) {
@@ -405,6 +406,21 @@ export default function ProjectList() {
                   placeholder="留空则使用默认路径 (%LOCALAPPDATA%\\JianyingPro\\...)"
                 />
                 <p className="text-xs text-neutral-600 mt-1.5">如果你在剪映的“全局设置”里把“草稿位置”移到了别的盘，请在这里填入你的自定义文件夹路径。</p>
+              </div>
+
+              <div className="h-px bg-neutral-800 w-full" />
+
+              {/* Proxy URL */}
+              <div>
+                <label className="text-sm font-bold text-neutral-300 block mb-2">🌐 全局网络代理 (HTTP/HTTPS Proxy)</label>
+                <input 
+                  type="text"
+                  className="w-full bg-black/60 border border-neutral-700 rounded-lg p-3 text-white font-mono text-sm focus:border-orange-500 focus:outline-none"
+                  value={globalSettings.proxyUrl}
+                  onChange={e => updateGlobalSetting('proxyUrl', e.target.value)}
+                  placeholder="例如: http://127.0.0.1:7890 (留空则不使用系统代理)"
+                />
+                <p className="text-xs text-neutral-600 mt-1.5">如果你在生成图片/视频时遇到 <span className="text-red-400">fetch failed</span> 错误，请在此处填入你的梯子 HTTP 端口链接，解决 Node.js 无法走系统代理的问题。</p>
               </div>
             </div>
 
