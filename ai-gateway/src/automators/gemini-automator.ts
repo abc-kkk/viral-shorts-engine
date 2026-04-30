@@ -71,6 +71,10 @@ export async function generatePromptWithGeminiWeb(systemPrompt: string, userProm
         }
     }
 
+    if (!browser) {
+        throw new Error('Browser failed to initialize');
+    }
+
     let targetPage = null;
     for (const context of browser.contexts()) {
         for (const page of context.pages()) {
@@ -203,6 +207,6 @@ export async function generatePromptWithGeminiWeb(systemPrompt: string, userProm
         console.error(`[Gemini Automator Error] ${e.message}`);
         throw e;
     } finally {
-        await browser.close();
+        if (browser) await browser.close();
     }
 }
