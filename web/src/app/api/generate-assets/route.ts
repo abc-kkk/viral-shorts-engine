@@ -8,7 +8,7 @@ import { PassthroughMetaSchema } from '@/lib/validation';
 import { resolveFlowUrl } from '@/lib/detectFlowUrl';
 import fs from 'fs';
 import path from 'path';
-import { flowGenerateImages, flowSubmitVideoTask, flowPollVideoStatus, flowUploadImage, getAuthContext } from '@/lib/utils/flowApi';
+import { flowGenerateImages, flowSubmitVideoTask, flowPollVideoStatus, flowUploadImage, getAuthContext, googleFetch } from '@/lib/utils/flowApi';
 
 export const maxDuration = 300; // Vercel timeout (300s = 5m), fine for local
 export const dynamic = 'force-dynamic';
@@ -275,7 +275,7 @@ export async function POST(req: Request) {
     const filename = generateAssetFilename(targetType, localProjectId, validMeta.index, validMeta.meta, isVideo ? 'video' : 'image');
     
     console.log(`[API Flow] Downloading asset to ${assetType}/${filename}...`);
-    const assetRes = await fetch(finalFifeUrl);
+    const assetRes = await googleFetch(finalFifeUrl);
     if (!assetRes.ok) throw new Error(`Download failed: ${assetRes.status}`);
     const buffer = Buffer.from(await assetRes.arrayBuffer());
     const filepath = path.join(assetsDir, filename);

@@ -7,7 +7,7 @@ import type { TargetType } from '@/lib/types';
 import { resolveFlowUrl } from '@/lib/detectFlowUrl';
 import fs from 'fs';
 import path from 'path';
-import { flowGenerateImages, flowUploadImage, getAuthContext } from '@/lib/utils/flowApi';
+import { flowGenerateImages, flowUploadImage, getAuthContext, googleFetch } from '@/lib/utils/flowApi';
 
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
@@ -145,7 +145,7 @@ export async function POST(req: Request) {
                 const assetsDir = getAssetDir(localProjectId, assetType);
                 const filename = generateAssetFilename(targetType, localProjectId, task.index, task.meta, 'image');
 
-                const assetRes = await fetch(fifeUrl);
+                const assetRes = await googleFetch(fifeUrl);
                 if (!assetRes.ok) throw new Error(`DL failed: ${assetRes.status}`);
                 const buffer = Buffer.from(await assetRes.arrayBuffer());
                 fs.writeFileSync(path.join(assetsDir, filename), buffer);

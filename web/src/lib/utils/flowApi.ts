@@ -24,6 +24,19 @@ export interface FlowGenerateVideoParams {
 
 const API_BASE = 'https://aisandbox-pa.googleapis.com/v1';
 
+// 统一封装请求 Google 服务的 fetch，增加对 fetch failed（没走代理）的友好提示
+export async function googleFetch(url: string, init?: RequestInit) {
+  try {
+    return await fetch(url, init);
+  } catch (e: any) {
+    const causeMsg = e.cause ? e.cause.message : e.message;
+    if (e.message === 'fetch failed' || e.message?.includes('ECONNRESET') || e.message?.includes('ETIMEDOUT')) {
+      throw new Error(`无法连接 Google API (原因: ${causeMsg})。如果已开启 TUN 模式但依然报错，请尝试将代理软件切换为【全局模式】，或在启动时设置 HTTP_PROXY=http://127.0.0.1:7890`);
+    }
+    throw e;
+  }
+}
+
 // ========== 用户 Tier 动态获取 + 内存缓存 ==========
 let cachedTier: { tier: string; credits: number; expiresAt: number } | null = null;
 
@@ -32,7 +45,7 @@ export async function flowGetCredits(at: string): Promise<{ credits: number; use
   if (cachedTier && Date.now() < cachedTier.expiresAt) {
     return { credits: cachedTier.credits, userPaygateTier: cachedTier.tier };
   }
-  const res = await fetch(`${API_BASE}/credits`, {
+  const res = await googleFetch(`${API_BASE}/credits`, {
     headers: { 'Authorization': `Bearer ${at}` }
   });
   if (!res.ok) {
@@ -49,54 +62,67 @@ export async function flowGetCredits(at: string): Promise<{ credits: number; use
 
 // 提取验证码与 AT (后端自动处理)
 export async function getAuthContext(flowUrlStr: string, isVideo: boolean) {
-    const flowUrl = new URL(flowUrlStr);
-    const projectId = flowUrl.pathname.split('/').pop() || '';
-    
-    // 假设 Flow URL 包含了 debugger port 信息，如果没有则默认 9222
-    const portMatch = flowUrlStr.match(/port=(\d+)/);
-    const port = portMatch ? portMatch[1] : '9222';
-    
-    let browser;
-    try {
-        const res = await fetch(`http://127.0.0.1:${port}/json/version`);
-        const data = await res.json();
-        browser = await puppeteer.connect({
-            browserWSEndpoint: data.webSocketDebuggerUrl,
-            defaultViewport: null,
-        });
-    } catch (e) {
-        throw new Error(`无法连接到 Chrome CDP (Port ${port})。请确保开启了 --remote-debugging-port=${port}`);
-    }
+  // 假设 Flow URL 包含了 debugger port 信息，如果没有则默认 9222
+  const portMatch = flowUrlStr.match(/port=(\d+)/);
+  const port = portMatch ? portMatch[1] : '9222';
 
-    const pages = await browser.pages();
-    const page = pages.find(p => p.url().includes('tools/flow/project'));
-    if (!page) {
-        await browser.disconnect();
-        throw new Error('未找到打开的 Flow 页面，请先在 Chrome 中打开目标项目');
-    }
-
-    const cookies = await page.cookies();
-    const stCookie = cookies.find(c => c.name === '__Secure-next-auth.session-token');
-    if (!stCookie) {
-        await browser.disconnect();
-        throw new Error('未找到 Session Token (未登录或 Cookie 失效)');
-    }
-
-    const st = stCookie.value;
-
-    const sessionRes = await fetch(`https://labs.google/fx/api/auth/session`, {
-        headers: { 'Cookie': `__Secure-next-auth.session-token=${st}` }
+  let browser;
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/json/version`);
+    const data = await res.json();
+    browser = await puppeteer.connect({
+      browserWSEndpoint: data.webSocketDebuggerUrl,
+      defaultViewport: null,
     });
-    const at = (await sessionRes.json()).access_token;
+  } catch (e) {
+    throw new Error(`无法连接到 Chrome CDP (Port ${port})。请确保开启了 --remote-debugging-port=${port}`);
+  }
 
-    const action = isVideo ? 'VIDEO_GENERATION' : 'IMAGE_GENERATION';
-    const recaptchaToken = await page.evaluate(async (act) => {
-        // @ts-ignore
-        return await window.grecaptcha.enterprise.execute('6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV', { action: act });
-    }, action);
-
+  const pages = await browser.pages();
+  const page = pages.find(p => p.url().includes('tools/flow'));
+  if (!page) {
     await browser.disconnect();
-    return { projectId, at, recaptchaToken };
+    throw new Error('未找到打开的 Flow 页面，请先在 Chrome 中打开目标项目');
+  }
+
+  // 从实际的 page.url() 中提取 projectId，因为 /json 可能会返回旧的 pushState 之前的 URL
+  const actualUrl = new URL(page.url());
+  const projectIdMatch = actualUrl.pathname.match(/project\/([a-zA-Z0-9-]+)/);
+  let projectId = projectIdMatch ? projectIdMatch[1] : '';
+
+  if (!projectId) {
+    // 如果 page 依然没有 project id，降级使用传入的 url 解析
+    const fallbackUrl = new URL(flowUrlStr);
+    projectId = fallbackUrl.pathname.split('/').pop() || '';
+  }
+
+  if (!projectId || projectId === 'flow' || projectId === 'zh') {
+    await browser.disconnect();
+    throw new Error('当前页面不是一个具体的 Flow 项目。请在调试 Chrome 中打开具体的项目页面 (包含 /project/... 的链接)。');
+  }
+
+  const cookies = await page.cookies();
+  const stCookie = cookies.find(c => c.name === '__Secure-next-auth.session-token');
+  if (!stCookie) {
+    await browser.disconnect();
+    throw new Error('未找到 Session Token (未登录或 Cookie 失效)。请在调试 Chrome 中确保您已登录 Flow。');
+  }
+
+  const st = stCookie.value;
+
+  const sessionRes = await googleFetch(`https://labs.google/fx/api/auth/session`, {
+    headers: { 'Cookie': `__Secure-next-auth.session-token=${st}` }
+  });
+  const at = (await sessionRes.json()).access_token;
+
+  const action = isVideo ? 'VIDEO_GENERATION' : 'IMAGE_GENERATION';
+  const recaptchaToken = await page.evaluate(async (act) => {
+    // @ts-ignore
+    return await window.grecaptcha.enterprise.execute('6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV', { action: act });
+  }, action);
+
+  await browser.disconnect();
+  return { projectId, at, recaptchaToken };
 }
 
 /**
@@ -120,7 +146,7 @@ export async function flowGenerateImages(params: FlowGenerateImageParams) {
     imageInputs: imageInputs
   }));
 
-  const res = await fetch(`${API_BASE}/projects/${projectId}/flowMedia:batchGenerateImages`, {
+  const res = await googleFetch(`${API_BASE}/projects/${projectId}/flowMedia:batchGenerateImages`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${at}`,
@@ -185,7 +211,7 @@ export async function flowSubmitVideoTask(params: FlowGenerateVideoParams) {
     if (derivedKey.includes('_t2v')) {
       derivedKey = derivedKey.replace('_t2v', '_r2v');
     }
-    
+
     // R2V 需要显式带上横竖屏后缀
     if (!derivedKey.includes('_landscape') && !derivedKey.includes('_portrait')) {
       if (aspectRatio === 'VIDEO_ASPECT_RATIO_PORTRAIT') {
@@ -194,15 +220,15 @@ export async function flowSubmitVideoTask(params: FlowGenerateVideoParams) {
         derivedKey += '_landscape';
       }
     }
-    
+
     requestObj.videoModelKey = derivedKey;
-    
+
     // 官方协议：最多支持 3 张参考图
     requestObj.referenceImages = referenceImageIds!.slice(0, 3).map(id => ({
       imageUsageType: "IMAGE_USAGE_TYPE_ASSET",
       mediaId: id
     }));
-    
+
     if (prompt) requestObj.textInput = buildTextInput(prompt);
 
   } else if (isI2V) {
@@ -273,7 +299,7 @@ export async function flowSubmitVideoTask(params: FlowGenerateVideoParams) {
     jsonBody.useV2ModelConfig = true;
   }
 
-  const res = await fetch(`${API_BASE}/${endpoint}`, {
+  const res = await googleFetch(`${API_BASE}/${endpoint}`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${at}`,
@@ -290,7 +316,7 @@ export async function flowSubmitVideoTask(params: FlowGenerateVideoParams) {
  * 核心：视频状态轮询接口
  */
 export async function flowPollVideoStatus(at: string, taskId: string) {
-  const res = await fetch(`${API_BASE}/video:batchCheckAsyncVideoGenerationStatus`, {
+  const res = await googleFetch(`${API_BASE}/video:batchCheckAsyncVideoGenerationStatus`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${at}`,
@@ -315,7 +341,7 @@ export async function flowUploadImage(projectId: string, at: string, imageBuffer
   const fileName = `upload_${Date.now()}_${Math.floor(Math.random() * 1000)}.${ext}`;
   const base64Data = imageBuffer.toString('base64');
 
-  const res = await fetch(`${API_BASE}/flow/uploadImage`, {
+  const res = await googleFetch(`${API_BASE}/flow/uploadImage`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${at}`,
