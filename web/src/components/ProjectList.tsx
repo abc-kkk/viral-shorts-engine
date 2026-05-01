@@ -173,15 +173,14 @@ export default function ProjectList() {
           <a href="/voice-room" className="flex items-center gap-3 px-3 py-2.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 rounded-xl font-medium transition-colors">
              <Mic className="w-4 h-4 text-pink-400" /> 配音区
           </a>
-          
-          <div className="text-[10px] font-bold text-neutral-500 mb-1 px-2 mt-4 uppercase tracking-wider">帮助与设置</div>
-          <a href="/guide" className="flex items-center gap-3 px-3 py-2.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 rounded-xl font-medium transition-colors">
-             <BookOpen className="w-4 h-4 text-blue-400" /> 新手指南
-          </a>
         </div>
         
         {/* Settings Area at Bottom */}
         <div className="p-4 border-t border-neutral-800 bg-neutral-900/50 flex flex-col gap-1.5">
+          <div className="text-[10px] font-bold text-neutral-500 mb-1 px-2 uppercase tracking-wider">帮助与设置</div>
+          <a href="/guide" className="flex items-center gap-3 px-3 py-2.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 rounded-xl font-medium transition-colors mb-2">
+             <BookOpen className="w-4 h-4 text-blue-400" /> 新手指南
+          </a>
           <button
             onClick={() => {
               setShowSystemSettings(true);
