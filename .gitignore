@@ -48,3 +48,6 @@ next-env.d.ts
 # release artifacts
 release_artifacts/
 *.db
+
+# workspace data
+workspace/

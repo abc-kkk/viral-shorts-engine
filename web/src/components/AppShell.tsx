@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Film, Layers, FolderOpen, Settings, BookOpen, Mic, Sparkles, Coffee, Trash2, Clock, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Plus, Film, Layers, FolderOpen, Settings, BookOpen, Mic, Sparkles, Coffee, Trash2, Clock, ChevronRight, ChevronLeft, HelpCircle } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import SystemSettingsModal from './SystemSettingsModal';
 
@@ -156,6 +156,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <a href="/" className="flex items-center gap-3 px-3 py-2.5 bg-amber-600/10 text-amber-400 rounded-xl font-bold border border-amber-500/20 group whitespace-nowrap" title="自由创作室">
               <Sparkles className="w-5 h-5 shrink-0" />
               <span className={`transition-opacity duration-200 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 hidden'}`}>自由创作室</span>
+            </a>
+            <a href="/guide" className="flex items-center gap-3 px-3 py-2.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 rounded-xl font-medium transition-colors whitespace-nowrap" title="新手完全指南">
+              <HelpCircle className="w-5 h-5 text-orange-400 shrink-0" />
+              <span className={`transition-opacity duration-200 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 hidden'}`}>新手完全指南</span>
             </a>
             <a href="/scene-lab" className="flex items-center gap-3 px-3 py-2.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 rounded-xl font-medium transition-colors whitespace-nowrap" title="定制化画板">
               <Layers className="w-5 h-5 text-purple-400 shrink-0" />

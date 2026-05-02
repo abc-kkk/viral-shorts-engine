@@ -87,20 +87,40 @@ export default function StudioHome() {
             <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
           </div>
         ) : scripts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-96 gap-6">
-            <div className="w-24 h-24 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center">
-              <FileText className="w-12 h-12 text-neutral-700" />
+          <div className="flex flex-col items-center justify-center h-full py-8 gap-8">
+            {/* Quick Guide Banner */}
+            <a href="/guide" className="w-full max-w-2xl bg-gradient-to-br from-orange-950/50 to-amber-950/30 border border-orange-800/30 rounded-2xl p-6 hover:shadow-xl hover:shadow-orange-900/20 transition-all group">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-orange-600/20 flex items-center justify-center shrink-0">
+                  <BookOpen className="w-6 h-6 text-orange-400" />
+                </div>
+                <div className="flex-1">
+                  <div className="text-lg font-bold text-white mb-1 flex items-center gap-2">
+                    👋 第一次使用？先看新手完全指南
+                    <ChevronRight className="w-4 h-4 text-orange-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <p className="text-neutral-400 text-sm">
+                    本系统需要先配置 CDP 浏览器、登录 Google 服务后才能使用。指南里有详细的视频教程和图文说明！
+                  </p>
+                </div>
+              </div>
+            </a>
+
+            <div className="flex flex-col items-center justify-center gap-6">
+              <div className="w-24 h-24 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center">
+                <FileText className="w-12 h-12 text-neutral-700" />
+              </div>
+              <div className="text-center">
+                <p className="text-xl text-neutral-400 font-bold mb-2">还没有剧本</p>
+                <p className="text-neutral-600 text-sm">先写一个剧本，AI 会自动帮你提取角色和场景</p>
+              </div>
+              <button
+                onClick={() => setShowCreate(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl transition-colors"
+              >
+                <Plus className="w-5 h-5" /> 创建第一个剧本
+              </button>
             </div>
-            <div className="text-center">
-              <p className="text-xl text-neutral-400 font-bold mb-2">还没有剧本</p>
-              <p className="text-neutral-600 text-sm">先写一个剧本，AI 会自动帮你提取角色和场景</p>
-            </div>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl transition-colors"
-            >
-              <Plus className="w-5 h-5" /> 创建第一个剧本
-            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">

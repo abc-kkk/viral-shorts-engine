@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 @theme inline {
@@ -19,8 +19,8 @@
   }
 }
 
-body {
-  background: var(--background);
+html, body, #__next {
+  background: #0a0a0a !important;
   color: var(--foreground);
   font-family: var(--font-sans, system-ui, -apple-system, 'Segoe UI', sans-serif);
   margin-top: 38px !important; /* 为顶部红绿灯预留空间 */

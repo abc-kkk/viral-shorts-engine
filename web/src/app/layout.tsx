@@ -26,9 +26,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased bg-neutral-950`}
     >
-      <body className="h-full">
+      <body className="h-full bg-neutral-950 text-neutral-100">
         {children}
         <ToastContainer />
       </body>

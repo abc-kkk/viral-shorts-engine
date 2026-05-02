@@ -3,33 +3,20 @@
 import React, { useState } from 'react';
 import { BookOpen, Globe, Terminal, LayoutDashboard, ArrowLeft, Monitor, Puzzle, ExternalLink, Shield, Sparkles, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, Zap, Copy } from 'lucide-react';
 
-function StepCard({ stepNumber, icon, title, children, accent = 'orange' }: {
-  stepNumber: number;
+function StepCard({ icon, title, children }: {
   icon: React.ReactNode;
   title: string;
   children: React.ReactNode;
-  accent?: string;
 }) {
-  const accentColors: Record<string, string> = {
-    orange: 'from-orange-500 to-amber-500',
-    blue: 'from-blue-500 to-cyan-500',
-    emerald: 'from-emerald-500 to-teal-500',
-    purple: 'from-purple-500 to-violet-500',
-    rose: 'from-rose-500 to-pink-500',
-    amber: 'from-amber-500 to-yellow-500',
-  };
   return (
-    <section className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden">
+    <section className="border border-neutral-800 rounded-2xl overflow-hidden">
       <div className="p-8">
         <div className="flex items-center gap-4 mb-6">
-          <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${accentColors[accent]} flex items-center justify-center text-white font-bold text-sm shadow-lg`}>
-            {stepNumber}
-          </div>
           <h2 className="text-xl font-bold text-white flex items-center gap-3">
             {icon} {title}
           </h2>
         </div>
-        <div className="text-neutral-300 space-y-4 pl-14">
+        <div className="text-neutral-300 space-y-4">
           {children}
         </div>
       </div>
@@ -95,7 +82,7 @@ function CopyLinkButton({ url, className }: { url: string; className: string }) 
 
 export default function GuidePage() {
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100">
+    <div className="min-h-screen bg-[#0a0a0a] text-neutral-100 w-full">
       {/* Header */}
       <header className="border-b border-neutral-800 bg-neutral-900/50 backdrop-blur-md sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center gap-4">
@@ -106,13 +93,13 @@ export default function GuidePage() {
             <h1 className="text-lg font-bold text-white flex items-center gap-2">
               <BookOpen className="w-5 h-5 text-orange-500" /> 新手完全指南
             </h1>
-            <p className="text-xs text-neutral-500">首次使用前，请完成以下 6 步配置</p>
+            <p className="text-xs text-neutral-500">首次使用前，请完成以下步骤配置</p>
           </div>
         </div>
       </header>
 
       {/* Content */}
-      <div className="max-w-4xl mx-auto px-6 py-10 space-y-6">
+      <div className="max-w-4xl mx-auto px-6 py-10 space-y-6 bg-[#0a0a0a] w-full">
 
         {/* Hero */}
         <div className="bg-gradient-to-br from-orange-950/40 to-amber-950/20 border border-orange-800/30 rounded-2xl p-8 text-center">
@@ -121,7 +108,7 @@ export default function GuidePage() {
           </h2>
           <p className="text-neutral-400 max-w-2xl mx-auto leading-relaxed">
             本系统通过<strong className="text-neutral-200">「劫持网页流」</strong>技术，在您的本地浏览器中自动操作 Google 的 AI 大模型来免费生成剧本、图片、视频和配音。
-            启动前需要完成以下 6 步初始化。<strong className="text-orange-400">全程不花一分钱 API 费用！</strong>
+            启动前需要完成以下 几步初始化。<strong className="text-orange-400">全程不花一分钱 API 费用！</strong>
           </p>
         </div>
 
@@ -145,33 +132,10 @@ export default function GuidePage() {
           <strong>桌面版更新提示：</strong>Windows 客户端用户，请在屏幕右下角任务栏的引擎小图标上<strong>右键点击</strong>，选择<strong>「检测更新」</strong>，以确保您使用的是最新版本。
         </Tip>
 
-        {/* Step 1 */}
-        <StepCard stepNumber={1} icon={<Monitor className="w-5 h-5 text-blue-400" />} title="启动 CDP 调试浏览器" accent="blue">
-          <p>
-            为了让后端的自动化脚本能够接管浏览器，Chrome 必须以 <strong className="text-white">远程调试 (CDP)</strong> 模式启动。
-          </p>
-          <ol className="list-decimal pl-5 space-y-2 text-neutral-400">
-            <li><strong className="text-white">完全退出</strong>当前正在运行的所有 Chrome 窗口。</li>
-            <li>在系统状态栏的托盘图标中，点击 <strong className="text-white">「🌐 启动调试 Chrome」</strong>。</li>
-            <li>一个新的 Chrome 窗口会自动弹出，这就是您的<strong className="text-white">专属调试浏览器</strong>。</li>
-          </ol>
 
-          <div className="bg-neutral-800/50 rounded-xl p-4 border border-neutral-700/50 mt-4">
-            <div className="font-bold text-white text-sm flex items-center gap-2 mb-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" /> 验证是否装配成功
-            </div>
-            <p className="text-xs text-neutral-400">
-              在新弹出的调试浏览器地址栏中，输入并访问 <code className="bg-neutral-900 px-1.5 py-0.5 rounded text-orange-300">http://127.0.0.1:9222/json/version</code>。如果网页能显示出一串带有浏览器版本号的英文代码，就说明装配成功了！如果显示“无法访问此网站”，请彻底退出当前所有打开的 Chrome 窗口后重试。
-            </p>
-          </div>
-
-          <Tip>
-            如果您想将调试浏览器的数据（登录状态等）与日常浏览器隔离，可以在托盘菜单中点击 <strong>「⚙️ 更改 Chrome 数据目录」</strong> 指定一个独立的文件夹。
-          </Tip>
-        </StepCard>
 
         {/* Step 2 */}
-        <StepCard stepNumber={2} icon={<Puzzle className="w-5 h-5 text-purple-400" />} title="安装「人机协同」Chrome 扩展" accent="purple">
+        <StepCard icon={<Puzzle className="w-5 h-5 text-purple-400" />} title="安装「人机协同」Chrome 扩展">
           <p>
             我们专门手搓了一个 Chrome 扩展，用于在网页里<strong className="text-white">一键选取</strong>最佳素材并自动同步到系统。
           </p>
@@ -188,7 +152,7 @@ export default function GuidePage() {
         </StepCard>
 
         {/* Step 3 */}
-        <StepCard stepNumber={3} icon={<Globe className="w-5 h-5 text-emerald-400" />} title="登录并打开三个 AI 网页（核心！）" accent="emerald">
+        <StepCard icon={<Globe className="w-5 h-5 text-emerald-400" />} title="首次打开三个 AI 网页必须登录（核心！）">
           <p>
             系统通过自动化操作以下三个网页来完成 AI 创作。请在调试浏览器中<strong className="text-white">逐一打开并登录 Google 账号</strong>，且<strong className="text-rose-400">使用期间不要关闭它们</strong>！
           </p>
@@ -273,7 +237,7 @@ export default function GuidePage() {
         </StepCard>
 
         {/* Step 4 */}
-        <StepCard stepNumber={4} icon={<Shield className="w-5 h-5 text-rose-400" />} title="配置网络环境（防封禁）" accent="rose">
+        <StepCard icon={<Shield className="w-5 h-5 text-rose-400" />} title="配置网络环境（防封禁）">
           <p>
             由于大量自动化调用 Google 接口，您的 IP 有可能被识别为异常活动 (UNUSUAL_ACTIVITY)。建议配置以下任一防封禁方案：
           </p>
@@ -288,7 +252,7 @@ export default function GuidePage() {
         </StepCard>
 
         {/* Step 5 */}
-        <StepCard stepNumber={5} icon={<Zap className="w-5 h-5 text-amber-400" />} title="了解制片流水线" accent="amber">
+        <StepCard icon={<Zap className="w-5 h-5 text-amber-400" />} title="了解制片流水线">
           <p>配置完成后，回到首页点击「新建项目」，您将进入 <strong className="text-white">4 步制片流水线</strong>：</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
             <div className="bg-neutral-800/50 rounded-xl p-4 border border-neutral-700/30">
@@ -311,7 +275,7 @@ export default function GuidePage() {
         </StepCard>
 
         {/* Step 6 - FAQ */}
-        <StepCard stepNumber={6} icon={<BookOpen className="w-5 h-5 text-blue-400" />} title="常见问题 (FAQ)" accent="blue">
+        <StepCard icon={<BookOpen className="w-5 h-5 text-blue-400" />} title="常见问题 (FAQ)">
           <div className="space-y-3">
             <FAQ question="生图/生视频频繁失败怎么办？">
               <p>这通常是浏览器缓存导致的。在 Chrome 中按 <code className="bg-neutral-800 px-1.5 py-0.5 rounded text-xs">⇧⌘⌫</code> (Mac) 或 <code className="bg-neutral-800 px-1.5 py-0.5 rounded text-xs">Ctrl+Shift+Delete</code> (Win)，清空缓存后刷新 Flow 网页即可。</p>

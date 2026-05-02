@@ -13,8 +13,13 @@ import * as schema from './schema';
 // ========================================
 
 export function getWorkspacePath(): string {
-  const ws = process.env.WORKSPACE_PATH;
-  if (!ws) throw new Error('WORKSPACE_PATH 未配置！请在 .env.local 中设置工作空间路径。');
+  let ws = process.env.WORKSPACE_PATH;
+  if (!ws) {
+    // 如果没有配置，提供一个默认路径
+    const defaultPath = path.join(process.cwd(), 'workspace');
+    console.warn(`[DB] WORKSPACE_PATH 未配置，使用默认路径: ${defaultPath}`);
+    ws = defaultPath;
+  }
   return ws;
 }
 
